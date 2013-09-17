@@ -27,12 +27,14 @@ HEADERS += \
     abstractsocialcachemodel_p.h \
     facebook/facebookimagecachemodel.h \
     facebook/facebookimagedownloader.h \
-    facebook/facebookimagedownloader_p.h
+    facebook/facebookimagedownloader_p.h \
+    facebook/facebookpostsmodel.h
 
 SOURCES += plugin.cpp \
     abstractsocialcachemodel.cpp \
     facebook/facebookimagecachemodel.cpp \
-    facebook/facebookimagedownloader.cpp
+    facebook/facebookimagedownloader.cpp \
+    facebook/facebookpostsmodel.cpp
 
 OTHER_FILES += qmldir
 import.files = qmldir

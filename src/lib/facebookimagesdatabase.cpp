@@ -619,25 +619,27 @@ void FacebookImagesDatabase::initDatabase()
            QLatin1String(DB_NAME), VERSION);
 }
 
-void FacebookImagesDatabase::syncAccount(int accountId, const QString &fbUserId)
+bool FacebookImagesDatabase::syncAccount(int accountId, const QString &fbUserId)
 {
     Q_D(FacebookImagesDatabase);
     if (!dbBeginTransaction()) {
-        return;
+        return false;
     }
     QSqlQuery query (d->db);
     query.prepare("INSERT OR REPLACE INTO accounts (accountId, fbUserId) "\
                   "VALUES (:accountId, :fbUserId)");
     query.bindValue(":accountId", accountId);
     query.bindValue(":fbUserId", fbUserId);
-    if (!query.exec()) {
+    bool ok = query.exec();
+    if (!ok) {
         qWarning() << Q_FUNC_INFO << "Error writing accounts:" << query.lastError();
-        return;
     }
 
     if (!dbCommitTransaction()) {
-        return;
+        return false;
     }
+
+    return ok;
 }
 
 void FacebookImagesDatabase::purgeAccount(int accountId)
@@ -670,7 +672,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.bindValue(":accountId", accountId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean account" << accountId;
-        return;
     }
 
     // Clean users
@@ -678,7 +679,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.addBindValue(userIds);
     if (!query.execBatch()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean users for account" << accountId;
-        return;
     }
 
     // Clean albums
@@ -686,7 +686,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.addBindValue(userIds);
     if (!query.execBatch()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean albums for account" << accountId;
-        return;
     }
 
     // Clean photos
@@ -700,7 +699,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.addBindValue(userIds);
     if (!query.execBatch()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean photos for account" << accountId;
-        return;
     }
 
     if (!dbCommitTransaction()) {

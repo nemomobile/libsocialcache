@@ -44,7 +44,6 @@ class FacebookImageWorkerObject: public AbstractWorkerObject, private FacebookIm
     Q_OBJECT
 public:
     explicit FacebookImageWorkerObject();
-    virtual ~FacebookImageWorkerObject();
     void refresh();
 public Q_SLOTS:
     void setType(int typeToSet);
@@ -91,10 +90,6 @@ FacebookImageWorkerObject::FacebookImageWorkerObject()
 {
 }
 
-FacebookImageWorkerObject::~FacebookImageWorkerObject()
-{
-}
-
 void FacebookImageWorkerObject::refresh()
 {
     // We initialize the database when refresh is called
@@ -104,7 +99,7 @@ void FacebookImageWorkerObject::refresh()
         m_enabled = true;
     }
 
-    QList<QMap<int, QVariant> > data;
+    SocialCacheModelData data;
     switch (type) {
         case FacebookImageCacheModel::Users: {
             QList<FacebookUser::ConstPtr> usersData = users();

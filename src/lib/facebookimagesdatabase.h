@@ -130,7 +130,7 @@ public:
     void initDatabase();
 
     // Account manipulation
-    void syncAccount(int accountId, const QString &fbUserId);
+    bool syncAccount(int accountId, const QString &fbUserId);
     void purgeAccount(int accountId);
 
     // User cache manipulation

@@ -13,16 +13,26 @@ target.path = $$INSTALL_ROOT$$PREFIX/lib
 
 HEADERS = \
     semaphore_p.h \
+    socialsyncinterface.h \
     abstractsocialcachedatabase.h \
     abstractsocialcachedatabase_p.h \
-    socialsyncinterface.h \
-    facebookimagesdatabase.h
+    abstractsocialeventcachedatabase.h \
+    socialnetworksyncdatabase.h \
+    facebookimagesdatabase.h \
+    facebookcalendardatabase.h \
+    facebookpostsdatabase.h \
+    twitterpostsdatabase.h
 
 SOURCES = \
     semaphore_p.cpp \
-    abstractsocialcachedatabase.cpp \
     socialsyncinterface.cpp \
-    facebookimagesdatabase.cpp
+    abstractsocialcachedatabase.cpp \
+    abstractsocialeventcachedatabase.cpp \
+    socialnetworksyncdatabase.cpp \
+    facebookimagesdatabase.cpp \
+    facebookcalendardatabase.cpp \
+    facebookpostsdatabase.cpp \
+    twitterpostsdatabase.cpp
 
 headers.files = $$HEADERS
 headers.path = /usr/include/socialcache

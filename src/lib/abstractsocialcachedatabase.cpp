@@ -232,7 +232,11 @@ void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QStri
         return;
     }
 
-    if (d->dbUserVersion(serviceName, dataType) < userVersion) {
+    int dbUserVersion = d->dbUserVersion(serviceName, dataType);
+    if (dbUserVersion < userVersion) {
+        qWarning() << Q_FUNC_INFO << "Version required is" << userVersion
+                   << "while database is using" << dbUserVersion;
+
         // DB needs to be recreated
         if (!dbDropTables()) {
             qWarning() << Q_FUNC_INFO << "Failed to update database" << dbFile
