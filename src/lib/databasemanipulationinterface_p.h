@@ -22,6 +22,7 @@
 
 #include <QtCore/QtGlobal>
 #include <QtSql/QSqlDatabase>
+#include "semaphore_p.h"
 
 class DatabaseManipulationInterface;
 class DatabaseManipulationInterfacePrivate
@@ -42,6 +43,7 @@ private:
                   const QString &primary);
     bool doDelete(const QString &table, const QString &key, const QVariantList &entries);
     bool valid;
+    ProcessMutex *mutex;
 };
 
 #endif // DATABASEMANIPULATIONINTERFACE_P_H

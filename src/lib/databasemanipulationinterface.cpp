@@ -29,7 +29,7 @@
 #include <QtSql/QSqlRecord>
 
 DatabaseManipulationInterfacePrivate::DatabaseManipulationInterfacePrivate(DatabaseManipulationInterface *q):
-    q_ptr(q), valid(false)
+    q_ptr(q), valid(false), mutex(0)
 {
 }
 
@@ -223,6 +223,9 @@ void DatabaseManipulationInterface::dbInit(const QString &serviceName, const QSt
     // open the database in which we store our synced image information
     d->db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
     d->db.setDatabaseName(QString("%1/%2/%3").arg(PRIVILEGED_DATA_DIR, dataType, dbFile));
+
+    d->mutex = new ProcessMutex(d->db.databaseName());
+
     if (!d->db.open()) {
         qWarning() << Q_FUNC_INFO << "Unable to open database" << dbFile << "Service"
                    << serviceName << "with data type" << dataType << "will be inactive";
@@ -271,7 +274,22 @@ bool DatabaseManipulationInterface::dbCreatePragmaVersion(int version)
 bool DatabaseManipulationInterface::dbBeginTransaction()
 {
     Q_D(DatabaseManipulationInterface);
-    return d->db.transaction();
+
+    // Acquire lock
+    if (!d->mutex->lock()) {
+        return false;
+    }
+
+    QSqlQuery query(d->db);
+    query.prepare(QLatin1String("BEGIN IMMEDIATE TRANSACTION"));
+    if (!query.exec()) {
+        qWarning() << Q_FUNC_INFO << "Failed to begin immediate transaction. Error:"
+                   << query.lastError().text();
+
+        d->mutex->unlock();
+        return false;
+    }
+    return true;
 }
 
 // Perform a batch query
@@ -353,5 +371,16 @@ bool DatabaseManipulationInterface::dbWrite(const QString &table, const QStringL
 bool DatabaseManipulationInterface::dbCommitTransaction()
 {
     Q_D(DatabaseManipulationInterface);
-    return d->db.commit();
+    QSqlQuery query(d->db);
+    query.prepare(QLatin1String("COMMIT TRANSACTION"));
+    bool ok = !query.exec();
+    if (!ok) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction. Error:"
+                   << query.lastError().text();
+    }
+
+    if (d->mutex->isLocked()) {
+        d->mutex->unlock();
+    }
+    return ok;
 }
