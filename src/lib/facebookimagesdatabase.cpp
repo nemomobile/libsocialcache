@@ -1118,7 +1118,6 @@ bool FacebookImagesDatabase::write()
 
     // Write updated users
     d->createUpdatedEntries(d->queuedUpdatedUsers, QLatin1String("fbUserId"), entries);
-    qWarning() << entries.keys();
     if (!dbWrite(QLatin1String("users"), QStringList(), entries, Update,
                  QLatin1String("fbUserId"))) {
         ok = false;

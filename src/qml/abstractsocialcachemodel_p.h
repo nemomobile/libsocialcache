@@ -22,6 +22,7 @@
 
 #include "abstractsocialcachemodel.h"
 #include <QtCore/QThread>
+#include <QtCore/QMutex>
 
 class AbstractSocialCacheModel;
 class AbstractSocialCacheModelPrivate;
@@ -33,15 +34,15 @@ public:
     virtual ~AbstractWorkerObject();
     bool isLoading() const;
 public Q_SLOTS:
-    // Do the refresh operation, using refresh()
+    // Slots are used by the model to set properties
+    // or trigger task for the object
     void triggerRefresh();
-    // Slot to set the node identifier
     void setNodeIdentifier(const QString &nodeIdentifierToSet);
 Q_SIGNALS:
-    // Sent when new data should be inserted in the model
-    void dataRead(const SocialCacheModelData &dataToSet);
-    // Emitted when a row of the model should be updated
-    void rowUpdated(int row, const SocialCacheModelRow &updatedRow);
+    // Signals are used to signal the model
+    // that new data arrived
+    void dataUpdated(const SocialCacheModelData &data);
+    void rowUpdated(int row, const SocialCacheModelRow &data);
 protected:
     QString nodeIdentifier; // Matches the node identifier in ASCMP
     void setLoading(bool loading);
@@ -49,6 +50,7 @@ protected:
     virtual void refresh() = 0;
 private:
     bool m_loading;
+    QMutex m_mutex;
 };
 
 class AbstractSocialCacheModelPrivate: public QObject
@@ -59,8 +61,8 @@ public:
     QString nodeIdentifier;
 public Q_SLOTS:
     void clearData();
-    void setData(const SocialCacheModelData &dataToSet);
-    void updateRow(int row, const SocialCacheModelRow &updatedRow);
+    void updateData(const SocialCacheModelData &data);
+    void updateRow(int row, const SocialCacheModelRow &data);
 Q_SIGNALS:
     void nodeIdentifierChanged(const QString &nodeIdentifier);
     void refreshRequested();
@@ -71,12 +73,12 @@ protected:
     // implement if needed. Only call it in class constructor,
     // as it is unsafe to call it in private class
     // constructors.
-    virtual void initWorkerObject(AbstractWorkerObject *workerObject);
+    virtual void initWorkerObject(AbstractWorkerObject *workerObjectToSet);
     QList<QMap<int, QVariant> > data;
+    AbstractWorkerObject *workerObject;
     AbstractSocialCacheModel * const q_ptr;
 private:
     QThread m_workerThread;
-    AbstractWorkerObject *m_workerObject;
     Q_DECLARE_PUBLIC(AbstractSocialCacheModel)
 };
 

@@ -21,6 +21,7 @@
 #define FACEBOOKIMAGECACHEMODEL_H
 
 #include "abstractfacebookcachemodel.h"
+#include "facebookimagedownloader.h"
 
 class FacebookImageCacheModelPrivate;
 class FacebookImageCacheModel: public AbstractFacebookCacheModel
@@ -28,6 +29,8 @@ class FacebookImageCacheModel: public AbstractFacebookCacheModel
     Q_OBJECT
     Q_PROPERTY(FacebookImageCacheModel::ModelDataType type READ type WRITE setType
                NOTIFY typeChanged)
+    Q_PROPERTY(FacebookImageDownloader * downloader READ downloader WRITE setDownloader
+               NOTIFY downloaderChanged)
     Q_ENUMS(FacebookGalleryRole)
     Q_ENUMS(ModelDataType)
 public:
@@ -59,10 +62,14 @@ public:
     FacebookImageCacheModel::ModelDataType type() const;
     void setType(FacebookImageCacheModel::ModelDataType type);
 
+    FacebookImageDownloader * downloader() const;
+    void setDownloader(FacebookImageDownloader *downloader);
+
 public Q_SLOTS:
     void loadImages();
 Q_SIGNALS:
     void typeChanged();
+    void downloaderChanged();
 private:
     Q_DECLARE_PRIVATE(FacebookImageCacheModel)
 

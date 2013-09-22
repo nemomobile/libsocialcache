@@ -218,7 +218,6 @@ void DatabaseManipulationInterface::dbInit(const QString &serviceName, const QSt
     QString connectionName
             = QString(QLatin1String("socialcache/%1/%2/%3")).arg(serviceName, dataType,
                                                                  QUuid::createUuid().toString());
-    qWarning() << Q_FUNC_INFO << "Using connection name:" << connectionName;
 
     // open the database in which we store our synced image information
     d->db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
@@ -289,6 +288,7 @@ bool DatabaseManipulationInterface::dbBeginTransaction()
         d->mutex->unlock();
         return false;
     }
+
     return true;
 }
 
@@ -371,9 +371,10 @@ bool DatabaseManipulationInterface::dbWrite(const QString &table, const QStringL
 bool DatabaseManipulationInterface::dbCommitTransaction()
 {
     Q_D(DatabaseManipulationInterface);
+
     QSqlQuery query(d->db);
     query.prepare(QLatin1String("COMMIT TRANSACTION"));
-    bool ok = !query.exec();
+    bool ok = query.exec();
     if (!ok) {
         qWarning() << Q_FUNC_INFO << "Failed to commit transaction. Error:"
                    << query.lastError().text();
@@ -382,5 +383,6 @@ bool DatabaseManipulationInterface::dbCommitTransaction()
     if (d->mutex->isLocked()) {
         d->mutex->unlock();
     }
+
     return ok;
 }

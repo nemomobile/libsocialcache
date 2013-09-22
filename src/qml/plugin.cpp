@@ -26,6 +26,7 @@
 #include <QLocale>
 
 #include "facebook/facebookimagecachemodel.h"
+#include "facebook/facebookimagedownloader_p.h"
 
 // using custom translator so it gets properly removed from qApp when engine is deleted
 class AppTranslator: public QTranslator
@@ -43,6 +44,16 @@ public:
         qApp->removeTranslator(this);
     }
 };
+
+static QObject *facebookImageDownloader_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
+{
+    Q_UNUSED(engine)
+    Q_UNUSED(scriptEngine)
+
+    FacebookImageDownloader *downloader = new FacebookImageDownloader();
+    return downloader;
+}
+
 
 class JollaSocialPlugin : public QQmlExtensionPlugin
 {
@@ -66,8 +77,12 @@ public:
         Q_ASSERT(QLatin1String(uri) == QLatin1String("org.nemomobile.socialcache"));
         qRegisterMetaType<SocialCacheModelRow>("SocialCacheModelRow");
         qRegisterMetaType<SocialCacheModelData>("SocialCacheModelData");
+        qRegisterMetaType<FacebookImageDownloaderImageData>("FacebookImageDownloaderImageData");
 
         qmlRegisterType<FacebookImageCacheModel>(uri, 1, 0, "FacebookImageCacheModel");
+
+        qmlRegisterSingletonType<FacebookImageDownloader>(uri, 1, 0, "FacebookImageDownloader",
+                                                          &facebookImageDownloader_provider);
     }
 };
 

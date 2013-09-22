@@ -21,6 +21,7 @@
 #include "abstractsocialcachemodel_p.h"
 
 #include <QtCore/QDebug>
+#include <QtCore/QMutexLocker>
 
 AbstractWorkerObject::AbstractWorkerObject():
     m_loading(false)
@@ -38,9 +39,7 @@ bool AbstractWorkerObject::isLoading() const
 
 void AbstractWorkerObject::triggerRefresh()
 {
-    qWarning() << "Begin trigger";
     if (!isLoading()) {
-        qWarning() << "Refreshing";
         refresh();
     }
 }
@@ -52,12 +51,14 @@ void AbstractWorkerObject::setNodeIdentifier(const QString &nodeIdentifierToSet)
 
 void AbstractWorkerObject::setLoading(bool loading)
 {
+    QMutexLocker locker(&m_mutex);
+    Q_UNUSED(locker)
     m_loading = loading;
 }
 
 AbstractSocialCacheModelPrivate::AbstractSocialCacheModelPrivate(AbstractSocialCacheModel *q,
                                                                  QObject *parent)
-    :  QObject(parent), q_ptr(q), m_workerObject(0)
+    :  QObject(parent), workerObject(0), q_ptr(q)
 {
 }
 
@@ -67,7 +68,7 @@ AbstractSocialCacheModelPrivate::~AbstractSocialCacheModelPrivate()
         m_workerThread.quit();
         m_workerThread.wait();
     }
-    m_workerObject->deleteLater();
+    workerObject->deleteLater();
 }
 
 void AbstractSocialCacheModelPrivate::clearData()
@@ -80,46 +81,34 @@ void AbstractSocialCacheModelPrivate::clearData()
     }
 }
 
-void AbstractSocialCacheModelPrivate::setData(const SocialCacheModelData &dataToSet)
+void AbstractSocialCacheModelPrivate::updateData(const SocialCacheModelData &data)
 {
     Q_Q(AbstractSocialCacheModel);
-    clearData();
-    if (!dataToSet.isEmpty()) {
-        q->beginInsertRows(QModelIndex(), 0, dataToSet.count() - 1);
-        data = dataToSet;
-        q->endInsertRows();
-
-        qWarning() << "End insert rows";
-        emit q->countChanged();
-    }
+    q->updateData(data);
 }
 
-void AbstractSocialCacheModelPrivate::updateRow(int row, const SocialCacheModelRow &updatedRow)
+void AbstractSocialCacheModelPrivate::updateRow(int row, const SocialCacheModelRow &data)
 {
     Q_Q(AbstractSocialCacheModel);
-    qWarning() << "Updating row" << row;
-    foreach (int key, updatedRow.keys()) {
-        data[row].insert(key, updatedRow.value(key));
-    }
-    emit q->dataChanged(q->index(row), q->index(row));
+    q->updateRow(row, data);
 }
 
-void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *workerObject)
+void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *workerObjectToSet)
 {
-    if (workerObject) {
-        m_workerObject = workerObject;
+    if (workerObjectToSet) {
+        m_workerThread.start(QThread::LowestPriority);
+        workerObject = workerObjectToSet;
+        workerObject->moveToThread(&m_workerThread);
         connect(this, &AbstractSocialCacheModelPrivate::nodeIdentifierChanged,
                 workerObject, &AbstractWorkerObject::setNodeIdentifier);
         connect(this, &AbstractSocialCacheModelPrivate::refreshRequested,
                 workerObject, &AbstractWorkerObject::triggerRefresh);
-        connect(workerObject, &AbstractWorkerObject::dataRead,
-                this, &AbstractSocialCacheModelPrivate::setData);
+        connect(workerObject, &AbstractWorkerObject::dataUpdated,
+                this, &AbstractSocialCacheModelPrivate::updateData);
         connect(workerObject, &AbstractWorkerObject::rowUpdated,
                 this, &AbstractSocialCacheModelPrivate::updateRow);
-        workerObject->moveToThread(&m_workerThread);
     }
 
-    m_workerThread.start();
 }
 
 AbstractSocialCacheModel::AbstractSocialCacheModel(AbstractSocialCacheModelPrivate &dd,
@@ -174,6 +163,28 @@ void AbstractSocialCacheModel::setNodeIdentifier(const QString &nodeIdentifier)
 int AbstractSocialCacheModel::count() const
 {
     return rowCount();
+}
+
+void AbstractSocialCacheModel::updateData(const SocialCacheModelData &data)
+{
+    Q_D(AbstractSocialCacheModel);
+    d->clearData();
+    if (!data.isEmpty()) {
+        beginInsertRows(QModelIndex(), 0, data.count() - 1);
+        d->data = data;
+        endInsertRows();
+
+        emit countChanged();
+    }
+}
+
+void AbstractSocialCacheModel::updateRow(int row, const SocialCacheModelRow &data)
+{
+    Q_D(AbstractSocialCacheModel);
+    foreach (int key, data.keys()) {
+        d->data[row].insert(key, data.value(key));
+    }
+    emit dataChanged(index(row), index(row));
 }
 
 void AbstractSocialCacheModel::refresh()

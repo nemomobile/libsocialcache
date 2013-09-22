@@ -22,6 +22,9 @@
 
 #include <QtCore/QAbstractListModel>
 
+typedef QMap<int, QVariant> SocialCacheModelRow;
+typedef QList<SocialCacheModelRow> SocialCacheModelData;
+
 class AbstractSocialCacheModelPrivate;
 class AbstractSocialCacheModel : public QAbstractListModel
 {
@@ -39,6 +42,10 @@ public:
     QString nodeIdentifier() const;
     void setNodeIdentifier(const QString &nodeIdentifier);
     int count() const;
+
+    // Methods used to update the model in the C++ side
+    void updateData(const SocialCacheModelData &data);
+    void updateRow(int row, const SocialCacheModelRow &data);
 public Q_SLOTS:
     void refresh();
 Q_SIGNALS:
@@ -51,8 +58,6 @@ private:
     Q_DECLARE_PRIVATE(AbstractSocialCacheModel)
 };
 
-typedef QMap<int, QVariant> SocialCacheModelRow;
-typedef QList<SocialCacheModelRow> SocialCacheModelData;
 Q_DECLARE_METATYPE(SocialCacheModelRow)
 Q_DECLARE_METATYPE(SocialCacheModelData)
 
