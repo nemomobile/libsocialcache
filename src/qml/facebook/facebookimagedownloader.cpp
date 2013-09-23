@@ -119,8 +119,6 @@ void FacebookImageDownloaderWorkerObject::slotImageDownloaded()
         return;
     }
 
-    // TODO: remove existing file if needed
-
     // Save the new image (eg fbphotoid-thumb.jpg or fbphotoid-image.jpg)
     QString newName = QString(QLatin1String("%1%2-%3.jpg")).arg(SOCIALCACHE_FACEBOOK_IMAGE_DIR,
                                                                 data.identifier, imageType);
@@ -192,16 +190,4 @@ FacebookImageDownloaderWorkerObject * FacebookImageDownloader::workerObject() co
 {
     Q_D(const FacebookImageDownloader);
     return d->workerObject;
-}
-
-void FacebookImageDownloader::registerModel(AbstractSocialCacheModel *model)
-{
-    Q_D(FacebookImageDownloader);
-    d->models.insert(model);
-}
-
-void FacebookImageDownloader::unregisterModel(AbstractSocialCacheModel *model)
-{
-    Q_D(FacebookImageDownloader);
-    d->models.remove(model);
 }

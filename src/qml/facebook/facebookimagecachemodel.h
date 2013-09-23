@@ -20,11 +20,11 @@
 #ifndef FACEBOOKIMAGECACHEMODEL_H
 #define FACEBOOKIMAGECACHEMODEL_H
 
-#include "abstractfacebookcachemodel.h"
+#include "abstractsocialcachemodel.h"
 #include "facebookimagedownloader.h"
 
 class FacebookImageCacheModelPrivate;
-class FacebookImageCacheModel: public AbstractFacebookCacheModel
+class FacebookImageCacheModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
     Q_PROPERTY(FacebookImageCacheModel::ModelDataType type READ type WRITE setType

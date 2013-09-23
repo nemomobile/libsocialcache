@@ -45,8 +45,6 @@ public:
     explicit FacebookImageDownloader(QObject *parent = 0);
     virtual ~FacebookImageDownloader();
     FacebookImageDownloaderWorkerObject * workerObject() const;
-    void registerModel(AbstractSocialCacheModel *model);
-    void unregisterModel(AbstractSocialCacheModel *model);
 protected:
     QScopedPointer<FacebookImageDownloaderPrivate> d_ptr;
 private:

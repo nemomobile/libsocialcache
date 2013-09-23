@@ -17,18 +17,18 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef DATABASEMANIPULATIONINTERFACE_H
-#define DATABASEMANIPULATIONINTERFACE_H
+#ifndef ABSTRACTSOCIALCACHEDATABASE_H
+#define ABSTRACTSOCIALCACHEDATABASE_H
 
 #include <QtCore/QMap>
 #include <QtCore/QVariantList>
 
-class DatabaseManipulationInterfacePrivate;
-class DatabaseManipulationInterface
+class AbstractSocialCacheDatabasePrivate;
+class AbstractSocialCacheDatabase
 {
 public:
-    explicit DatabaseManipulationInterface();
-    virtual ~DatabaseManipulationInterface();
+    explicit AbstractSocialCacheDatabase();
+    virtual ~AbstractSocialCacheDatabase();
     bool isValid() const;
     virtual void initDatabase() = 0;
 protected:
@@ -38,7 +38,7 @@ protected:
         Update,
         Delete
     };
-    explicit DatabaseManipulationInterface(DatabaseManipulationInterfacePrivate &dd);
+    explicit AbstractSocialCacheDatabase(AbstractSocialCacheDatabasePrivate &dd);
     void dbInit(const QString &serviceName, const QString &dataType,
                 const QString &dbFile, int userVersion);
     virtual bool dbCreateTables() = 0;
@@ -49,9 +49,9 @@ protected:
                  const QMap<QString, QVariantList> &entries,
                  QueryMode mode = Insert, const QString &primary = QString());
     bool dbCommitTransaction();
-    QScopedPointer<DatabaseManipulationInterfacePrivate> d_ptr;
+    QScopedPointer<AbstractSocialCacheDatabasePrivate> d_ptr;
 private:
-    Q_DECLARE_PRIVATE(DatabaseManipulationInterface)
+    Q_DECLARE_PRIVATE(AbstractSocialCacheDatabase)
 };
 
-#endif // DATABASEMANIPULATIONINTERFACE_H
+#endif // ABSTRACTSOCIALCACHEDATABASE_H

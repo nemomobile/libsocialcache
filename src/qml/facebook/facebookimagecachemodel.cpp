@@ -18,7 +18,7 @@
  */
 
 #include "facebookimagecachemodel.h"
-#include "abstractfacebookcachemodel_p.h"
+#include "abstractsocialcachemodel_p.h"
 #include "facebookimagesdatabase.h"
 #include <QtCore/QThread>
 #include <QtCore/QDebug>
@@ -65,7 +65,7 @@ private:
     QList<QPair<FacebookImage::ConstPtr, int> > m_fullImages;
 };
 
-class FacebookImageCacheModelPrivate: public AbstractFacebookCacheModelPrivate
+class FacebookImageCacheModelPrivate: public AbstractSocialCacheModelPrivate
 {
     Q_OBJECT
 public:
@@ -251,7 +251,7 @@ void FacebookImageWorkerObject::queue(int row, FacebookImageDownloaderImageData:
 }
 
 FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCacheModel *q)
-    : AbstractFacebookCacheModelPrivate(q), downloader(0)
+    : AbstractSocialCacheModelPrivate(q), downloader(0)
 {
 }
 
@@ -308,11 +308,11 @@ void FacebookImageCacheModelPrivate::initWorkerObject(AbstractWorkerObject *work
     connect(this, &FacebookImageCacheModelPrivate::typeChanged,
             facebookImageWorkerObject, &FacebookImageWorkerObject::setType);
 
-    AbstractFacebookCacheModelPrivate::initWorkerObject(workerObject);
+    AbstractSocialCacheModelPrivate::initWorkerObject(workerObject);
 }
 
 FacebookImageCacheModel::FacebookImageCacheModel(QObject *parent)
-    : AbstractFacebookCacheModel(*(new FacebookImageCacheModelPrivate(this)), parent)
+    : AbstractSocialCacheModel(*(new FacebookImageCacheModelPrivate(this)), parent)
 {
     Q_D(FacebookImageCacheModel);
     d->initWorkerObject(new FacebookImageWorkerObject());
@@ -365,7 +365,6 @@ void FacebookImageCacheModel::setDownloader(FacebookImageDownloader *downloader)
             // Disconnect worker object
             d->workerObject->disconnect(d->downloader->workerObject());
             d->downloader->workerObject()->disconnect(d);
-            d->downloader->unregisterModel(this);
         }
 
         d->downloader = downloader;
@@ -378,8 +377,6 @@ void FacebookImageCacheModel::setDownloader(FacebookImageDownloader *downloader)
         connect(d->downloader->workerObject(), &FacebookImageDownloaderWorkerObject::dataUpdated,
                 d, &FacebookImageCacheModelPrivate::slotDataUpdated);
 
-
-        d->downloader->registerModel(this);
         emit downloaderChanged();
     }
 }

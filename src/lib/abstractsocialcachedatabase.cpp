@@ -17,8 +17,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include "databasemanipulationinterface.h"
-#include "databasemanipulationinterface_p.h"
+#include "abstractsocialcachedatabase.h"
+#include "abstractsocialcachedatabase_p.h"
 #include <QtCore/QtDebug>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
@@ -28,18 +28,18 @@
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlRecord>
 
-DatabaseManipulationInterfacePrivate::DatabaseManipulationInterfacePrivate(DatabaseManipulationInterface *q):
+AbstractSocialCacheDatabasePrivate::AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q):
     q_ptr(q), valid(false), mutex(0)
 {
 }
 
-DatabaseManipulationInterfacePrivate::~DatabaseManipulationInterfacePrivate()
+AbstractSocialCacheDatabasePrivate::~AbstractSocialCacheDatabasePrivate()
 {
     db.close();
 }
 
 // Get the user_version of the currently opened database
-int DatabaseManipulationInterfacePrivate::dbUserVersion(const QString &serviceName,
+int AbstractSocialCacheDatabasePrivate::dbUserVersion(const QString &serviceName,
                                                         const QString &dataType) const
 {
     const QString queryStr = QString("PRAGMA user_version");
@@ -63,7 +63,7 @@ int DatabaseManipulationInterfacePrivate::dbUserVersion(const QString &serviceNa
     return -1;
 }
 
-bool DatabaseManipulationInterfacePrivate::doInsert(const QString &table,
+bool AbstractSocialCacheDatabasePrivate::doInsert(const QString &table,
                                                     const QStringList &keys,
                                                     const QMap<QString, QVariantList> &entries,
                                                     bool replace)
@@ -100,7 +100,7 @@ bool DatabaseManipulationInterfacePrivate::doInsert(const QString &table,
     return ok;
 }
 
-bool DatabaseManipulationInterfacePrivate::doUpdate(const QString &table,
+bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
                                                     const QMap<QString, QVariantList> &entries,
                                                     const QString &primary)
 {
@@ -141,7 +141,7 @@ bool DatabaseManipulationInterfacePrivate::doUpdate(const QString &table,
     return ok;
 }
 
-bool DatabaseManipulationInterfacePrivate::doDelete(const QString &table, const QString &key,
+bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QString &key,
                                                         const QVariantList &entries)
 {
     QString queryString = QLatin1String("DELETE FROM ");
@@ -168,37 +168,38 @@ bool DatabaseManipulationInterfacePrivate::doDelete(const QString &table, const 
 // tools, like being able to initialize a database, and query
 // the user_version.
 
-DatabaseManipulationInterface::DatabaseManipulationInterface()
-    : d_ptr(new DatabaseManipulationInterfacePrivate(this))
+AbstractSocialCacheDatabase::AbstractSocialCacheDatabase()
+    : d_ptr(new AbstractSocialCacheDatabasePrivate(this))
 {
 }
 
-DatabaseManipulationInterface::DatabaseManipulationInterface(DatabaseManipulationInterfacePrivate &dd)
+AbstractSocialCacheDatabase::AbstractSocialCacheDatabase(AbstractSocialCacheDatabasePrivate &dd)
     : d_ptr(&dd)
 {
 }
 
-DatabaseManipulationInterface::~DatabaseManipulationInterface()
+AbstractSocialCacheDatabase::~AbstractSocialCacheDatabase()
 {
 }
 
-bool DatabaseManipulationInterface::isValid() const
+bool AbstractSocialCacheDatabase::isValid() const
 {
-    Q_D(const DatabaseManipulationInterface);
+    Q_D(const AbstractSocialCacheDatabase);
     return d->valid;
 }
 
-// Initialize the database in PRIVILEGED_DATA_DIR/serviceName/dataType, with name dbFile
+// Initialize the database in PRIVILEGED_DATA_DIR/dataType, with name dbFile
+// serviceName is used by debugging to indicate the service that is using this db.
 // Creates the dir structure if needed, then create the database if needed.
 // Compare the user_version stored in the database to userVersion, and recreate
 // the database if it is lower.
 //
 // This method uses dbCreateTables that should be used to create the structure
 // of the database and dbDropTables that should be used to drop the different tables.
-void DatabaseManipulationInterface::dbInit(const QString &serviceName, const QString &dataType,
+void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QString &dataType,
                                            const QString &dbFile, int userVersion)
 {
-    Q_D(DatabaseManipulationInterface);
+    Q_D(AbstractSocialCacheDatabase);
     if (!QFile::exists(QString(QLatin1String("%1/%2/%3")).arg(PRIVILEGED_DATA_DIR, dataType,
                                                               dbFile))) {
         QDir dir(QString(QLatin1String("%1/%2")).arg(PRIVILEGED_DATA_DIR, dataType));
@@ -253,9 +254,9 @@ void DatabaseManipulationInterface::dbInit(const QString &serviceName, const QSt
 
 // Set a user_version to the currently opened database
 // Usually used when implementing dbCreateTable.
-bool DatabaseManipulationInterface::dbCreatePragmaVersion(int version)
+bool AbstractSocialCacheDatabase::dbCreatePragmaVersion(int version)
 {
-    Q_D(DatabaseManipulationInterface);
+    Q_D(AbstractSocialCacheDatabase);
     QSqlQuery query (d->db);
     query.prepare(QString(QLatin1String("PRAGMA user_version=%1")).arg(version));
     if (!query.exec()) {
@@ -270,9 +271,9 @@ bool DatabaseManipulationInterface::dbCreatePragmaVersion(int version)
 //
 // Begin a transaction, so that insertion
 // queries can be executed quickly.
-bool DatabaseManipulationInterface::dbBeginTransaction()
+bool AbstractSocialCacheDatabase::dbBeginTransaction()
 {
-    Q_D(DatabaseManipulationInterface);
+    Q_D(AbstractSocialCacheDatabase);
 
     // Acquire lock
     if (!d->mutex->lock()) {
@@ -307,11 +308,11 @@ bool DatabaseManipulationInterface::dbBeginTransaction()
 // as new values to be inserted. In case of deletion, the entries should only
 // contain one key and list, that is the list of keys that are used to perform
 // the deletion.
-bool DatabaseManipulationInterface::dbWrite(const QString &table, const QStringList &keys,
+bool AbstractSocialCacheDatabase::dbWrite(const QString &table, const QStringList &keys,
                                             const QMap<QString, QVariantList> &entries,
                                             QueryMode mode, const QString &primary)
 {
-    Q_D(DatabaseManipulationInterface);
+    Q_D(AbstractSocialCacheDatabase);
     // When we have empty entries, we simply return true
     // since there is no need to do any db write to
     // write nothing
@@ -368,9 +369,9 @@ bool DatabaseManipulationInterface::dbWrite(const QString &table, const QStringL
 // Commit the changes
 //
 // End a transaction, by commiting the changes.
-bool DatabaseManipulationInterface::dbCommitTransaction()
+bool AbstractSocialCacheDatabase::dbCommitTransaction()
 {
-    Q_D(DatabaseManipulationInterface);
+    Q_D(AbstractSocialCacheDatabase);
 
     QSqlQuery query(d->db);
     query.prepare(QLatin1String("COMMIT TRANSACTION"));

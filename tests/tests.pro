@@ -1,2 +1,2 @@
 TEMPLATE = subdirs
-SUBDIRS = tst_databasemanipulationinterface tst_facebookimage
+SUBDIRS = tst_abstractsocialcachedatabase tst_facebookimage

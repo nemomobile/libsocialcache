@@ -17,24 +17,24 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef DATABASEMANIPULATIONINTERFACE_P_H
-#define DATABASEMANIPULATIONINTERFACE_P_H
+#ifndef ABSTRACTSOCIALCACHEDATABASE_P_H
+#define ABSTRACTSOCIALCACHEDATABASE_P_H
 
 #include <QtCore/QtGlobal>
 #include <QtSql/QSqlDatabase>
 #include "semaphore_p.h"
+#include "abstractsocialcachedatabase.h"
 
-class DatabaseManipulationInterface;
-class DatabaseManipulationInterfacePrivate
+class AbstractSocialCacheDatabase;
+class AbstractSocialCacheDatabasePrivate
 {
 public:
-    explicit DatabaseManipulationInterfacePrivate(DatabaseManipulationInterface *q);
-    virtual ~DatabaseManipulationInterfacePrivate();
+    explicit AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q);
+    virtual ~AbstractSocialCacheDatabasePrivate();
     QSqlDatabase db;
 protected:
-    DatabaseManipulationInterface * const q_ptr;
+    AbstractSocialCacheDatabase * const q_ptr;
 private:
-    Q_DECLARE_PUBLIC(DatabaseManipulationInterface)
     int dbUserVersion(const QString &serviceName, const QString &dataType) const;
     bool doInsert(const QString &table, const QStringList &keys,
                   const QMap<QString, QVariantList> &entries,
@@ -44,6 +44,7 @@ private:
     bool doDelete(const QString &table, const QString &key, const QVariantList &entries);
     bool valid;
     ProcessMutex *mutex;
+    Q_DECLARE_PUBLIC(AbstractSocialCacheDatabase)
 };
 
-#endif // DATABASEMANIPULATIONINTERFACE_P_H
+#endif // ABSTRACTSOCIALCACHEDATABASE_P_H

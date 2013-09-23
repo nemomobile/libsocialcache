@@ -13,14 +13,14 @@ target.path = $$INSTALL_ROOT$$PREFIX/lib
 
 HEADERS = \
     semaphore_p.h \
-    databasemanipulationinterface.h \
+    abstractsocialcachedatabase.h \
+    abstractsocialcachedatabase_p.h \
     socialsyncinterface.h \
-    facebookimagesdatabase.h \
-    databasemanipulationinterface_p.h
+    facebookimagesdatabase.h
 
 SOURCES = \
     semaphore_p.cpp \
-    databasemanipulationinterface.cpp \
+    abstractsocialcachedatabase.cpp \
     socialsyncinterface.cpp \
     facebookimagesdatabase.cpp
 

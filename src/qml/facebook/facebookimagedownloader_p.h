@@ -38,6 +38,29 @@
 #include <QtCore/QSet>
 #include "facebookimagesdatabase.h"
 
+// We try to minimize the use of signals and slots exposed to QML,
+// so we FacebookImageDownloader only expose one method in C++.
+// This method exposes the FacebookImageDownloaderWorkerObject.
+//
+// The FacebookImageDownloaderWorkerObject is used to perform
+// download of Facebook images, and notify that images are downloaded,
+// so that models can be notified and be changed.
+//
+// This object lives in a different thread, so it should communicates
+// with other objects using signals and slots. The important signals
+// and slots are FacebookImageDownloaderWorkerObject::queue and
+// FacebookImageDownloaderWorkerObject::dataUpdated.
+//
+// The call path that is being done is
+// FacebookImageWorkerObject::refresh calls FacebookImageWorkerObject::queue.
+// This triggers an emission of requestQueue. This signal is connected to
+// FacebookImageDownloaderWorkerObject::queue, so FacebookImageDownloaderWorkerObject
+// starts downloading data. When data is downloaded,
+// FacebookImageDownloaderWorkerObject::dataUpdated is sent, and triggers
+// FacebookImageCacheModelPrivate::slotDataUpdated that changes the model.
+//
+// Basically we communicates between internal objects, and never touch the
+// QML API.
 struct FacebookImageDownloaderImageData
 {
     enum Type {
@@ -94,7 +117,6 @@ protected:
 private:
     QThread m_workerThread;
     FacebookImageDownloaderWorkerObject * workerObject;
-    QSet<AbstractSocialCacheModel *> models;
     Q_DECLARE_PUBLIC(FacebookImageDownloader)
 };
 

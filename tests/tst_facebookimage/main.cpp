@@ -135,8 +135,8 @@ private slots:
         delete checkDb;
 
         // Do the same cleanups
-//        QDir dir (PRIVILEGED_DATA_DIR);
-//        dir.removeRecursively();
+        QDir dir (PRIVILEGED_DATA_DIR);
+        dir.removeRecursively();
 
     }
 };

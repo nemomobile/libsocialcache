@@ -30,18 +30,18 @@
  */
 
 #include <QtTest/QTest>
-#include "databasemanipulationinterface.h"
-#include "databasemanipulationinterface_p.h"
+#include "abstractsocialcachedatabase.h"
+#include "abstractsocialcachedatabase_p.h"
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
 #include <QtSql/QSqlQuery>
 
-class DummyDatabase: public DatabaseManipulationInterface
+class DummyDatabase: public AbstractSocialCacheDatabase
 {
 public:
     explicit DummyDatabase():
-        DatabaseManipulationInterface()
+        AbstractSocialCacheDatabase()
     {
         dbInit(QLatin1String("Test"),
                      QLatin1String("Test"),
@@ -72,7 +72,7 @@ public:
         return dbWrite(QLatin1String("tests"), keys, entries);
     }
     bool checkInsert() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         query.prepare("SELECT id, value FROM tests");
         if (!query.exec()) {
@@ -113,7 +113,7 @@ public:
         return dbWrite(QLatin1String("tests"), keys, entries, Update, QLatin1String("id"));
     }
     bool checkUpdate() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         query.prepare("SELECT id, value FROM tests");
         if (!query.exec()) {
@@ -148,7 +148,7 @@ public:
         return dbWrite(QLatin1String("tests"), keys, entries, Delete);
     }
     bool checkDelete() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         query.prepare("SELECT id, value FROM tests");
         if (!query.exec()) {
@@ -171,7 +171,7 @@ public:
     }
 
     void clean() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         query.prepare("DELETE FROM tests");
         query.exec();
@@ -198,7 +198,7 @@ public:
     }
 
     void benchmarkInsertNaive() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         for (int i = 0; i < 100; i ++) {
             query.prepare("INSERT INTO tests VALUES(:id, :value)");
@@ -233,7 +233,7 @@ public:
     }
 
     void benchmarkPrepareDeletion() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         dbBeginTransaction();
 
         // We will fill the data with 500 albums
@@ -295,7 +295,7 @@ public:
     }
 
     void benchmarkDeleteAlbum() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         dbBeginTransaction();
 
         QSqlQuery query(d->db);
@@ -307,7 +307,7 @@ public:
     }
 
     void benchmarkDeletePhotos() {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         dbBeginTransaction();
 
         QSqlQuery query(d->db);
@@ -321,7 +321,7 @@ public:
 protected:
     bool dbCreateTables()
     {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         query.prepare( "CREATE TABLE IF NOT EXISTS tests ("
                        "id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,"
@@ -357,7 +357,7 @@ protected:
 
     bool dbDropTables()
     {
-        Q_D(DatabaseManipulationInterface);
+        Q_D(AbstractSocialCacheDatabase);
         QSqlQuery query(d->db);
         query.prepare("DROP TABLE IF EXISTS tests");
         if (!query.exec()) {
@@ -380,11 +380,11 @@ protected:
         return true;
     }
 private:
-    Q_DECLARE_PRIVATE(DatabaseManipulationInterface)
+    Q_DECLARE_PRIVATE(AbstractSocialCacheDatabase)
 };
 
 
-class DatabaseManipulationInterfaceTest: public QObject
+class AbstractSocialCacheDatabaseTest: public QObject
 {
     Q_OBJECT
 private:
@@ -459,6 +459,6 @@ private slots:
     }
 };
 
-QTEST_MAIN(DatabaseManipulationInterfaceTest)
+QTEST_MAIN(AbstractSocialCacheDatabaseTest)
 
 #include "main.moc"

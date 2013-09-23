@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Jolla Ltd. <matthew.vogt@jollamobile.com>
+ * Copyright (C) 2013 Jolla Ltd.
+ * Contact: Matthew Vogt <matthew.vogt@jollamobile.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,8 +30,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef QTCONTACTSSQLITE_SEMAPHORE_P
-#define QTCONTACTSSQLITE_SEMAPHORE_P
+#ifndef SEMAPHORE_P_H
+#define SEMAPHORE_P_H
 
 #include <QString>
 
@@ -65,4 +66,4 @@ public:
 };
 
 
-#endif
+#endif // SEMAPHORE_P_H

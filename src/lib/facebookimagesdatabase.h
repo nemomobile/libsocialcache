@@ -20,7 +20,7 @@
 #ifndef FACEBOOKIMAGESDATABASE_H
 #define FACEBOOKIMAGESDATABASE_H
 
-#include "databasemanipulationinterface.h"
+#include "abstractsocialcachedatabase_p.h"
 #include <QtCore/QDateTime>
 #include <QtCore/QStringList>
 
@@ -121,7 +121,7 @@ bool operator==(const FacebookAlbum::ConstPtr &album1, const FacebookAlbum::Cons
 bool operator==(const FacebookImage::ConstPtr &image1, const FacebookImage::ConstPtr &image2);
 
 class FacebookImagesDatabasePrivate;
-class FacebookImagesDatabase: public DatabaseManipulationInterface
+class FacebookImagesDatabase: public AbstractSocialCacheDatabase
 {
 public:
     explicit FacebookImagesDatabase();

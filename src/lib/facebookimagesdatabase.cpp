@@ -18,11 +18,12 @@
  */
 
 #include "facebookimagesdatabase.h"
-#include "databasemanipulationinterface_p.h"
+#include "abstractsocialcachedatabase.h"
 #include "socialsyncinterface.h"
 #include <QtCore/QtDebug>
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
+#include <QtCore/QFile>
 
 static const char *DB_NAME = "facebook.db";
 static const int VERSION = 2;
@@ -352,7 +353,7 @@ int FacebookImage::account() const
     return d->account;
 }
 
-class FacebookImagesDatabasePrivate: public DatabaseManipulationInterfacePrivate
+class FacebookImagesDatabasePrivate: public AbstractSocialCacheDatabasePrivate
 {
 public:
     explicit FacebookImagesDatabasePrivate(FacebookImagesDatabase *q);
@@ -370,6 +371,7 @@ private:
     static void createUpdatedEntries(const QMap<QString, QMap<QString, QVariant> > &input,
                                           const QString &primary,
                                           QMap<QString, QVariantList> &entries);
+    static void clearPhotos(QSqlQuery &query);
     QList<FacebookImage::ConstPtr> queryImages(const QString &fbUserId, const QString &fbAlbumId);
     QMap<QString, FacebookUser::ConstPtr> queuedUsers;
     QMap<QString, FacebookAlbum::ConstPtr> queuedAlbums;
@@ -380,7 +382,7 @@ private:
 };
 
 FacebookImagesDatabasePrivate::FacebookImagesDatabasePrivate(FacebookImagesDatabase *q)
-    : DatabaseManipulationInterfacePrivate(q)
+    : AbstractSocialCacheDatabasePrivate(q)
 {
 }
 
@@ -497,6 +499,29 @@ void FacebookImagesDatabasePrivate::createUpdatedEntries(const QMap<QString, QMa
     }
 }
 
+void FacebookImagesDatabasePrivate::clearPhotos(QSqlQuery &query)
+{
+    while (query.next()) {
+        QString thumb = query.value(0).toString();
+        QString image = query.value(1).toString();
+
+        if (!thumb.isEmpty()) {
+            QFile thumbFile (thumb);
+            if (thumbFile.exists()) {
+                thumbFile.remove();
+            }
+        }
+
+        if (!image.isEmpty()) {
+            QFile imageFile (image);
+            if (imageFile.exists()) {
+                imageFile.remove();
+            }
+        }
+    }
+
+}
+
 QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const QString &fbUserId,
                                                                           const QString &fbAlbumId)
 {
@@ -578,7 +603,7 @@ bool operator==(const FacebookImage::ConstPtr &image1, const FacebookImage::Cons
 // don't need write().
 
 FacebookImagesDatabase::FacebookImagesDatabase()
-    : DatabaseManipulationInterface(*(new FacebookImagesDatabasePrivate(this)))
+    : AbstractSocialCacheDatabase(*(new FacebookImagesDatabasePrivate(this)))
 {
 }
 
@@ -665,6 +690,12 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     }
 
     // Clean photos
+    foreach (const QVariant &userId, userIds) {
+        query.prepare("SELECT thumbnailFile, imageFile FROM photos WHERE fbUserId = :fbUserId");
+        query.bindValue(":fbUserId", userId);
+        d->clearPhotos(query);
+    }
+
     query.prepare("DELETE FROM photos WHERE fbUserId = ?");
     query.addBindValue(userIds);
     if (!query.execBatch()) {
@@ -675,8 +706,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     if (!dbCommitTransaction()) {
         return;
     }
-
-    // TODO: also remove the cache
 }
 
 // Returns the user but do not return a count
@@ -758,6 +787,10 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     }
 
     // Clean photos
+    query.prepare("SELECT thumbnailFile, imageFile FROM photos WHERE fbUserId = :fbUserId");
+    query.bindValue(":fbUserId", fbUserId);
+    d->clearPhotos(query);
+
     query.prepare("DELETE FROM photos WHERE fbUserId = :fbUserId");
     query.bindValue(":fbUserId", fbUserId);
     if (!query.exec()) {
@@ -877,6 +910,10 @@ void FacebookImagesDatabase::removeAlbum(const QString &fbAlbumId)
     }
 
     // Clean photos
+    query.prepare("SELECT thumbnailFile, imageFile FROM photos WHERE fbAlbumId = :fbAlbumId");
+    query.bindValue(":fbAlbumId", fbAlbumId);
+    d->clearPhotos(query);
+
     query.prepare("DELETE FROM photos WHERE fbAlbumId = :fbAlbumId");
     query.bindValue(":fbAlbumId", fbAlbumId);
     if (!query.exec()) {
@@ -1012,6 +1049,11 @@ void FacebookImagesDatabase::removeImage(const QString &fbImageId)
     }
     // Clean photos
     QSqlQuery query (d->db);
+
+    query.prepare("SELECT thumbnailFile, imageFile FROM photos WHERE fbImageId = :fbImageId");
+    query.bindValue(":fbAlbumId", fbImageId);
+    d->clearPhotos(query);
+
     query.prepare("DELETE FROM photos WHERE fbImageId = :fbImageId");
     query.bindValue(":fbImageId", fbImageId);
     if (!query.exec()) {
