@@ -16,8 +16,6 @@ HEADERS +=  ../../src/lib/socialsyncinterface.h \
             ../../src/lib/semaphore_p.h \
             ../../src/qml/abstractsocialcachemodel.h \
             ../../src/qml/abstractsocialcachemodel_p.h \
-            ../../src/qml/facebook/abstractfacebookcachemodel.h \
-            ../../src/qml/facebook/abstractfacebookcachemodel_p.h \
             ../../src/qml/facebook/facebookimagecachemodel.h \
             ../../src/qml/facebook/facebookimagedownloader_p.h \
             ../../src/qml/facebook/facebookimagedownloader.h
@@ -26,7 +24,6 @@ SOURCES +=  ../../src/lib/socialsyncinterface.cpp \
             ../../src/lib/facebookimagesdatabase.cpp \
             ../../src/lib/semaphore_p.cpp \
             ../../src/qml/abstractsocialcachemodel.cpp \
-            ../../src/qml/facebook/abstractfacebookcachemodel.cpp \
             ../../src/qml/facebook/facebookimagecachemodel.cpp \
             ../../src/qml/facebook/facebookimagedownloader.cpp \
             main.cpp
