@@ -1,13 +1,13 @@
 include(../../common.pri)
 
 TEMPLATE = lib
-TARGET = socialcache
+TARGET = socialcacheqml
 TARGET = $$qtLibraryTarget($$TARGET)
 
 MODULENAME = org/nemomobile/socialcache
 TARGETPATH = $$[QT_INSTALL_QML]/$$MODULENAME
 
-LIBS += -L../lib -lsocialcache$${DASH_QT_VERSION}
+LIBS += -L../lib -lsocialcache
 INCLUDEPATH += ../lib/
 
 
