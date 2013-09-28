@@ -21,6 +21,10 @@
 #include "socialsyncinterface.h"
 
 static const char *DB_NAME = "twitter.db";
+static const char *SCREEN_NAME_KEY = "screen_name";
+static const char *RETWEETER_KEY = "retweeter";
+static const char *CONSUMER_KEY_KEY = "consumer_key";
+static const char *CONSUMER_SECRET_KEY = "consumer_secret";
 
 TwitterPostsDatabase::TwitterPostsDatabase()
     : AbstractSocialPostCacheDatabase()
@@ -32,4 +36,52 @@ void TwitterPostsDatabase::initDatabase()
     dbInit(SocialSyncInterface::socialNetwork(SocialSyncInterface::Twitter),
            SocialSyncInterface::dataType(SocialSyncInterface::Posts),
            QLatin1String(DB_NAME), POST_DB_VERSION);
+}
+
+void TwitterPostsDatabase::addTwitterPost(const QString &identifier, const QString &name,
+                                          const QString &body, const QDateTime &timestamp,
+                                          const QString &icon,
+                                          const QList<QPair<QString, SocialPostImage::ImageType> > &images,
+                                          const QString &screenName, const QString &retweeter,
+                                          const QString &consumerKey, const QString &consumerSecret,
+                                          int account)
+{
+    QVariantMap extra;
+    extra.insert(SCREEN_NAME_KEY, screenName);
+    extra.insert(RETWEETER_KEY, retweeter);
+    extra.insert(CONSUMER_KEY_KEY, consumerKey);
+    extra.insert(CONSUMER_SECRET_KEY, consumerSecret);
+    addPost(identifier, name, body, timestamp, icon, images, extra, account);
+}
+
+QString TwitterPostsDatabase::screenName(const SocialPost::ConstPtr &post)
+{
+    if (post.isNull()) {
+        return QString();
+    }
+    return post->extra().value(SCREEN_NAME_KEY).toString();
+}
+
+QString TwitterPostsDatabase::retweeter(const SocialPost::ConstPtr &post)
+{
+    if (post.isNull()) {
+        return QString();
+    }
+    return post->extra().value(RETWEETER_KEY).toString();
+}
+
+QString TwitterPostsDatabase::consumerKey(const SocialPost::ConstPtr &post)
+{
+    if (post.isNull()) {
+        return QString();
+    }
+    return post->extra().value(CONSUMER_KEY_KEY).toString();
+}
+
+QString TwitterPostsDatabase::consumerSecret(const SocialPost::ConstPtr &post)
+{
+    if (post.isNull()) {
+        return QString();
+    }
+    return post->extra().value(CONSUMER_SECRET_KEY).toString();
 }

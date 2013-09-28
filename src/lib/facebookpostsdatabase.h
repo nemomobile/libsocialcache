@@ -20,25 +20,26 @@
 #ifndef FACEBOOKPOSTSDATABASE_H
 #define FACEBOOKPOSTSDATABASE_H
 
-#include "abstractsocialeventcachedatabase.h"
+#include "abstractsocialpostcachedatabase.h"
 
 class FacebookPostsDatabase: public AbstractSocialPostCacheDatabase
 {
 public:
     explicit FacebookPostsDatabase();
     void initDatabase();
-    void addFacebookEvent(const QString &identifier, const QString &title, const QString &body,
-                          const QDateTime &timestamp, const QString &footer,
-                          const QMap<int, SocialPostImage::ConstPtr> &images,
-                          const QString &attachmentName,  const QString &attachmentCaption,
-                          const QString &attachmentDescription, bool allowLike, bool allowComment,
-                          const QString &clientId, int account);
-    static QString attachmentName(const SocialPost::ConstPtr &event);
-    static QString attachmentCaption(const SocialPost::ConstPtr &event);
-    static QString attachmentDescription(const SocialPost::ConstPtr &event);
-    static bool allowLike(const SocialPost::ConstPtr &event);
-    static bool allowComment(const SocialPost::ConstPtr &event);
-    static QString clientId(const SocialPost::ConstPtr &event);
+    void addFacebookPost(const QString &identifier, const QString &name, const QString &body,
+                         const QDateTime &timestamp,
+                         const QString &icon,
+                         const QList<QPair<QString, SocialPostImage::ImageType> > &images,
+                         const QString &attachmentName,  const QString &attachmentCaption,
+                         const QString &attachmentDescription, bool allowLike, bool allowComment,
+                         const QString &clientId, int account);
+    static QString attachmentName(const SocialPost::ConstPtr &post);
+    static QString attachmentCaption(const SocialPost::ConstPtr &post);
+    static QString attachmentDescription(const SocialPost::ConstPtr &post);
+    static bool allowLike(const SocialPost::ConstPtr &post);
+    static bool allowComment(const SocialPost::ConstPtr &post);
+    static QString clientId(const SocialPost::ConstPtr &post);
 };
 
 #endif // FACEBOOKPOSTSDATABASE_H

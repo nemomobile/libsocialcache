@@ -28,23 +28,23 @@ class SocialPostImagePrivate;
 class SocialPostImage
 {
 public:
-    enum Type {
+    enum ImageType {
         Invalid,
         Photo,
         Video
     };
     typedef QSharedPointer<SocialPostImage> Ptr;
     typedef QSharedPointer<const SocialPostImage> ConstPtr;
+    explicit SocialPostImage();
     virtual ~SocialPostImage();
-    static SocialPostImage::Ptr create(int position, const QString &url, Type type);
-    int position() const;
+    static SocialPostImage::Ptr create(const QString &url, ImageType type);
     QString url() const;
-    Type type() const;
+    ImageType type() const;
 protected:
     QScopedPointer<SocialPostImagePrivate> d_ptr;
 private:
     Q_DECLARE_PRIVATE(SocialPostImage)
-    explicit SocialPostImage(int position, const QString &url, Type type);
+    explicit SocialPostImage(const QString &url, ImageType type);
 };
 
 class SocialPostPrivate;
@@ -54,19 +54,18 @@ public:
     typedef QSharedPointer<SocialPost> Ptr;
     typedef QSharedPointer<const SocialPost> ConstPtr;
     virtual ~SocialPost();
-    static SocialPost::Ptr create(const QString &identifier, const QString &title,
+    static SocialPost::Ptr create(const QString &identifier, const QString &name,
                                   const QString &body, const QDateTime &timestamp,
-                                  const QString &footer,
                                   const QMap<int, SocialPostImage::ConstPtr> &images = QMap<int, SocialPostImage::ConstPtr>(),
                                   const QVariantMap &extra = QVariantMap(),
                                   const QList<int> &accounts = QList<int>());
     QString identifier() const;
-    QString title() const;
+    QString name() const;
     QString body() const;
     QDateTime timestamp() const;
-    QString footer() const;
-    SocialPostImage::ConstPtr icon() const;
+    QString icon() const;
     QList<SocialPostImage::ConstPtr> images() const;
+    QMap<int, SocialPostImage::ConstPtr> allImages() const;
     void setImages(const QMap<int, SocialPostImage::ConstPtr> &images);
     QVariantMap extra() const;
     void setExtra(const QVariantMap &extra);
@@ -76,10 +75,9 @@ protected:
     QScopedPointer<SocialPostPrivate> d_ptr;
 private:
     Q_DECLARE_PRIVATE(SocialPost)
-    explicit SocialPost(const QString &identifier, const QString &title,
+    explicit SocialPost(const QString &identifier, const QString &name,
                         const QString &body, const QDateTime &timestamp,
-                        const QString &footer,
-                        const QMap<int, SocialPostImage::ConstPtr> &images = QMap<int, SocialPostImage::ConstPtr>(),
+                        const QMap<int, SocialPostImage::ConstPtr> &images,
                         const QVariantMap &extra = QVariantMap(),
                         const QList<int> &accounts = QList<int>());
 };
@@ -89,12 +87,12 @@ class AbstractSocialPostCacheDatabase: public AbstractSocialCacheDatabase
 {
 public:
     explicit AbstractSocialPostCacheDatabase();
-    QList<SocialPost::ConstPtr> events() const;
-    void addEvent(const QString &identifier, const QString &title,
-                  const QString &body, const QDateTime &timestamp,
-                  const QString &footer,
-                  const QMap<int, SocialPostImage::ConstPtr> &images,
-                  const QVariantMap &extra, int account);
+    QList<SocialPost::ConstPtr> posts() const;
+    void addPost(const QString &identifier, const QString &name,
+                 const QString &body, const QDateTime &timestamp,
+                 const QString &icon,
+                 const QList<QPair<QString, SocialPostImage::ImageType> > &images,
+                 const QVariantMap &extra, int account);
     bool write();
 protected:
     bool dbCreateTables();

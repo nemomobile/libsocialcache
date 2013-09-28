@@ -47,6 +47,7 @@ public:
     };
     Q_INVOKABLE static QString socialNetwork(SocialNetwork sn);
     Q_INVOKABLE static QString dataType(DataType t);
+    static QString profileName(SocialNetwork sn, DataType t);
 };
 
 #endif // SOCIALSYNCINTERFACE_H

@@ -32,3 +32,8 @@ QString SocialSyncInterface::dataType(DataType t)
     QMetaEnum metaEnum = staticMetaObject.enumerator(staticMetaObject.indexOfEnumerator("DataType"));
     return metaEnum.valueToKey(t);
 }
+
+QString SocialSyncInterface::profileName(SocialNetwork sn, DataType t)
+{
+    return QString("%1.%2").arg(socialNetwork(sn).toLower(), dataType(t));
+}

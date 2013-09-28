@@ -541,16 +541,18 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
                                         "FROM images "\
                                         "INNER JOIN accounts "\
                                         "ON accounts.fbUserId = images.fbUserId%1 "\
-                                        "ORDER BY images.updatedTime DESC");
+                                        "ORDER BY images.updatedTime %2");
 
 
 
     if (!fbUserId.isEmpty()) {
-        queryString = queryString.arg(QLatin1String(" WHERE images.fbUserId = :fbUserId"));
+        queryString = queryString.arg(QLatin1String(" WHERE images.fbUserId = :fbUserId"),
+                                      QLatin1String("DESC"));
     } else if (!fbAlbumId.isEmpty()){
-        queryString = queryString.arg(QLatin1String(" WHERE images.fbAlbumId = :fbAlbumId"));
+        queryString = queryString.arg(QLatin1String(" WHERE images.fbAlbumId = :fbAlbumId"),
+                                      QString());
     } else {
-        queryString = queryString.arg(QString());
+        queryString = queryString.arg(QString(), QLatin1String("DESC"));
     }
 
     QSqlQuery query (db);

@@ -17,35 +17,33 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef FACEBOOKPOSTSMODEL_H
-#define FACEBOOKPOSTSMODEL_H
+#ifndef TWITTERPOSTSMODEL_H
+#define TWITTERPOSTSMODEL_H
 
 #include "abstractsocialcachemodel.h"
 
-class FacebookPostsModelPrivate;
-class FacebookPostsModel: public AbstractSocialCacheModel
+class TwitterPostsModelPrivate;
+class TwitterPostsModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
 public:
-    enum FacebookPostsRole {
-        FacebookId = 0,
+    enum TwitterPostsRole {
+        TwitterId = 0,
         Name,
+        ScreenName,
         Body,
         Timestamp,
         Icon,
         Images,
-        AttachmentName,
-        AttachmentCaption,
-        AttachmentDescription,
-        AllowLike,
-        AllowComment,
-        ClientId,
+        Retweeter,
+        ConsumerKey,
+        ConsumerSecret,
         Accounts
     };
-    explicit FacebookPostsModel(QObject *parent = 0);
+    explicit TwitterPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
 private:
-    Q_DECLARE_PRIVATE(FacebookPostsModel)
+    Q_DECLARE_PRIVATE(TwitterPostsModel)
 };
 
-#endif // FACEBOOKPOSTSMODEL_H
+#endif // TWITTERPOSTSMODEL_H

@@ -28,6 +28,16 @@
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlRecord>
 
+// AbstractSocialCacheDatabase
+// This class is the base class for all classes
+// that deals with database access.
+//
+// It provides a set of useful methods that should
+// be used to initialize the database, and write into
+// it. dbBeginTransaction, dbWrite and dbCommitTransaction
+// are particularly handy, and can make write operations
+// into db very fast.
+
 AbstractSocialCacheDatabasePrivate::AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q):
     q_ptr(q), valid(false), mutex(0)
 {
@@ -63,6 +73,7 @@ int AbstractSocialCacheDatabasePrivate::dbUserVersion(const QString &serviceName
     return -1;
 }
 
+// Perform a batch insert
 bool AbstractSocialCacheDatabasePrivate::doInsert(const QString &table,
                                                     const QStringList &keys,
                                                     const QMap<QString, QVariantList> &entries,
@@ -100,6 +111,7 @@ bool AbstractSocialCacheDatabasePrivate::doInsert(const QString &table,
     return ok;
 }
 
+// Perform a batch update
 bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
                                                     const QMap<QString, QVariantList> &entries,
                                                     const QString &primary)
@@ -141,6 +153,7 @@ bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
     return ok;
 }
 
+// Perform a batch delete
 bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QString &key,
                                                         const QVariantList &entries)
 {
@@ -161,12 +174,6 @@ bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QS
     }
     return ok;
 }
-
-// DatabaseManipulationInterface
-//
-// A pure virtual class that provides basic database manipulation
-// tools, like being able to initialize a database, and query
-// the user_version.
 
 AbstractSocialCacheDatabase::AbstractSocialCacheDatabase()
     : d_ptr(new AbstractSocialCacheDatabasePrivate(this))
@@ -275,6 +282,8 @@ bool AbstractSocialCacheDatabase::dbCreatePragmaVersion(int version)
 //
 // Begin a transaction, so that insertion
 // queries can be executed quickly.
+// Transactions uses a process mutex and
+// use IMMEDIATE TRANSACTION.
 bool AbstractSocialCacheDatabase::dbBeginTransaction()
 {
     Q_D(AbstractSocialCacheDatabase);

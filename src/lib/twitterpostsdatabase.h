@@ -20,13 +20,24 @@
 #ifndef TWITTERPOSTSDATABASE_H
 #define TWITTERPOSTSDATABASE_H
 
-#include "abstractsocialeventcachedatabase.h"
+#include "abstractsocialpostcachedatabase.h"
 
 class TwitterPostsDatabase: public AbstractSocialPostCacheDatabase
 {
 public:
     explicit TwitterPostsDatabase();
     void initDatabase();
+    void addTwitterPost(const QString &identifier, const QString &name, const QString &body,
+                        const QDateTime &timestamp,
+                        const QString &icon,
+                        const QList<QPair<QString, SocialPostImage::ImageType> > &images,
+                        const QString &screenName, const QString &retweeter,
+                        const QString &consumerKey, const QString &consumerSecret,
+                        int account);
+    static QString screenName(const SocialPost::ConstPtr &post);
+    static QString retweeter(const SocialPost::ConstPtr &post);
+    static QString consumerKey(const SocialPost::ConstPtr &post);
+    static QString consumerSecret(const SocialPost::ConstPtr &post);
 };
 
 #endif // TWITTERPOSTSDATABASE_H

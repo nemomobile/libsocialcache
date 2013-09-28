@@ -16,7 +16,7 @@ HEADERS = \
     socialsyncinterface.h \
     abstractsocialcachedatabase.h \
     abstractsocialcachedatabase_p.h \
-    abstractsocialeventcachedatabase.h \
+    abstractsocialpostcachedatabase.h \
     socialnetworksyncdatabase.h \
     facebookimagesdatabase.h \
     facebookcalendardatabase.h \
@@ -27,7 +27,7 @@ SOURCES = \
     semaphore_p.cpp \
     socialsyncinterface.cpp \
     abstractsocialcachedatabase.cpp \
-    abstractsocialeventcachedatabase.cpp \
+    abstractsocialpostcachedatabase.cpp \
     socialnetworksyncdatabase.cpp \
     facebookimagesdatabase.cpp \
     facebookcalendardatabase.cpp \
