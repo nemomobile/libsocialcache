@@ -32,6 +32,7 @@
 
 #ifndef NO_DEPS
 #include "synchelper.h"
+#include "keyproviderhelper.h"
 #endif
 
 // using custom translator so it gets properly removed from qApp when engine is deleted
@@ -100,6 +101,7 @@ public:
         qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",
                                                         QLatin1String("Cannot create"));
         qmlRegisterType<SyncHelper>(uri, 1, 0, "SyncHelper");
+        qmlRegisterType<KeyProviderHelper>(uri, 1, 0, "KeyProviderHelper");
 #endif
     }
 };

@@ -15,6 +15,7 @@ BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  qt5-qttools
 BuildRequires:  qt5-qttools-linguist
 BuildRequires:  pkgconfig(buteosyncfw5)
+BuildRequires:  pkgconfig(libsailfishkeyprovider)
 
 Requires:  qt5-plugin-sqldriver-sqlite
 
