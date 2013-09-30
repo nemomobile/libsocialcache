@@ -14,11 +14,15 @@ INCLUDEPATH += ../lib/
 QT += gui qml sql network dbus
 CONFIG += plugin
 
-CONFIG(nokeyprovider):{
-DEFINES += NO_KEY_PROVIDER
+CONFIG(nodeps):{
+DEFINES += NO_DEPS
 } else {
 CONFIG += link_pkgconfig
-PKGCONFIG += libsailfishkeyprovider
+PKGCONFIG += buteosyncfw5 libsailfishkeyprovider
+HEADERS += synchelper.h \
+    keyproviderhelper.h
+SOURCES += synchelper.cpp \
+    keyproviderhelper.cpp
 }
 
 
@@ -27,12 +31,17 @@ HEADERS += \
     abstractsocialcachemodel_p.h \
     facebook/facebookimagecachemodel.h \
     facebook/facebookimagedownloader.h \
-    facebook/facebookimagedownloader_p.h
+    facebook/facebookimagedownloader_p.h \
+    facebook/facebookpostsmodel.h \
+    twitter/twitterpostsmodel.h \
+    postimagehelper_p.h
 
 SOURCES += plugin.cpp \
     abstractsocialcachemodel.cpp \
     facebook/facebookimagecachemodel.cpp \
-    facebook/facebookimagedownloader.cpp
+    facebook/facebookimagedownloader.cpp \
+    facebook/facebookpostsmodel.cpp \
+    twitter/twitterpostsmodel.cpp
 
 OTHER_FILES += qmldir
 import.files = qmldir

@@ -17,37 +17,33 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef SOCIALSYNCINTERFACE_H
-#define SOCIALSYNCINTERFACE_H
+#ifndef TWITTERPOSTSMODEL_H
+#define TWITTERPOSTSMODEL_H
 
-#include <QtCore/QObject>
+#include "abstractsocialcachemodel.h"
 
-class SocialSyncInterface : public QObject
+class TwitterPostsModelPrivate;
+class TwitterPostsModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
-    Q_ENUMS(SocialNetwork)
-    Q_ENUMS(DataType)
 public:
-    enum SocialNetwork {
-        InvalidSocialNetwork,
-        Facebook,
-        Twitter
-    };
-
-    enum DataType {
-        InvalidDataType,
-        Contacts,
-        Calendars,
-        Notifications,
+    enum TwitterPostsRole {
+        TwitterId = 0,
+        Name,
+        ScreenName,
+        Body,
+        Timestamp,
+        Icon,
         Images,
-        Videos,
-        Posts,
-        Messages,
-        Emails
+        Retweeter,
+        ConsumerKey,
+        ConsumerSecret,
+        Accounts
     };
-    Q_INVOKABLE static QString socialNetwork(SocialNetwork sn);
-    Q_INVOKABLE static QString dataType(DataType t);
-    static QString profileName(SocialNetwork sn, DataType t);
+    explicit TwitterPostsModel(QObject *parent = 0);
+    QHash<int, QByteArray> roleNames() const;
+private:
+    Q_DECLARE_PRIVATE(TwitterPostsModel)
 };
 
-#endif // SOCIALSYNCINTERFACE_H
+#endif // TWITTERPOSTSMODEL_H

@@ -42,8 +42,8 @@ private:
     bool doUpdate(const QString &table, const QMap<QString, QVariantList> &entries,
                   const QString &primary);
     bool doDelete(const QString &table, const QString &key, const QVariantList &entries);
-    bool valid;
-    ProcessMutex *mutex;
+    bool valid; // Hold if the database has been correctly initialized
+    ProcessMutex *mutex; // Process mutex to prevent concurrent write
     Q_DECLARE_PUBLIC(AbstractSocialCacheDatabase)
 };
 
