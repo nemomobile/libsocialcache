@@ -400,3 +400,22 @@ bool AbstractSocialCacheDatabase::dbCommitTransaction()
 
     return ok;
 }
+
+// Rollback a transaction
+bool AbstractSocialCacheDatabase::dbRollbackTransaction()
+{
+    Q_D(AbstractSocialCacheDatabase);
+    QSqlQuery query(d->db);
+    query.prepare(QLatin1String("ROLLBACK TRANSACTION"));
+    bool ok = query.exec();
+    if (!ok) {
+        qWarning() << Q_FUNC_INFO << "Failed to rollback transaction. Error:"
+                   << query.lastError().text();
+    }
+
+    if (d->mutex->isLocked()) {
+        d->mutex->unlock();
+    }
+
+    return ok;
+}

@@ -49,6 +49,7 @@ protected:
                  const QMap<QString, QVariantList> &entries,
                  QueryMode mode = Insert, const QString &primary = QString());
     bool dbCommitTransaction();
+    bool dbRollbackTransaction();
     QScopedPointer<AbstractSocialCacheDatabasePrivate> d_ptr;
 private:
     Q_DECLARE_PRIVATE(AbstractSocialCacheDatabase)

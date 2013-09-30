@@ -148,6 +148,7 @@ bool FacebookCalendarDatabase::sync(int accountId)
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to purge events for account" << accountId
                    << query.lastError().text();
+        dbRollbackTransaction();
         return false;
     }
 
@@ -168,6 +169,7 @@ bool FacebookCalendarDatabase::sync(int accountId)
     }
 
     if (!dbWrite(QLatin1String("events"), keys, data, InsertOrReplace)) {
+        dbRollbackTransaction();
         return false;
     }
 

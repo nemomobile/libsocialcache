@@ -421,34 +421,38 @@ bool AbstractSocialPostCacheDatabase::write()
     QMap<QString, QVariantList> imageEntries;
     QMap<QString, QVariantList> extraEntries;
 
-    bool ok = true;
     d->createPostsEntries(d->queuedPosts, postKeys, imageKeys, extraKeys, postEntries,
                           imageEntries, extraEntries);
 
     if (!dbWrite(QLatin1String("posts"), postKeys, postEntries, InsertOrReplace)) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     if (!dbWrite(QLatin1String("images"), imageKeys, imageEntries, InsertOrReplace)) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     if (!dbWrite(QLatin1String("extra"), extraKeys, extraEntries, InsertOrReplace)) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     QStringList keys;
     QMap<QString, QVariantList> entries;
     d->createAccountsEntries(d->queuedPostsAccounts, keys, entries);
     if (!dbWrite(QLatin1String("link_post_account"), keys, entries, InsertOrReplace)) {
-        ok = false;
-    }
-
-    if (!dbCommitTransaction()) {
+        dbRollbackTransaction();
         return false;
     }
 
-    return ok;
+    if (!dbCommitTransaction()) {
+        dbRollbackTransaction();
+        return false;
+    }
+
+    return true;
 }
 
 bool AbstractSocialPostCacheDatabase::dbCreateTables()
@@ -456,19 +460,16 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
     Q_D(AbstractSocialPostCacheDatabase);
     QSqlQuery query (d->db);
 
-    // Heavily inspired from libpostfeeds
+    // Heavily inspired from libeventfeeds
     // posts is composed of
     // * identifier is the identifier of the data (from social
     //    network, like the facebook id)
-    // * title is the displayed title. It is usually the name
-    //   of the poster. Twitter, that requires both the name and
-    //   nickname of the poster, will need an extra field, passed
-    //   to the extra table.
+    // * name is the displayed name of the poster. Twitter, that
+    //   requires both the name and "screen name" of the poster,
+    //   uses an extra field, passed to the extra table.
     // * body is the content of the entry.
     // * timestamp is the timestamp, converted to milliseconds
     //   from epoch (makes sorting easier).
-    // * footer is a footer that is used to display informations
-    //   like the number of likes.
     query.prepare( "CREATE TABLE IF NOT EXISTS posts ("\
                    "identifier STRING UNIQUE PRIMARY KEY,"\
                    "name STRING,"\

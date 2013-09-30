@@ -137,6 +137,7 @@ bool SocialNetworkSyncDatabase::write()
     bool ok = dbWrite(QLatin1String("syncTimestamps"), keys, entries, InsertOrReplace);
 
     if (!dbCommitTransaction()) {
+        dbRollbackTransaction();
         return false;
     }
 
