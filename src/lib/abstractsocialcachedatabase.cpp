@@ -28,6 +28,16 @@
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlRecord>
 
+// AbstractSocialCacheDatabase
+// This class is the base class for all classes
+// that deals with database access.
+//
+// It provides a set of useful methods that should
+// be used to initialize the database, and write into
+// it. dbBeginTransaction, dbWrite and dbCommitTransaction
+// are particularly handy, and can make write operations
+// into db very fast.
+
 AbstractSocialCacheDatabasePrivate::AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q):
     q_ptr(q), valid(false), mutex(0)
 {
@@ -63,6 +73,7 @@ int AbstractSocialCacheDatabasePrivate::dbUserVersion(const QString &serviceName
     return -1;
 }
 
+// Perform a batch insert
 bool AbstractSocialCacheDatabasePrivate::doInsert(const QString &table,
                                                     const QStringList &keys,
                                                     const QMap<QString, QVariantList> &entries,
@@ -100,6 +111,7 @@ bool AbstractSocialCacheDatabasePrivate::doInsert(const QString &table,
     return ok;
 }
 
+// Perform a batch update
 bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
                                                     const QMap<QString, QVariantList> &entries,
                                                     const QString &primary)
@@ -141,6 +153,7 @@ bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
     return ok;
 }
 
+// Perform a batch delete
 bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QString &key,
                                                         const QVariantList &entries)
 {
@@ -161,12 +174,6 @@ bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QS
     }
     return ok;
 }
-
-// DatabaseManipulationInterface
-//
-// A pure virtual class that provides basic database manipulation
-// tools, like being able to initialize a database, and query
-// the user_version.
 
 AbstractSocialCacheDatabase::AbstractSocialCacheDatabase()
     : d_ptr(new AbstractSocialCacheDatabasePrivate(this))
@@ -232,7 +239,11 @@ void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QStri
         return;
     }
 
-    if (d->dbUserVersion(serviceName, dataType) < userVersion) {
+    int dbUserVersion = d->dbUserVersion(serviceName, dataType);
+    if (dbUserVersion < userVersion) {
+        qWarning() << Q_FUNC_INFO << "Version required is" << userVersion
+                   << "while database is using" << dbUserVersion;
+
         // DB needs to be recreated
         if (!dbDropTables()) {
             qWarning() << Q_FUNC_INFO << "Failed to update database" << dbFile
@@ -271,6 +282,8 @@ bool AbstractSocialCacheDatabase::dbCreatePragmaVersion(int version)
 //
 // Begin a transaction, so that insertion
 // queries can be executed quickly.
+// Transactions uses a process mutex and
+// use IMMEDIATE TRANSACTION.
 bool AbstractSocialCacheDatabase::dbBeginTransaction()
 {
     Q_D(AbstractSocialCacheDatabase);
@@ -378,6 +391,25 @@ bool AbstractSocialCacheDatabase::dbCommitTransaction()
     bool ok = query.exec();
     if (!ok) {
         qWarning() << Q_FUNC_INFO << "Failed to commit transaction. Error:"
+                   << query.lastError().text();
+    }
+
+    if (d->mutex->isLocked()) {
+        d->mutex->unlock();
+    }
+
+    return ok;
+}
+
+// Rollback a transaction
+bool AbstractSocialCacheDatabase::dbRollbackTransaction()
+{
+    Q_D(AbstractSocialCacheDatabase);
+    QSqlQuery query(d->db);
+    query.prepare(QLatin1String("ROLLBACK TRANSACTION"));
+    bool ok = query.exec();
+    if (!ok) {
+        qWarning() << Q_FUNC_INFO << "Failed to rollback transaction. Error:"
                    << query.lastError().text();
     }
 

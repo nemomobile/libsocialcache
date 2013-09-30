@@ -17,37 +17,28 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef SOCIALSYNCINTERFACE_H
-#define SOCIALSYNCINTERFACE_H
+#ifndef SOCIALNETWORKSYNCDATABASE_H
+#define SOCIALNETWORKSYNCDATABASE_H
 
-#include <QtCore/QObject>
+#include "abstractsocialcachedatabase.h"
+#include <QtCore/QDateTime>
 
-class SocialSyncInterface : public QObject
+class SocialNetworkSyncDatabasePrivate;
+class SocialNetworkSyncDatabase: public AbstractSocialCacheDatabase
 {
-    Q_OBJECT
-    Q_ENUMS(SocialNetwork)
-    Q_ENUMS(DataType)
 public:
-    enum SocialNetwork {
-        InvalidSocialNetwork,
-        Facebook,
-        Twitter
-    };
-
-    enum DataType {
-        InvalidDataType,
-        Contacts,
-        Calendars,
-        Notifications,
-        Images,
-        Videos,
-        Posts,
-        Messages,
-        Emails
-    };
-    Q_INVOKABLE static QString socialNetwork(SocialNetwork sn);
-    Q_INVOKABLE static QString dataType(DataType t);
-    static QString profileName(SocialNetwork sn, DataType t);
+    explicit SocialNetworkSyncDatabase();
+    void initDatabase();
+    QDateTime lastSyncTimestamp(const QString &serviceName, const QString &dataType,
+                                int accountId) const;
+    void addSyncTimestamp(const QString &serviceName, const QString &dataType,
+                          int accountId, const QDateTime &timestamp);
+    bool write();
+protected:
+    bool dbCreateTables();
+    bool dbDropTables();
+private:
+    Q_DECLARE_PRIVATE(SocialNetworkSyncDatabase)
 };
 
-#endif // SOCIALSYNCINTERFACE_H
+#endif // SOCIALNETWORKSYNCDATABASE_H

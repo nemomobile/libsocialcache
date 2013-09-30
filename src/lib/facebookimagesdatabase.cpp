@@ -541,16 +541,18 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
                                         "FROM images "\
                                         "INNER JOIN accounts "\
                                         "ON accounts.fbUserId = images.fbUserId%1 "\
-                                        "ORDER BY images.updatedTime DESC");
+                                        "ORDER BY images.updatedTime %2");
 
 
 
     if (!fbUserId.isEmpty()) {
-        queryString = queryString.arg(QLatin1String(" WHERE images.fbUserId = :fbUserId"));
+        queryString = queryString.arg(QLatin1String(" WHERE images.fbUserId = :fbUserId"),
+                                      QLatin1String("DESC"));
     } else if (!fbAlbumId.isEmpty()){
-        queryString = queryString.arg(QLatin1String(" WHERE images.fbAlbumId = :fbAlbumId"));
+        queryString = queryString.arg(QLatin1String(" WHERE images.fbAlbumId = :fbAlbumId"),
+                                      QString());
     } else {
-        queryString = queryString.arg(QString());
+        queryString = queryString.arg(QString(), QLatin1String("DESC"));
     }
 
     QSqlQuery query (db);
@@ -619,25 +621,30 @@ void FacebookImagesDatabase::initDatabase()
            QLatin1String(DB_NAME), VERSION);
 }
 
-void FacebookImagesDatabase::syncAccount(int accountId, const QString &fbUserId)
+bool FacebookImagesDatabase::syncAccount(int accountId, const QString &fbUserId)
 {
     Q_D(FacebookImagesDatabase);
     if (!dbBeginTransaction()) {
-        return;
+        return false;
     }
     QSqlQuery query (d->db);
     query.prepare("INSERT OR REPLACE INTO accounts (accountId, fbUserId) "\
                   "VALUES (:accountId, :fbUserId)");
     query.bindValue(":accountId", accountId);
     query.bindValue(":fbUserId", fbUserId);
-    if (!query.exec()) {
+    bool ok = query.exec();
+    if (!ok) {
         qWarning() << Q_FUNC_INFO << "Error writing accounts:" << query.lastError();
-        return;
+        dbRollbackTransaction();
+        return false;
     }
 
     if (!dbCommitTransaction()) {
-        return;
+        dbRollbackTransaction();
+        return false;
     }
+
+    return ok;
 }
 
 void FacebookImagesDatabase::purgeAccount(int accountId)
@@ -670,7 +677,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.bindValue(":accountId", accountId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean account" << accountId;
-        return;
     }
 
     // Clean users
@@ -678,7 +684,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.addBindValue(userIds);
     if (!query.execBatch()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean users for account" << accountId;
-        return;
     }
 
     // Clean albums
@@ -686,7 +691,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.addBindValue(userIds);
     if (!query.execBatch()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean albums for account" << accountId;
-        return;
     }
 
     // Clean photos
@@ -700,7 +704,6 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.addBindValue(userIds);
     if (!query.execBatch()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean photos for account" << accountId;
-        return;
     }
 
     if (!dbCommitTransaction()) {
@@ -767,6 +770,7 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     query.bindValue(":fbUserId", fbUserId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean accounts for user" << fbUserId;
+        dbRollbackTransaction();
         return;
     }
 
@@ -775,6 +779,7 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     query.bindValue(":fbUserId", fbUserId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean users for user" << fbUserId;
+        dbRollbackTransaction();
         return;
     }
 
@@ -783,7 +788,8 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     query.bindValue(":fbUserId", fbUserId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean albums for user" << fbUserId;
-        return;
+        dbRollbackTransaction();
+        return ;
     }
 
     // Clean photos
@@ -795,10 +801,12 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     query.bindValue(":fbUserId", fbUserId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean photos for user" << fbUserId;
+        dbRollbackTransaction();
         return;
     }
 
     if (!dbCommitTransaction()) {
+        dbRollbackTransaction();
         return;
     }
 }
@@ -906,6 +914,7 @@ void FacebookImagesDatabase::removeAlbum(const QString &fbAlbumId)
     query.bindValue(":fbAlbumId", fbAlbumId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean albums for album" << fbAlbumId;
+        dbRollbackTransaction();
         return;
     }
 
@@ -918,6 +927,7 @@ void FacebookImagesDatabase::removeAlbum(const QString &fbAlbumId)
     query.bindValue(":fbAlbumId", fbAlbumId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean photos for album" << fbAlbumId;
+        dbRollbackTransaction();
         return;
     }
 
@@ -1058,10 +1068,12 @@ void FacebookImagesDatabase::removeImage(const QString &fbImageId)
     query.bindValue(":fbImageId", fbImageId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to clean photos for image" << fbImageId;
+        dbRollbackTransaction();
         return;
     }
 
     if (!dbCommitTransaction()) {
+        dbRollbackTransaction();
         return;
     }
 }
@@ -1136,40 +1148,44 @@ bool FacebookImagesDatabase::write()
     qWarning() << "Queued users being updated:" << d->queuedUpdatedUsers.count();
     qWarning() << "Queued images being updated:" << d->queuedUpdatedImages.count();
 
-    bool ok = true;
     QMap<QString, QVariantList> entries;
     QStringList keys;
 
     // Start by writing new users
     d->createUsersEntries(d->queuedUsers, keys, entries);
     if (!dbWrite(QLatin1String("users"), keys, entries, InsertOrReplace)) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     // Write new albums
     d->createAlbumsEntries(d->queuedAlbums, keys, entries);
     if (!dbWrite(QLatin1String("albums"), keys, entries, InsertOrReplace)) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     // Write new images
     d->createImagesEntries(d->queuedImages, keys, entries);
     if (!dbWrite(QLatin1String("images"), keys, entries, InsertOrReplace)) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     // Write updated users
     d->createUpdatedEntries(d->queuedUpdatedUsers, QLatin1String("fbUserId"), entries);
     if (!dbWrite(QLatin1String("users"), QStringList(), entries, Update,
                  QLatin1String("fbUserId"))) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     // Write updated photos
     d->createUpdatedEntries(d->queuedUpdatedImages, QLatin1String("fbImageId"), entries);
     if (!dbWrite(QLatin1String("images"), QStringList(), entries, Update,
                  QLatin1String("fbImageId"))) {
-        ok = false;
+        dbRollbackTransaction();
+        return false;
     }
 
     if (!dbCommitTransaction()) {
@@ -1183,7 +1199,7 @@ bool FacebookImagesDatabase::write()
     d->queuedUpdatedUsers.clear();
     d->queuedUpdatedImages.clear();
 
-    return ok;
+    return true;
 }
 
 bool FacebookImagesDatabase::dbCreateTables()

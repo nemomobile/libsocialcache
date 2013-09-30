@@ -27,6 +27,13 @@
 
 #include "facebook/facebookimagecachemodel.h"
 #include "facebook/facebookimagedownloader_p.h"
+#include "facebook/facebookpostsmodel.h"
+#include "twitter/twitterpostsmodel.h"
+
+#ifndef NO_DEPS
+#include "synchelper.h"
+#include "keyproviderhelper.h"
+#endif
 
 // using custom translator so it gets properly removed from qApp when engine is deleted
 class AppTranslator: public QTranslator
@@ -80,9 +87,22 @@ public:
         qRegisterMetaType<FacebookImageDownloaderImageData>("FacebookImageDownloaderImageData");
 
         qmlRegisterType<FacebookImageCacheModel>(uri, 1, 0, "FacebookImageCacheModel");
+        qmlRegisterType<FacebookPostsModel>(uri, 1, 0, "FacebookPostsModel");
 
         qmlRegisterSingletonType<FacebookImageDownloader>(uri, 1, 0, "FacebookImageDownloader",
                                                           &facebookImageDownloader_provider);
+
+        qmlRegisterType<TwitterPostsModel>(uri, 1, 0, "TwitterPostsModel");
+
+
+
+
+#ifndef NO_DEPS
+        qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",
+                                                        QLatin1String("Cannot create"));
+        qmlRegisterType<SyncHelper>(uri, 1, 0, "SyncHelper");
+        qmlRegisterType<KeyProviderHelper>(uri, 1, 0, "KeyProviderHelper");
+#endif
     }
 };
 

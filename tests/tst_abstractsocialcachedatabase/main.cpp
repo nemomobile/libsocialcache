@@ -41,7 +41,7 @@ class DummyDatabase: public AbstractSocialCacheDatabase
 {
 public:
     explicit DummyDatabase():
-        AbstractSocialCacheDatabase()
+        AbstractSocialCacheDatabase(*(new AbstractSocialCacheDatabasePrivate(this)))
     {
         dbInit(QLatin1String("Test"),
                      QLatin1String("Test"),
