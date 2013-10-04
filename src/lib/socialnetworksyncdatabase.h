@@ -29,6 +29,7 @@ class SocialNetworkSyncDatabase: public AbstractSocialCacheDatabase
 public:
     explicit SocialNetworkSyncDatabase();
     void initDatabase();
+    QList<int> syncedAccounts(const QString &serviceName, const QString &dataType) const;
     QDateTime lastSyncTimestamp(const QString &serviceName, const QString &dataType,
                                 int accountId) const;
     void addSyncTimestamp(const QString &serviceName, const QString &dataType,

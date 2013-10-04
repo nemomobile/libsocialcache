@@ -69,6 +69,30 @@ void SocialNetworkSyncDatabase::initDatabase()
            QLatin1String(DB_NAME), VERSION);
 }
 
+QList<int> SocialNetworkSyncDatabase::syncedAccounts(const QString &serviceName,
+                                                     const QString &dataType) const
+{
+    Q_D(const SocialNetworkSyncDatabase);
+    QSqlQuery query (d->db);
+    query.prepare("SELECT DISTINCT accountId FROM syncTimestamps "\
+                  "WHERE serviceName = :serviceName "\
+                  "AND dataType = :dataType");
+    query.bindValue(":serviceName", serviceName);
+    query.bindValue(":dataType", dataType);
+    bool success = query.exec();
+    if (!success) {
+        qWarning() << "Failed to query synced accounts" << query.lastError().text();
+        return QList<int>();
+    }
+
+    QList<int> accounts;
+    while (query.next()) {
+        accounts.append(query.value(0).toInt());
+    }
+
+    return accounts;
+}
+
 QDateTime SocialNetworkSyncDatabase::lastSyncTimestamp(const QString &serviceName,
                                                        const QString &dataType,
                                                        int accountId) const
