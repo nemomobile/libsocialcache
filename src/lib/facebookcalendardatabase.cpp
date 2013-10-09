@@ -30,7 +30,7 @@ static const int VERSION = 2;
 struct FacebookEventPrivate
 {
     explicit FacebookEventPrivate(const QString &fbEventId, int accountId,
-                                     const QString &incidenceId);
+                                  const QString &incidenceId);
     QString fbEventId;
     int accountId;
     QString incidenceId;
@@ -97,6 +97,28 @@ FacebookCalendarDatabase::~FacebookCalendarDatabase()
 {
 }
 
+bool FacebookCalendarDatabase::removeEvents(int accountId)
+{
+    Q_D(FacebookCalendarDatabase);
+    if (!dbBeginTransaction()) {
+        return false;
+    }
+
+    QSqlQuery query (d->db);
+    query.prepare(QLatin1String("DELETE FROM events WHERE accountId = :accountId"));
+    query.bindValue(":accountId", accountId);
+
+    if (!query.exec()) {
+        qWarning() << Q_FUNC_INFO << "Failed to delete events" << query.lastError().text();
+        dbRollbackTransaction();
+        return false;
+    }
+
+    d->queuedEvents.clear();
+
+    return dbCommitTransaction();
+}
+
 QList<FacebookEvent::ConstPtr> FacebookCalendarDatabase::events(int accountId)
 {
     Q_D(FacebookCalendarDatabase);
@@ -135,7 +157,7 @@ bool FacebookCalendarDatabase::sync(int accountId)
 {
     Q_D(FacebookCalendarDatabase);
 
-    // We sync for one give account. We should have all the interesting
+    // We sync for one given account. We should have all the interesting
     // events queued. So we will wipe all events from the account id
     // and only add the events that are queued, and match the account id.
     if (!dbBeginTransaction()) {
@@ -156,10 +178,6 @@ bool FacebookCalendarDatabase::sync(int accountId)
     keys << QLatin1String("fbEventId") << QLatin1String("accountId")
          << QLatin1String("incidenceId");
     QMap<QString, QVariantList> data;
-    data.insert(QLatin1String("fbEventId"), QVariantList());
-    data.insert(QLatin1String("accountId"), QVariantList());
-    data.insert(QLatin1String("incidenceId"), QVariantList());
-
     foreach (const FacebookEvent::ConstPtr &event,d->queuedEvents) {
         if (event->accountId() == accountId) {
             data[QLatin1String("fbEventId")].append(event->fbEventId());
