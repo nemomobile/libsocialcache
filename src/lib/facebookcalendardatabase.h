@@ -49,6 +49,7 @@ public:
     ~FacebookCalendarDatabase();
 
     void initDatabase();
+    bool removeEvents(int accountId);
 
     QList<FacebookEvent::ConstPtr> events(int accountId);
     void addSyncedEvent(const QString &fbEventId, int accountId, const QString &incidenceId);

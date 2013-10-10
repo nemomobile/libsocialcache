@@ -452,6 +452,9 @@ bool AbstractSocialPostCacheDatabase::write()
         return false;
     }
 
+    d->queuedPosts.clear();
+    d->queuedPostsAccounts.clear();
+
     return true;
 }
 

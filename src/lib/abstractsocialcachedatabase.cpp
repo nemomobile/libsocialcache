@@ -322,8 +322,8 @@ bool AbstractSocialCacheDatabase::dbBeginTransaction()
 // contain one key and list, that is the list of keys that are used to perform
 // the deletion.
 bool AbstractSocialCacheDatabase::dbWrite(const QString &table, const QStringList &keys,
-                                            const QMap<QString, QVariantList> &entries,
-                                            QueryMode mode, const QString &primary)
+                                          const QMap<QString, QVariantList> &entries,
+                                          QueryMode mode, const QString &primary)
 {
     Q_D(AbstractSocialCacheDatabase);
     // When we have empty entries, we simply return true
