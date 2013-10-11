@@ -59,6 +59,7 @@ private slots:
 
         // Will create the database
         fbDb = new FacebookImagesDatabase();
+        fbDb->initDatabase();
 
         QString dataType = SocialSyncInterface::dataType(SocialSyncInterface::Images);
         QString dbFile = QLatin1String("facebook.db"); // DB_NAME in facebookimagesdatabase.cpp
@@ -71,50 +72,46 @@ private slots:
 
     void testAddUser()
     {
-        fbDb->addUser("a", "b", "c", "d");
+        QDateTime time1 (QDate(2013, 1, 2), QTime(12, 34, 56));
+
+        fbDb->addUser("a", time1, "c");
         QVERIFY(fbDb->write());
 
         // Check if the user has been written
         QSqlQuery query (*checkDb);
-        query.prepare("SELECT fbUserId, updatedTime, userName, thumbnailUrl, thumbnailFile "\
+        query.prepare("SELECT fbUserId, updatedTime, userName "\
                       "FROM users");
         QVERIFY(query.exec());
         QVERIFY(query.next());
         QCOMPARE(query.value(0).toString(), QLatin1String("a"));
-        QCOMPARE(query.value(1).toString(), QLatin1String("b"));
+        QCOMPARE(query.value(1).toUInt(), time1.toTime_t());
         QCOMPARE(query.value(2).toString(), QLatin1String("c"));
-        QCOMPARE(query.value(3).toString(), QLatin1String("d"));
-        QVERIFY(query.value(4).isNull());
         QVERIFY(!query.next());
 
         // Check if we can retrieve the user
         FacebookUser::ConstPtr user = fbDb->user(QLatin1String("a"));
         QCOMPARE(user->fbUserId(), QLatin1String("a"));
-        QCOMPARE(user->updatedTime(), QLatin1String("b"));
+        QCOMPARE(user->updatedTime(), time1);
         QCOMPARE(user->userName(), QLatin1String("c"));
-        QCOMPARE(user->thumbnailUrl(), QLatin1String("d"));
-        QVERIFY(user->thumbnailFile().isNull());
         QCOMPARE(user->count(), -1);
 
+        QDateTime time2 (QDate(2012, 3, 4), QTime(10, 11, 12));
+
         // Let's write another user
-        fbDb->addUser("e", "f", "g", "h");
+        fbDb->addUser("d", time2, "f");
         QVERIFY(fbDb->write());
 
         // Check if we can retrieve everybody
         QList<FacebookUser::ConstPtr> users = fbDb->users();
         QCOMPARE(users.count(), 2);
         QCOMPARE(users[0]->fbUserId(), QLatin1String("a"));
-        QCOMPARE(users[0]->updatedTime(), QLatin1String("b"));
+        QCOMPARE(users[0]->updatedTime(), time1);
         QCOMPARE(users[0]->userName(), QLatin1String("c"));
-        QCOMPARE(users[0]->thumbnailUrl(), QLatin1String("d"));
-        QVERIFY(users[0]->thumbnailFile().isNull());
         QCOMPARE(users[0]->count(), 0);
 
-        QCOMPARE(users[1]->fbUserId(), QLatin1String("e"));
-        QCOMPARE(users[1]->updatedTime(), QLatin1String("f"));
-        QCOMPARE(users[1]->userName(), QLatin1String("g"));
-        QCOMPARE(users[1]->thumbnailUrl(), QLatin1String("h"));
-        QVERIFY(users[1]->thumbnailFile().isNull());
+        QCOMPARE(users[1]->fbUserId(), QLatin1String("d"));
+        QCOMPARE(users[1]->updatedTime(), time2);
+        QCOMPARE(users[1]->userName(), QLatin1String("f"));
         QCOMPARE(users[1]->count(), 0);
 
         FacebookImageCacheModel model;

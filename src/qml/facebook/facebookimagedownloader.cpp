@@ -131,9 +131,6 @@ void FacebookImageDownloaderWorkerObject::slotImageDownloaded()
 
     // Update database
     switch (data.type) {
-        case FacebookImageDownloaderImageData::User:
-            updateUserThumbnail(data.identifier, newName);
-            break;
         case FacebookImageDownloaderImageData::Image:
             switch (data.imageType) {
             case FacebookImageDownloaderImageData::ThumbnailImage:
