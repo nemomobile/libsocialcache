@@ -148,11 +148,12 @@ public:
                   const QString &updatedTime, const QString &albumName, int imageCount,
                   const QString &coverImageId);
     void removeAlbum(const QString &fbAlbumId);
+    void removeAlbums(const QStringList &fbAlbumIds);
     QList<FacebookAlbum::ConstPtr> albums(const QString &fbUserId = QString());
 
     // Images cache manipulation
     QStringList allImageIds(bool *ok = 0) const;
-    QStringList imagesId(const QString &fbAlbumId, bool *ok = 0) const;
+    QStringList imageIds(const QString &fbAlbumId, bool *ok = 0) const;
     FacebookImage::ConstPtr image(const QString &fbImageId) const;
     void addImage(const QString & fbImageId, const QString & fbAlbumId,
                   const QString & fbUserId, const QString & createdTime,
@@ -162,6 +163,7 @@ public:
     void updateImageThumbnail(const QString &fbImageId, const QString &thumbnailFile);
     void updateImageFile(const QString &fbImageId, const QString &imageFile);
     void removeImage(const QString &fbImageId);
+    void removeImages(const QStringList &fbImageIds);
     QList<FacebookImage::ConstPtr> userImages(const QString &fbUserId = QString());
     QList<FacebookImage::ConstPtr> albumImages(const QString &fbAlbumId);
 
