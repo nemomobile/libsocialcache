@@ -25,7 +25,7 @@
 #include <QtSql/QSqlError>
 
 static const char *DB_NAME = "facebook.db";
-static const int VERSION = 2;
+static const int VERSION = 3;
 
 struct FacebookEventPrivate
 {
@@ -208,9 +208,9 @@ bool FacebookCalendarDatabase::dbCreateTables()
     // events = fbEventId, fbUserId, incidenceId
     QSqlQuery query(d->db);
     query.prepare( "CREATE TABLE IF NOT EXISTS events ("
-                   "fbEventId VARCHAR(50),"
+                   "fbEventId TEXT,"
                    "accountId INTEGER,"
-                   "incidenceId VARCHAR(50),"
+                   "incidenceId TEXT,"
                    "CONSTRAINT id PRIMARY KEY (fbEventId, accountId))");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create events table:" << query.lastError().text();

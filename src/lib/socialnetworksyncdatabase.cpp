@@ -28,8 +28,8 @@
 
 static const char *SERVICE_NAME = "Sync";
 static const char *DATA_TYPE = "Sync";
-static const char *DB_NAME = "sociald-sync.db"; // TODO: temporary, not to clash with old db
-static const int VERSION = 2;
+static const char *DB_NAME = "sociald-sync.db";
+static const int VERSION = 3;
 
 struct SocialNetworkSyncData
 {
@@ -179,9 +179,9 @@ bool SocialNetworkSyncDatabase::dbCreateTables()
     // Create the sociald db tables
     // syncTimestamps = id, accountId, service, dataType, syncTimestamp
     query.prepare("CREATE TABLE IF NOT EXISTS syncTimestamps ("\
-                  "accountId VARCHAR(50), "\
-                  "serviceName VARCHAR(20), "\
-                  "dataType VARCHAR(16), "\
+                  "accountId TEXT, "\
+                  "serviceName TEXT, "\
+                  "dataType TEXT, "\
                   "syncTimestamp INTEGER, "\
                   "CONSTRAINT id PRIMARY KEY (accountId, serviceName, dataType))");
     if (!query.exec()) {
