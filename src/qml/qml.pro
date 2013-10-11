@@ -29,12 +29,13 @@ SOURCES += synchelper.cpp \
 HEADERS += \
     abstractsocialcachemodel.h \
     abstractsocialcachemodel_p.h \
+    postimagehelper_p.h \
     facebook/facebookimagecachemodel.h \
     facebook/facebookimagedownloader.h \
     facebook/facebookimagedownloader_p.h \
+    facebook/facebookimagedownloaderconstants_p.h \
     facebook/facebookpostsmodel.h \
-    twitter/twitterpostsmodel.h \
-    postimagehelper_p.h
+    twitter/twitterpostsmodel.h
 
 SOURCES += plugin.cpp \
     abstractsocialcachemodel.cpp \
