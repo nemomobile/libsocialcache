@@ -107,11 +107,6 @@ void FacebookImageWorkerObject::refresh()
                 const FacebookUser::ConstPtr & userData = usersData.at(i);
                 QMap<int, QVariant> userMap;
                 userMap.insert(FacebookImageCacheModel::FacebookId, userData->fbUserId());
-                if (userData->thumbnailFile().isEmpty()) {
-                    // TODO: do something here as we might have to display
-                    // the portrait of the user instead of nothing.
-                }
-                userMap.insert(FacebookImageCacheModel::Thumbnail, userData->thumbnailFile());
                 userMap.insert(FacebookImageCacheModel::Title, userData->userName());
                 userMap.insert(FacebookImageCacheModel::Count, userData->count());
                 data.append(userMap);
@@ -267,9 +262,6 @@ void FacebookImageCacheModelPrivate::slotDataUpdated(const QString &url, const Q
         }
 
         switch (entry.type) {
-            case FacebookImageDownloaderImageData::User:
-                data[row].insert(FacebookImageCacheModel::Thumbnail, path);
-                break;
             case FacebookImageDownloaderImageData::Image:
                 switch (entry.imageType) {
                 case FacebookImageDownloaderImageData::ThumbnailImage:
