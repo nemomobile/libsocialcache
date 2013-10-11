@@ -17,24 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef FACEBOOKIMAGEDOWNLOADER_H
-#define FACEBOOKIMAGEDOWNLOADER_H
+#ifndef FACEBOOKIMAGEDOWNLOADERCONSTANTS_P_H
+#define FACEBOOKIMAGEDOWNLOADERCONSTANTS_P_H
 
-#include <QtCore/QObject>
+static const char *IDENTIFIER_KEY = "identifier";
+static const char *TYPE_KEY = "type";
 
-class FacebookImageDownloaderWorkerObject;
-class FacebookImageDownloaderPrivate;
-class FacebookImageDownloader : public QObject
-{
-    Q_OBJECT
-public:
-    explicit FacebookImageDownloader(QObject *parent = 0);
-    virtual ~FacebookImageDownloader();
-    FacebookImageDownloaderWorkerObject * workerObject() const;
-protected:
-    QScopedPointer<FacebookImageDownloaderPrivate> d_ptr;
-private:
-    Q_DECLARE_PRIVATE(FacebookImageDownloader)
-};
-
-#endif // FACEBOOKIMAGEDOWNLOADER_H
+#endif // FACEBOOKIMAGEDOWNLOADERCONSTANTS_P_H

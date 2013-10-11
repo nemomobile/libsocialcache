@@ -21,75 +21,47 @@
 #define FACEBOOKIMAGEDOWNLOADER_P_H
 
 #include <QtCore/QObject>
-#include <QtCore/QMetaType>
 #include <QtCore/QThread>
-#include <QtCore/QSet>
+#include "abstractimagedownloader.h"
 #include "facebookimagesdatabase.h"
 
 // We try to minimize the use of signals and slots exposed to QML,
 // so we FacebookImageDownloader only expose one method in C++.
 // This method exposes the FacebookImageDownloaderWorkerObject.
 //
-// The FacebookImageDownloaderWorkerObject is used to perform
-// download of Facebook images, and notify that images are downloaded,
-// so that models can be notified and be changed.
-//
-// This object lives in a different thread, so it should communicates
-// with other objects using signals and slots. The important signals
-// and slots are FacebookImageDownloaderWorkerObject::queue and
-// FacebookImageDownloaderWorkerObject::dataUpdated.
+// FacebookImageDownloaderWorkerObject is a subclass of AbstractImagesDownloader,
+// and is an image downloader object. It lives in it's own low priority thread.
 //
 // The call path that is being done is
 // FacebookImageWorkerObject::refresh calls FacebookImageWorkerObject::queue.
 // This triggers an emission of requestQueue. This signal is connected to
 // FacebookImageDownloaderWorkerObject::queue, so FacebookImageDownloaderWorkerObject
 // starts downloading data. When data is downloaded,
-// FacebookImageDownloaderWorkerObject::dataUpdated is sent, and triggers
+// FacebookImageDownloaderWorkerObject::imageDownloaded is sent, and triggers
 // FacebookImageCacheModelPrivate::slotDataUpdated that changes the model.
 //
 // Basically we communicates between internal objects, and never touch the
 // QML API.
-struct FacebookImageDownloaderImageData
-{
-    enum Type {
-        User,
-        Album,
-        Image
-    };
-    enum ImageType {
-        ThumbnailImage,
-        FullImage
-    };
-    Type type;
-    ImageType imageType;
-    QString identifier;
-    QString url;
-};
 
-Q_DECLARE_METATYPE(FacebookImageDownloaderImageData)
-
-bool operator==(const FacebookImageDownloaderImageData &data1,
-                const FacebookImageDownloaderImageData &data2);
-
-class QNetworkAccessManager;
-class QNetworkReply;
-class FacebookImageDownloaderWorkerObject: public QObject, private FacebookImagesDatabase
+class FacebookImageDownloaderWorkerObject: public AbstractImageDownloader
 {
     Q_OBJECT
 public:
+    enum ImageType {
+        InvalidImage,
+        ThumbnailImage,
+        FullImage
+    };
+
     explicit FacebookImageDownloaderWorkerObject();
-public Q_SLOTS:
-    void queue(const FacebookImageDownloaderImageData &data);
-Q_SIGNALS:
-    void dataUpdated(const QString &url, const QString &path);
+protected:
+    QString outputFile(const QString &url, const QVariantMap &data) const;
+    bool dbInit();
+    void dbQueueImage(const QString &url, const QVariantMap &data, const QString &file);
+    void dbWrite();
 private:
-    void manageStack();
-    QNetworkAccessManager *m_networkAccessManager;
-    QMap<QNetworkReply *, FacebookImageDownloaderImageData> m_runningReplies;
-    QList<FacebookImageDownloaderImageData> m_stack;
-    int m_loadedCount;
-private slots:
-    void slotImageDownloaded();
+    bool m_initialized;
+    FacebookImagesDatabase m_db;
 };
 
 class AbstractSocialCacheModel;
@@ -104,7 +76,7 @@ protected:
     FacebookImageDownloader * const q_ptr;
 private:
     QThread m_workerThread;
-    FacebookImageDownloaderWorkerObject * workerObject;
+    FacebookImageDownloaderWorkerObject *m_workerObject;
     Q_DECLARE_PUBLIC(FacebookImageDownloader)
 };
 

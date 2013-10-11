@@ -14,6 +14,7 @@ target.path = $$INSTALL_ROOT$$PREFIX/lib
 HEADERS = \
     semaphore_p.h \
     socialsyncinterface.h \
+    abstractimagedownloader.h \
     abstractsocialcachedatabase.h \
     abstractsocialcachedatabase_p.h \
     abstractsocialpostcachedatabase.h \
@@ -27,6 +28,7 @@ HEADERS = \
 SOURCES = \
     semaphore_p.cpp \
     socialsyncinterface.cpp \
+    abstractimagedownloader.cpp \
     abstractsocialcachedatabase.cpp \
     abstractsocialpostcachedatabase.cpp \
     socialnetworksyncdatabase.cpp \
