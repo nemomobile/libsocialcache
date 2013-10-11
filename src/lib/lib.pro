@@ -20,6 +20,7 @@ HEADERS = \
     socialnetworksyncdatabase.h \
     facebookimagesdatabase.h \
     facebookcalendardatabase.h \
+    facebookcontactsdatabase.h \
     facebookpostsdatabase.h \
     twitterpostsdatabase.h
 
@@ -31,6 +32,7 @@ SOURCES = \
     socialnetworksyncdatabase.cpp \
     facebookimagesdatabase.cpp \
     facebookcalendardatabase.cpp \
+    facebookcontactsdatabase.cpp \
     facebookpostsdatabase.cpp \
     twitterpostsdatabase.cpp
 
