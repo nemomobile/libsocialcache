@@ -26,38 +26,31 @@
 #include <QtCore/QFile>
 
 static const char *DB_NAME = "facebook.db";
-static const int VERSION = 2;
+static const int VERSION = 3;
 
 static const char *THUMBNAIL_FILE_KEY = "thumbnailFile";
 static const char *IMAGE_FILE_KEY = "imageFile";
 
 struct FacebookUserPrivate
 {
-    explicit FacebookUserPrivate(const QString &fbUserId, const QString &updatedTime,
-                                 const QString &userName, const QString &thumbnailUrl,
-                                 const QString &thumbnailFile, int count = -1);
+    explicit FacebookUserPrivate(const QString &fbUserId, const QDateTime &updatedTime,
+                                 const QString &userName, int count = -1);
     QString fbUserId;
-    QString updatedTime;
+    QDateTime updatedTime;
     QString userName;
-    QString thumbnailUrl;
-    QString thumbnailFile;
     int count;
 };
 
-FacebookUserPrivate::FacebookUserPrivate(const QString &fbUserId, const QString &updatedTime,
-                                         const QString &userName, const QString &thumbnailUrl,
-                                         const QString &thumbnailFile, int count)
-    : fbUserId(fbUserId), updatedTime(updatedTime), userName(userName)
-    , thumbnailUrl(thumbnailUrl), thumbnailFile(thumbnailFile), count(count)
+FacebookUserPrivate::FacebookUserPrivate(const QString &fbUserId, const QDateTime &updatedTime,
+                                         const QString &userName, int count)
+    : fbUserId(fbUserId), updatedTime(updatedTime), userName(userName), count(count)
 {
 
 }
 
-FacebookUser::FacebookUser(const QString &fbUserId, const QString &updatedTime,
-                           const QString &userName, const QString &thumbnailUrl,
-                           const QString &thumbnailFile, int count)
-    : d_ptr(new FacebookUserPrivate(fbUserId, updatedTime, userName, thumbnailUrl,
-                                    thumbnailFile, count))
+FacebookUser::FacebookUser(const QString &fbUserId, const QDateTime &updatedTime,
+                           const QString &userName, int count)
+    : d_ptr(new FacebookUserPrivate(fbUserId, updatedTime, userName, count))
 {
 }
 
@@ -65,12 +58,10 @@ FacebookUser::~FacebookUser()
 {
 }
 
-FacebookUser::Ptr FacebookUser::create(const QString &fbUserId, const QString &updatedTime,
-                                       const QString &userName, const QString &thumbnailUrl,
-                                       const QString &thumbnailFile, int count)
+FacebookUser::Ptr FacebookUser::create(const QString &fbUserId, const QDateTime &updatedTime,
+                                       const QString &userName, int count)
 {
-    return FacebookUser::Ptr(new FacebookUser(fbUserId, updatedTime, userName, thumbnailUrl,
-                                              thumbnailFile, count));
+    return FacebookUser::Ptr(new FacebookUser(fbUserId, updatedTime, userName, count));
 }
 
 QString FacebookUser::fbUserId() const
@@ -79,7 +70,7 @@ QString FacebookUser::fbUserId() const
     return d->fbUserId;
 }
 
-QString FacebookUser::updatedTime() const
+QDateTime FacebookUser::updatedTime() const
 {
     Q_D(const FacebookUser);
     return d->updatedTime;
@@ -91,18 +82,6 @@ QString FacebookUser::userName() const
     return d->userName;
 }
 
-QString FacebookUser::thumbnailUrl() const
-{
-    Q_D(const FacebookUser);
-    return d->thumbnailUrl;
-}
-
-QString FacebookUser::thumbnailFile() const
-{
-    Q_D(const FacebookUser);
-    return d->thumbnailFile;
-}
-
 int FacebookUser::count() const
 {
     Q_D(const FacebookUser);
@@ -112,38 +91,30 @@ int FacebookUser::count() const
 struct FacebookAlbumPrivate
 {
     explicit FacebookAlbumPrivate(const QString &fbAlbumId, const QString &fbUserId,
-                                  const QString &createdTime, const QString &updatedTime,
-                                  const QString &albumName, int imageCount,
-                                  const QString &coverImageId, const QString &thumbnailFile);
+                                  const QDateTime &createdTime, const QDateTime &updatedTime,
+                                  const QString &albumName, int imageCount);
     QString fbAlbumId;
     QString fbUserId;
-    QString createdTime;
-    QString updatedTime;
+    QDateTime createdTime;
+    QDateTime updatedTime;
     QString albumName;
     int imageCount;
-    QString coverImageId;
-    QString thumbnailFile;
 };
 
 FacebookAlbumPrivate::FacebookAlbumPrivate(const QString &fbAlbumId, const QString &fbUserId,
-                                           const QString &createdTime, const QString &updatedTime,
-                                           const QString &albumName, int imageCount,
-                                           const QString &coverImageId,
-                                           const QString &thumbnailFile)
+                                           const QDateTime &createdTime, const QDateTime &updatedTime,
+                                           const QString &albumName, int imageCount)
     : fbAlbumId(fbAlbumId), fbUserId(fbUserId), createdTime(createdTime)
     , updatedTime(updatedTime), albumName(albumName), imageCount(imageCount)
-    , coverImageId(coverImageId), thumbnailFile(thumbnailFile)
 {
 
 }
 
 FacebookAlbum::FacebookAlbum(const QString &fbAlbumId, const QString &fbUserId,
-                             const QString &createdTime, const QString &updatedTime,
-                             const QString &albumName, int imageCount, const QString &coverImageId,
-                             const QString &thumbnailFile)
+                             const QDateTime &createdTime, const QDateTime &updatedTime,
+                             const QString &albumName, int imageCount)
     : d_ptr(new FacebookAlbumPrivate(fbAlbumId, fbUserId, createdTime, updatedTime,
-                                     albumName, imageCount, coverImageId,
-                                     thumbnailFile))
+                                     albumName, imageCount))
 {
 }
 
@@ -152,13 +123,11 @@ FacebookAlbum::~FacebookAlbum()
 }
 
 FacebookAlbum::Ptr FacebookAlbum::create(const QString &fbAlbumId, const QString &fbUserId,
-                                         const QString &createdTime, const QString &updatedTime,
-                                         const QString &albumName, int imageCount,
-                                         const QString &coverImageId, const QString &thumbnailFile)
+                                         const QDateTime &createdTime, const QDateTime &updatedTime,
+                                         const QString &albumName, int imageCount)
 {
     return FacebookAlbum::Ptr(new FacebookAlbum(fbAlbumId, fbUserId, createdTime, updatedTime,
-                                                albumName, imageCount, coverImageId,
-                                                thumbnailFile));
+                                                albumName, imageCount));
 }
 
 QString FacebookAlbum::fbAlbumId() const
@@ -173,13 +142,13 @@ QString FacebookAlbum::fbUserId() const
     return d->fbUserId;
 }
 
-QString FacebookAlbum::createdTime() const
+QDateTime FacebookAlbum::createdTime() const
 {
     Q_D(const FacebookAlbum);
     return d->createdTime;
 }
 
-QString FacebookAlbum::updatedTime() const
+QDateTime FacebookAlbum::updatedTime() const
 {
     Q_D(const FacebookAlbum);
     return d->updatedTime;
@@ -197,31 +166,19 @@ int FacebookAlbum::imageCount() const
     return d->imageCount;
 }
 
-QString FacebookAlbum::coverImageId() const
-{
-    Q_D(const FacebookAlbum);
-    return d->coverImageId;
-}
-
-QString FacebookAlbum::thumbnailFile() const
-{
-    Q_D(const FacebookAlbum);
-    return d->thumbnailFile;
-}
-
 struct FacebookImagePrivate
 {
     explicit FacebookImagePrivate(const QString &fbImageId, const QString &fbAlbumId,
-                                  const QString &fbUserId, const QString &createdTime,
-                                  const QString &updatedTime, const QString &imageName,
+                                  const QString &fbUserId, const QDateTime &createdTime,
+                                  const QDateTime &updatedTime, const QString &imageName,
                                   int width, int height, const QString &thumbnailUrl,
                                   const QString &imageUrl, const QString &thumbnailFile,
                                   const QString &imageFile, int account = -1);
     QString fbImageId;
     QString fbAlbumId;
     QString fbUserId;
-    QString createdTime;
-    QString updatedTime;
+    QDateTime createdTime;
+    QDateTime updatedTime;
     QString imageName;
     int width;
     int height;
@@ -233,8 +190,8 @@ struct FacebookImagePrivate
 };
 
 FacebookImagePrivate::FacebookImagePrivate(const QString &fbImageId, const QString &fbAlbumId,
-                                           const QString &fbUserId, const QString &createdTime,
-                                           const QString &updatedTime, const QString &imageName,
+                                           const QString &fbUserId, const QDateTime &createdTime,
+                                           const QDateTime &updatedTime, const QString &imageName,
                                            int width, int height, const QString &thumbnailUrl,
                                            const QString &imageUrl, const QString &thumbnailFile,
                                            const QString &imageFile, int account)
@@ -246,8 +203,8 @@ FacebookImagePrivate::FacebookImagePrivate(const QString &fbImageId, const QStri
 }
 
 FacebookImage::FacebookImage(const QString &fbImageId, const QString &fbAlbumId,
-                             const QString &fbUserId, const QString &createdTime,
-                             const QString &updatedTime, const QString &imageName,
+                             const QString &fbUserId, const QDateTime &createdTime,
+                             const QDateTime &updatedTime, const QString &imageName,
                              int width, int height, const QString &thumbnailUrl,
                              const QString &imageUrl, const QString &thumbnailFile,
                              const QString &imageFile, int account)
@@ -263,8 +220,8 @@ FacebookImage::~FacebookImage()
 }
 
 FacebookImage::Ptr FacebookImage::create(const QString &fbImageId, const QString &fbAlbumId,
-                                         const QString &fbUserId, const QString &createdTime,
-                                         const QString &updatedTime, const QString &imageName,
+                                         const QString &fbUserId, const QDateTime &createdTime,
+                                         const QDateTime &updatedTime, const QString &imageName,
                                          int width, int height, const QString &thumbnailUrl,
                                          const QString &imageUrl, const QString &thumbnailFile,
                                          const QString &imageFile, int account)
@@ -293,13 +250,13 @@ QString FacebookImage::fbUserId() const
     return d->fbUserId;
 }
 
-QString FacebookImage::createdTime() const
+QDateTime FacebookImage::createdTime() const
 {
     Q_D(const FacebookImage);
     return d->createdTime;
 }
 
-QString FacebookImage::updatedTime() const
+QDateTime FacebookImage::updatedTime() const
 {
     Q_D(const FacebookImage);
     return d->updatedTime;
@@ -392,17 +349,14 @@ void FacebookImagesDatabasePrivate::createUsersEntries(const QMap<QString, Faceb
 {
     keys.clear();
     keys << QLatin1String("fbUserId") << QLatin1String("updatedTime")
-         << QLatin1String("userName") << QLatin1String("thumbnailUrl")
-         << QLatin1String("thumbnailFile");
+         << QLatin1String("userName");
 
     entries.clear();
 
     foreach (const FacebookUser::ConstPtr &user, users) {
         entries[QLatin1String("fbUserId")].append(user->fbUserId());
-        entries[QLatin1String("updatedTime")].append(user->updatedTime());
+        entries[QLatin1String("updatedTime")].append(user->updatedTime().toTime_t());
         entries[QLatin1String("userName")].append(user->userName());
-        entries[QLatin1String("thumbnailUrl")].append(user->thumbnailUrl());
-        entries[QLatin1String("thumbnailFile")].append(user->thumbnailFile());
     }
 }
 
@@ -413,20 +367,16 @@ void FacebookImagesDatabasePrivate::createAlbumsEntries(const QMap<QString, Face
     keys.clear();
     keys << QLatin1String("fbAlbumId") << QLatin1String("fbUserId")
          << QLatin1String("createdTime") << QLatin1String("updatedTime")
-         << QLatin1String("albumName") << QLatin1String("imageCount")
-         << QLatin1String("coverImageId") << QLatin1String("thumbnailFile");
-
+         << QLatin1String("albumName") << QLatin1String("imageCount");
     entries.clear();
 
     foreach (const FacebookAlbum::ConstPtr &album, albums) {
         entries[QLatin1String("fbAlbumId")].append(album->fbAlbumId());
         entries[QLatin1String("fbUserId")].append(album->fbUserId());
-        entries[QLatin1String("createdTime")].append(album->createdTime());
-        entries[QLatin1String("updatedTime")].append(album->updatedTime());
+        entries[QLatin1String("createdTime")].append(album->createdTime().toTime_t());
+        entries[QLatin1String("updatedTime")].append(album->updatedTime().toTime_t());
         entries[QLatin1String("albumName")].append(album->albumName());
         entries[QLatin1String("imageCount")].append(album->imageCount());
-        entries[QLatin1String("coverImageId")].append(album->coverImageId());
-        entries[QLatin1String("thumbnailFile")].append(album->thumbnailFile());
     }
 }
 
@@ -447,8 +397,8 @@ void FacebookImagesDatabasePrivate::createImagesEntries(const QMap<QString, Face
         entries[QLatin1String("fbImageId")].append(image->fbImageId());
         entries[QLatin1String("fbAlbumId")].append(image->fbAlbumId());
         entries[QLatin1String("fbUserId")].append(image->fbUserId());
-        entries[QLatin1String("createdTime")].append(image->createdTime());
-        entries[QLatin1String("updatedTime")].append(image->updatedTime());
+        entries[QLatin1String("createdTime")].append(image->createdTime().toTime_t());
+        entries[QLatin1String("updatedTime")].append(image->updatedTime().toTime_t());
         entries[QLatin1String("imageName")].append(image->imageName());
         entries[QLatin1String("width")].append(image->width());
         entries[QLatin1String("height")].append(image->height());
@@ -571,8 +521,10 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
 
     while (query.next()) {
         data.append(FacebookImage::create(query.value(0).toString(), query.value(1).toString(),
-                                          query.value(2).toString(), query.value(3).toString(),
-                                          query.value(4).toString(), query.value(5).toString(),
+                                          query.value(2).toString(),
+                                          QDateTime::fromTime_t(query.value(3).toUInt()),
+                                          QDateTime::fromTime_t(query.value(4).toUInt()),
+                                          query.value(5).toString(),
                                           query.value(6).toInt(), query.value(7).toInt(),
                                           query.value(8).toString(), query.value(9).toString(),
                                           query.value(10).toString(), query.value(11).toString(),
@@ -717,7 +669,7 @@ FacebookUser::ConstPtr FacebookImagesDatabase::user(const QString &fbUserId) con
 {
     Q_D(const FacebookImagesDatabase);
     QSqlQuery query(d->db);
-    query.prepare("SELECT fbUserId, updatedTime, userName, thumbnailUrl, thumbnailFile "\
+    query.prepare("SELECT fbUserId, updatedTime, userName "\
                   "FROM users WHERE fbUserId = :fbUserId");
     query.bindValue(":fbUserId", fbUserId);
     if (!query.exec()) {
@@ -730,30 +682,18 @@ FacebookUser::ConstPtr FacebookImagesDatabase::user(const QString &fbUserId) con
         return FacebookUser::Ptr();
     }
 
-    return FacebookUser::create(query.value(0).toString(),  query.value(1).toString(),
-                                query.value(2).toString(), query.value(3).toString(),
-                                query.value(4).toString());
+    return FacebookUser::create(query.value(0).toString(),
+                                QDateTime::fromTime_t(query.value(1).toUInt()),
+                                query.value(2).toString());
 }
 
-void FacebookImagesDatabase::addUser(const QString &fbUserId, const QString &updatedTime,
-                                     const QString &userName, const QString &thumbnailUrl)
+void FacebookImagesDatabase::addUser(const QString &fbUserId, const QDateTime &updatedTime,
+                                     const QString &userName)
 {
     Q_D(FacebookImagesDatabase);
-    FacebookUser::Ptr user = FacebookUser::create(fbUserId, updatedTime, userName, thumbnailUrl,
-                                                  QString());
+    FacebookUser::Ptr user = FacebookUser::create(fbUserId, updatedTime, userName);
     if (!d->queuedUsers.contains(fbUserId)) {
         d->queuedUsers.insert(fbUserId, user);
-    }
-}
-
-void FacebookImagesDatabase::updateUserThumbnail(const QString &fbUserId,
-                                                 const QString &thumbnailFile)
-{
-    Q_D(FacebookImagesDatabase);
-    if (!d->queuedUpdatedUsers.contains(fbUserId)) {
-        QMap<QString, QVariant> data;
-        data.insert(QLatin1String(THUMBNAIL_FILE_KEY), thumbnailFile);
-        d->queuedUpdatedUsers.insert(fbUserId, data);
     }
 }
 
@@ -818,7 +758,7 @@ QList<FacebookUser::ConstPtr> FacebookImagesDatabase::users() const
 
     QSqlQuery query (d->db);
     query.prepare("SELECT users.fbUserId, users.updatedTime, users.userName, "\
-                  "users.thumbnailUrl, users.thumbnailFile, COUNT(fbImageId) as count "\
+                  "COUNT(fbImageId) as count "\
                   "FROM users "\
                   "LEFT JOIN images ON images.fbUserId = users.fbUserId "\
                   "GROUP BY users.fbUserId "\
@@ -829,9 +769,9 @@ QList<FacebookUser::ConstPtr> FacebookImagesDatabase::users() const
     }
 
     while (query.next()) {
-        data.append(FacebookUser::create(query.value(0).toString(), query.value(1).toString(),
-                                         query.value(2).toString(), query.value(3).toString(),
-                                         query.value(4).toString(), query.value(5).toInt()));
+        data.append(FacebookUser::create(query.value(0).toString(),
+                                         QDateTime::fromTime_t(query.value(1).toUInt()),
+                                         query.value(2).toString(), query.value(3).toInt()));
     }
 
     return data;
@@ -882,20 +822,18 @@ FacebookAlbum::ConstPtr FacebookImagesDatabase::album(const QString &fbAlbumId) 
     }
 
     return FacebookAlbum::create(query.value(0).toString(),  query.value(1).toString(),
-                                 query.value(2).toString(), query.value(3).toString(),
-                                 query.value(4).toString(), query.value(5).toInt(),
-                                 query.value(6).toString(), query.value(7).toString());
+                                 QDateTime::fromTime_t(query.value(2).toUInt()),
+                                 QDateTime::fromTime_t(query.value(3).toUInt()),
+                                 query.value(4).toString(), query.value(5).toInt());
 }
 
 void FacebookImagesDatabase::addAlbum(const QString &fbAlbumId, const QString &fbUserId,
-                                      const QString &createdTime, const QString &updatedTime,
-                                      const QString &albumName, int imageCount, const QString
-                                      &coverImageId)
+                                      const QDateTime &createdTime, const QDateTime &updatedTime,
+                                      const QString &albumName, int imageCount)
 {
     Q_D(FacebookImagesDatabase);
     FacebookAlbum::Ptr album = FacebookAlbum::create(fbAlbumId, fbUserId, createdTime,
-                                                     updatedTime, albumName, imageCount,
-                                                     coverImageId, QString());
+                                                     updatedTime, albumName, imageCount);
     if (!d->queuedAlbums.contains(fbAlbumId)) {
         d->queuedAlbums.insert(fbAlbumId, album);
     }
@@ -983,7 +921,7 @@ QList<FacebookAlbum::ConstPtr> FacebookImagesDatabase::albums(const QString &fbU
     QList<FacebookAlbum::ConstPtr> data;
 
     QString queryString = QLatin1String("SELECT fbAlbumId, fbUserId, createdTime, updatedTime, "\
-                                        "albumName, imageCount, coverImageId, thumbnailFile "\
+                                        "albumName, imageCount "\
                                         "FROM albums%1 ORDER BY updatedTime DESC");
     if (!fbUserId.isEmpty()) {
         queryString = queryString.arg(QLatin1String(" WHERE fbUserId = :fbUserId"));
@@ -1004,9 +942,9 @@ QList<FacebookAlbum::ConstPtr> FacebookImagesDatabase::albums(const QString &fbU
 
     while (query.next()) {
         data.append(FacebookAlbum::create(query.value(0).toString(), query.value(1).toString(),
-                                          query.value(2).toString(), query.value(3).toString(),
-                                          query.value(4).toString(), query.value(5).toInt(),
-                                          query.value(6).toString(), query.value(7).toString()));
+                                          QDateTime::fromTime_t(query.value(2).toUInt()),
+                                          QDateTime::fromTime_t(query.value(3).toUInt()),
+                                          query.value(4).toString(), query.value(5).toInt()));
     }
 
     return data;
@@ -1085,8 +1023,10 @@ FacebookImage::ConstPtr FacebookImagesDatabase::image(const QString &fbImageId) 
     }
 
     return FacebookImage::create(query.value(0).toString(),  query.value(1).toString(),
-                                 query.value(2).toString(), query.value(3).toString(),
-                                 query.value(4).toString(), query.value(5).toString(),
+                                 query.value(2).toString(),
+                                 QDateTime::fromTime_t(query.value(3).toUInt()),
+                                 QDateTime::fromTime_t(query.value(4).toUInt()),
+                                 query.value(5).toString(),
                                  query.value(6).toInt(), query.value(7).toInt(),
                                  query.value(8).toString(), query.value(9).toString(),
                                  query.value(10).toString(), query.value(11).toString());
@@ -1168,8 +1108,8 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabase::albumImages(const QString
 
 
 void FacebookImagesDatabase::addImage(const QString &fbImageId, const QString &fbAlbumId,
-                                      const QString &fbUserId, const QString &createdTime,
-                                      const QString &updatedTime, const QString &imageName,
+                                      const QString &fbUserId, const QDateTime &createdTime,
+                                      const QDateTime &updatedTime, const QString &imageName,
                                       int width, int height, const QString &thumbnailUrl,
                                       const QString &imageUrl)
 {
@@ -1289,18 +1229,18 @@ bool FacebookImagesDatabase::dbCreateTables()
     // users = fbUserId, updatedTime, userName, thumbnailUrl, imageUrl, thumbnailFile, imageFile
     QSqlQuery query(d->db);
     query.prepare( "CREATE TABLE IF NOT EXISTS images ("
-                   "fbImageId VARCHAR(50) UNIQUE PRIMARY KEY,"
-                   "fbAlbumId VARCHAR(50),"
-                   "fbUserId VARCHAR(50),"
-                   "createdTime VARCHAR(30),"
-                   "updatedTime VARCHAR(30),"
-                   "imageName VARCHAR(100),"
+                   "fbImageId TEXT UNIQUE PRIMARY KEY,"
+                   "fbAlbumId TEXT,"
+                   "fbUserId TEXT,"
+                   "createdTime INTEGER,"
+                   "updatedTime INTEGER,"
+                   "imageName TEXT,"
                    "width INTEGER,"
                    "height INTEGER,"
-                   "thumbnailUrl VARCHAR(100),"
-                   "imageUrl VARCHAR(100),"
-                   "thumbnailFile VARCHAR(100),"
-                   "imageFile VARCHAR(100))");
+                   "thumbnailUrl TEXT,"
+                   "imageUrl TEXT,"
+                   "thumbnailFile TEXT,"
+                   "imageFile TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create images table:" << query.lastError().text();
         d->db.close();
@@ -1308,14 +1248,12 @@ bool FacebookImagesDatabase::dbCreateTables()
     }
 
     query.prepare( "CREATE TABLE IF NOT EXISTS albums ("
-                   "fbAlbumId VARCHAR(50) UNIQUE PRIMARY KEY,"
-                   "fbUserId VARCHAR(50),"
-                   "createdTime VARCHAR(30),"
-                   "updatedTime VARCHAR(30),"
-                   "albumName VARCHAR(100),"
-                   "imageCount INTEGER,"
-                   "coverImageId VARCHAR(50),"
-                   "thumbnailFile VARCHAR(100))");
+                   "fbAlbumId TEXT UNIQUE PRIMARY KEY,"
+                   "fbUserId TEXT,"
+                   "createdTime INTEGER,"
+                   "updatedTime INTEGER,"
+                   "albumName TEXT,"
+                   "imageCount INTEGER)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create albums table:" << query.lastError().text();
         d->db.close();
@@ -1323,11 +1261,9 @@ bool FacebookImagesDatabase::dbCreateTables()
     }
 
     query.prepare( "CREATE TABLE IF NOT EXISTS users ("
-                   "fbUserId VARCHAR(50) UNIQUE PRIMARY KEY,"
-                   "updatedTime VARCHAR(30),"
-                   "userName VARCHAR(100),"
-                   "thumbnailUrl VARCHAR(100),"
-                   "thumbnailFile VARCHAR(100))");
+                   "fbUserId TEXT UNIQUE PRIMARY KEY,"
+                   "updatedTime INTEGER,"
+                   "userName TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create users table:" << query.lastError().text();
         d->db.close();
@@ -1336,7 +1272,7 @@ bool FacebookImagesDatabase::dbCreateTables()
 
     query.prepare( "CREATE TABLE IF NOT EXISTS accounts ("
                    "accountId INTEGER UNIQUE PRIMARY KEY,"
-                   "fbUserId VARCHAR(50))");
+                   "fbUserId TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create accounts table:" << query.lastError().text();
         d->db.close();

@@ -31,22 +31,18 @@ public:
     typedef QSharedPointer<FacebookUser> Ptr;
     typedef QSharedPointer<const FacebookUser> ConstPtr;
     virtual ~FacebookUser();
-    static FacebookUser::Ptr create(const QString &fbUserId, const QString &updatedTime,
-                                    const QString &userName, const QString &thumbnailUrl,
-                                    const QString &thumbnailFile, int count = -1);
+    static FacebookUser::Ptr create(const QString &fbUserId, const QDateTime &updatedTime,
+                                    const QString &userName, int count = -1);
     QString fbUserId() const;
-    QString updatedTime() const;
+    QDateTime updatedTime() const;
     QString userName() const;
-    QString thumbnailUrl() const;
-    QString thumbnailFile() const;
     int count() const;
 protected:
     QScopedPointer<FacebookUserPrivate> d_ptr;
 private:
     Q_DECLARE_PRIVATE(FacebookUser)
-    explicit FacebookUser(const QString &fbUserId, const QString &updatedTime,
-                          const QString &userName, const QString &thumbnailUrl,
-                          const QString &thumbnailFile, int count = -1);
+    explicit FacebookUser(const QString &fbUserId, const QDateTime &updatedTime,
+                          const QString &userName, int count = -1);
 };
 
 class FacebookAlbumPrivate;
@@ -57,25 +53,21 @@ public:
     typedef QSharedPointer<const FacebookAlbum> ConstPtr;
     virtual ~FacebookAlbum();
     static FacebookAlbum::Ptr create(const QString &fbAlbumId, const QString &fbUserId,
-                                     const QString &createdTime, const QString &updatedTime,
-                                     const QString &albumName, int imageCount,
-                                     const QString &coverImageId, const QString &thumbnailFile);
+                                     const QDateTime &createdTime, const QDateTime &updatedTime,
+                                     const QString &albumName, int imageCount);
     QString fbAlbumId() const;
     QString fbUserId() const;
-    QString createdTime() const;
-    QString updatedTime() const;
+    QDateTime createdTime() const;
+    QDateTime updatedTime() const;
     QString albumName() const;
     int imageCount() const;
-    QString coverImageId() const;
-    QString thumbnailFile() const;
 protected:
     QScopedPointer<FacebookAlbumPrivate> d_ptr;
 private:
     Q_DECLARE_PRIVATE(FacebookAlbum)
     explicit FacebookAlbum(const QString &fbAlbumId, const QString &fbUserId,
-                           const QString &createdTime, const QString &updatedTime,
-                           const QString &albumName, int imageCount,
-                           const QString &coverImageId, const QString &thumbnailFile);
+                           const QDateTime &createdTime, const QDateTime &updatedTime,
+                           const QString &albumName, int imageCount);
 };
 
 class FacebookImagePrivate;
@@ -86,16 +78,16 @@ public:
     typedef QSharedPointer<const FacebookImage> ConstPtr;
     virtual ~FacebookImage();
     static FacebookImage::Ptr create(const QString & fbImageId, const QString & fbAlbumId,
-                                     const QString & fbUserId, const QString & createdTime,
-                                     const QString & updatedTime, const QString & imageName,
+                                     const QString & fbUserId, const QDateTime & createdTime,
+                                     const QDateTime &updatedTime, const QString &imageName,
                                      int width, int height, const QString & thumbnailUrl,
                                      const QString & imageUrl, const QString & thumbnailFile,
                                      const QString & imageFile, int account = -1);
     QString fbImageId() const;
     QString fbAlbumId() const;
     QString fbUserId() const;
-    QString createdTime() const;
-    QString updatedTime() const;
+    QDateTime createdTime() const;
+    QDateTime updatedTime() const;
     QString imageName() const;
     int width() const;
     int height() const;
@@ -109,8 +101,8 @@ protected:
 private:
     Q_DECLARE_PRIVATE(FacebookImage)
     explicit FacebookImage(const QString & fbImageId, const QString & fbAlbumId,
-                           const QString & fbUserId, const QString & createdTime,
-                           const QString & updatedTime, const QString & imageName,
+                           const QString & fbUserId, const QDateTime & createdTime,
+                           const QDateTime & updatedTime, const QString & imageName,
                            int width, int height, const QString & thumbnailUrl,
                            const QString & imageUrl, const QString & thumbnailFile,
                            const QString & imageFile, int account = -1);
@@ -135,18 +127,16 @@ public:
 
     // User cache manipulation
     FacebookUser::ConstPtr user(const QString &fbUserId) const;
-    void addUser(const QString &fbUserId, const QString &updatedTime,
-                 const QString &userName, const QString &thumbnailUrl);
-    void updateUserThumbnail(const QString &fbUserId, const QString &thumbnailFile);
+    void addUser(const QString &fbUserId, const QDateTime &updatedTime,
+                 const QString &userName);
     void removeUser(const QString &fbUserId);
     QList<FacebookUser::ConstPtr> users() const;
 
     // Album cache manipulation
     QStringList allAlbumIds(bool *ok = 0) const;
     FacebookAlbum::ConstPtr album(const QString &fbAlbumId) const;
-    void addAlbum(const QString &fbAlbumId, const QString &fbUserId, const QString &createdTime,
-                  const QString &updatedTime, const QString &albumName, int imageCount,
-                  const QString &coverImageId);
+    void addAlbum(const QString &fbAlbumId, const QString &fbUserId, const QDateTime &createdTime,
+                  const QDateTime &updatedTime, const QString &albumName, int imageCount);
     void removeAlbum(const QString &fbAlbumId);
     void removeAlbums(const QStringList &fbAlbumIds);
     QList<FacebookAlbum::ConstPtr> albums(const QString &fbUserId = QString());
@@ -156,8 +146,8 @@ public:
     QStringList imageIds(const QString &fbAlbumId, bool *ok = 0) const;
     FacebookImage::ConstPtr image(const QString &fbImageId) const;
     void addImage(const QString & fbImageId, const QString & fbAlbumId,
-                  const QString & fbUserId, const QString & createdTime,
-                  const QString & updatedTime, const QString & imageName,
+                  const QString & fbUserId, const QDateTime & createdTime,
+                  const QDateTime & updatedTime, const QString & imageName,
                   int width, int height, const QString & thumbnailUrl,
                   const QString & imageUrl);
     void updateImageThumbnail(const QString &fbImageId, const QString &thumbnailFile);
