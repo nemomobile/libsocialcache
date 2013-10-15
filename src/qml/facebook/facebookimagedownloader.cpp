@@ -19,138 +19,75 @@
 
 #include "facebookimagedownloader.h"
 #include "facebookimagedownloader_p.h"
-#include <QtCore/QDebug>
+#include "facebookimagedownloaderconstants_p.h"
 #include <QtCore/QStandardPaths>
-#include <QtGui/QImage>
-#include <QtNetwork/QNetworkAccessManager>
-#include <QtNetwork/QNetworkReply>
-#include <QtNetwork/QNetworkRequest>
-
-static int MAX_SIMULTANEOUS_DOWNLOAD = 10;
-#define SOCIALCACHE_FACEBOOK_IMAGE_DIR   PRIVILEGED_DATA_DIR + QLatin1String("/Images/")
-
-bool operator==(const FacebookImageDownloaderImageData &data1,
-                const FacebookImageDownloaderImageData &data2)
-{
-    if (data1.url != data2.url) {
-        return false;
-    }
-
-    if (data1.identifier != data2.identifier) {
-        return false;
-    }
-
-    return data1.type == data2.type && data1.imageType == data2.imageType;
-}
 
 FacebookImageDownloaderWorkerObject::FacebookImageDownloaderWorkerObject()
-    : QObject(), FacebookImagesDatabase(), m_networkAccessManager(new QNetworkAccessManager(this))
-    , m_loadedCount(0)
+    : AbstractImageDownloader(), m_initialized(false)
 {
-    initDatabase();
 }
 
-void FacebookImageDownloaderWorkerObject::queue(const FacebookImageDownloaderImageData &data)
+QString FacebookImageDownloaderWorkerObject::outputFile(const QString &url,
+                                                        const QVariantMap &data) const
 {
-    if (m_stack.contains(data)) {
-        m_stack.removeAll(data);
+    Q_UNUSED(url)
+
+    // We create the identifier by appending the type to the real identifier
+    QString identifier = data.value(QLatin1String(IDENTIFIER_KEY)).toString();
+    if (identifier.isEmpty()) {
+        return QString();
     }
 
-    m_stack.prepend(data);
-    manageStack();
-}
-
-void FacebookImageDownloaderWorkerObject::manageStack()
-{
-    while (m_runningReplies.count() < MAX_SIMULTANEOUS_DOWNLOAD && !m_stack.isEmpty()) {
-        // Create a reply to download the image
-        FacebookImageDownloaderImageData data = m_stack.takeFirst();
-
-        QNetworkRequest request (data.url);
-        QNetworkReply *reply = m_networkAccessManager->get(request);
-        connect(reply, &QNetworkReply::finished,
-                this, &FacebookImageDownloaderWorkerObject::slotImageDownloaded);
-        m_runningReplies.insert(reply, data);
+    QString typeString = data.value(QLatin1String(TYPE_KEY)).toString();
+    if (typeString.isEmpty()) {
+        return QString();
     }
+
+    identifier.append(typeString);
+
+    return makeOutputFile(SocialSyncInterface::Facebook, SocialSyncInterface::Images, identifier);
 }
 
-void FacebookImageDownloaderWorkerObject::slotImageDownloaded()
+bool FacebookImageDownloaderWorkerObject::dbInit()
 {
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
-    if (!reply) {
+    if (!m_initialized) {
+        m_db.initDatabase();
+        m_initialized = true;
+    }
+
+    return m_db.isValid();
+}
+
+void FacebookImageDownloaderWorkerObject::dbQueueImage(const QString &url, const QVariantMap &data,
+                                                       const QString &file)
+{
+    Q_UNUSED(url)
+    QString identifier = data.value(QLatin1String(IDENTIFIER_KEY)).toString();
+    if (identifier.isEmpty()) {
         return;
     }
+    int type = data.value(QLatin1String(TYPE_KEY)).toInt();
 
-    const FacebookImageDownloaderImageData &data = m_runningReplies.value(reply);
-    m_runningReplies.remove(reply);
-
-    if (data.identifier.isEmpty()) {
-        qWarning() << Q_FUNC_INFO << "Empty id";
-        return;
-    }
-
-    QString imageType;
-    switch (data.imageType) {
-    case FacebookImageDownloaderImageData::ThumbnailImage:
-        imageType = QLatin1String("thumb");
+    switch (type) {
+    case ThumbnailImage:
+        m_db.updateImageThumbnail(identifier, file);
         break;
-    case FacebookImageDownloaderImageData::FullImage:
-        imageType = QLatin1String("image");
+    case FullImage:
+        m_db.updateImageFile(identifier, file);
         break;
     }
+}
 
-    QImage image;
-    bool loadedOk = image.loadFromData(reply->readAll());
-    if (!loadedOk || image.isNull()) {
-        qWarning() << Q_FUNC_INFO << "Downloaded" << imageType << "for" << data.identifier
-                   << "but could not load image";
-        return;
-    }
-
-    // Save the new image (eg fbphotoid-thumb.jpg or fbphotoid-image.jpg)
-    QString newName = QString(QLatin1String("%1%2-%3.jpg")).arg(SOCIALCACHE_FACEBOOK_IMAGE_DIR,
-                                                                data.identifier, imageType);
-
-    bool saveOk = image.save(newName);
-    if (!saveOk) {
-        qWarning() << Q_FUNC_INFO << "Cannot save image";
-        return;
-    }
-
-    // Update database
-    switch (data.type) {
-        case FacebookImageDownloaderImageData::Image:
-            switch (data.imageType) {
-            case FacebookImageDownloaderImageData::ThumbnailImage:
-                updateImageThumbnail(data.identifier, newName);
-                break;
-            case FacebookImageDownloaderImageData::FullImage:
-                updateImageFile(data.identifier, newName);
-                break;
-            }
-            break;
-        default:
-            break;
-    }
-
-    // Emit signal
-    emit dataUpdated(data.url, newName);
-
-    m_loadedCount ++;
-    manageStack();
-
-    if (m_loadedCount > MAX_SIMULTANEOUS_DOWNLOAD * 2
-        || (m_runningReplies.isEmpty() && m_stack.isEmpty())) {
-        write();
-        m_loadedCount = 0;
-    }
+void FacebookImageDownloaderWorkerObject::dbWrite()
+{
+    m_db.write();
 }
 
 FacebookImageDownloaderPrivate::FacebookImageDownloaderPrivate(FacebookImageDownloader *q)
-    : QObject(), q_ptr(q), workerObject(new FacebookImageDownloaderWorkerObject())
+    : QObject(), q_ptr(q), m_workerObject(new FacebookImageDownloaderWorkerObject())
 {
     m_workerThread.start(QThread::LowestPriority);
-    workerObject->moveToThread(&m_workerThread);
+    m_workerObject->moveToThread(&m_workerThread);
 }
 
 FacebookImageDownloaderPrivate::~FacebookImageDownloaderPrivate()
@@ -159,7 +96,7 @@ FacebookImageDownloaderPrivate::~FacebookImageDownloaderPrivate()
         m_workerThread.quit();
         m_workerThread.wait();
     }
-    workerObject->deleteLater();
+    m_workerObject->deleteLater();
 }
 
 FacebookImageDownloader::FacebookImageDownloader(QObject *parent) :
@@ -174,5 +111,5 @@ FacebookImageDownloader::~FacebookImageDownloader()
 FacebookImageDownloaderWorkerObject * FacebookImageDownloader::workerObject() const
 {
     Q_D(const FacebookImageDownloader);
-    return d->workerObject;
+    return d->m_workerObject;
 }

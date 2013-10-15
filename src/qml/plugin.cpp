@@ -26,7 +26,6 @@
 #include <QLocale>
 
 #include "facebook/facebookimagecachemodel.h"
-#include "facebook/facebookimagedownloader_p.h"
 #include "facebook/facebookpostsmodel.h"
 #include "twitter/twitterpostsmodel.h"
 
@@ -84,7 +83,6 @@ public:
         Q_ASSERT(QLatin1String(uri) == QLatin1String("org.nemomobile.socialcache"));
         qRegisterMetaType<SocialCacheModelRow>("SocialCacheModelRow");
         qRegisterMetaType<SocialCacheModelData>("SocialCacheModelData");
-        qRegisterMetaType<FacebookImageDownloaderImageData>("FacebookImageDownloaderImageData");
 
         qmlRegisterType<FacebookImageCacheModel>(uri, 1, 0, "FacebookImageCacheModel");
         qmlRegisterType<FacebookPostsModel>(uri, 1, 0, "FacebookPostsModel");

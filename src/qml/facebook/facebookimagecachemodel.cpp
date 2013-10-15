@@ -25,6 +25,7 @@
 #include <QtCore/QStandardPaths>
 
 #include "facebookimagedownloader_p.h"
+#include "facebookimagedownloaderconstants_p.h"
 
 // Note:
 //
@@ -35,6 +36,9 @@
 
 static const char *PHOTO_USER_PREFIX = "user-";
 static const char *PHOTO_ALBUM_PREFIX = "album-";
+
+static const char *URL_KEY = "url";
+static const char *ROW_KEY = "row";
 
 #define SOCIALCACHE_FACEBOOK_IMAGE_DIR   PRIVILEGED_DATA_DIR + QLatin1String("/Images/")
 
@@ -51,15 +55,13 @@ public Q_SLOTS:
     void queueImageThumbnail(int row, const FacebookImage::ConstPtr &image);
     void queueImageFull(int row, const FacebookImage::ConstPtr &image);
 Q_SIGNALS:
-    void requestQueueToPrivate(int row, const FacebookImageDownloaderImageData &data);
-    void requestQueue(const FacebookImageDownloaderImageData &data);
+    void requestQueue(const QString &url, const QVariantMap &data);
 protected:
     FacebookImageCacheModel::ModelDataType type;
 private:
-    void queue(int row, FacebookImageDownloaderImageData::Type type,
-               FacebookImageDownloaderImageData::ImageType imageType, const QString &identifier,
+    void queue(int row,
+               FacebookImageDownloaderWorkerObject::ImageType imageType, const QString &identifier,
                const QString &url);
-    QHash<QString, QPair<FacebookImageDownloaderImageData, int> > m_queuedImages;
     bool m_enabled;
     QList<QPair<FacebookImage::ConstPtr, int> > m_fullImages;
 };
@@ -72,7 +74,7 @@ public:
     FacebookImageCacheModel::ModelDataType type;
     FacebookImageDownloader *downloader;
 public Q_SLOTS:
-    void queue(int row, const FacebookImageDownloaderImageData &data);
+    void queue(const QString &url, const QVariantMap &data);
     void slotDataUpdated(const QString &url, const QString &path);
 Q_SIGNALS:
     void typeChanged(int type);
@@ -80,7 +82,7 @@ Q_SIGNALS:
 protected:
     void initWorkerObject(AbstractWorkerObject *workerObject);
 private:
-    QHash<QString, QPair<FacebookImageDownloaderImageData, int> > m_queuedImages;
+    QHash<QString, QVariantMap> m_queuedImages;
     Q_DECLARE_PUBLIC(FacebookImageCacheModel)
 };
 
@@ -216,28 +218,26 @@ void FacebookImageWorkerObject::queueImages()
 
 void FacebookImageWorkerObject::queueImageThumbnail(int row, const FacebookImage::ConstPtr &image)
 {
-    queue(row, FacebookImageDownloaderImageData::Image,
-          FacebookImageDownloaderImageData::ThumbnailImage, image->fbImageId(),
+    queue(row, FacebookImageDownloaderWorkerObject::ThumbnailImage, image->fbImageId(),
           image->thumbnailUrl());
 }
 
 void FacebookImageWorkerObject::queueImageFull(int row, const FacebookImage::ConstPtr &image)
 {
-    queue(row, FacebookImageDownloaderImageData::Image,
-          FacebookImageDownloaderImageData::FullImage, image->fbImageId(), image->imageUrl());
+    queue(row, FacebookImageDownloaderWorkerObject::FullImage, image->fbImageId(),
+          image->imageUrl());
 }
 
-void FacebookImageWorkerObject::queue(int row, FacebookImageDownloaderImageData::Type type,
-                                      FacebookImageDownloaderImageData::ImageType imageType,
+void FacebookImageWorkerObject::queue(int row,
+                                      FacebookImageDownloaderWorkerObject::ImageType imageType,
                                       const QString &identifier, const QString &url)
 {
-    FacebookImageDownloaderImageData data;
-    data.identifier = identifier;
-    data.type = type;
-    data.imageType = imageType;
-    data.url = url;
-    emit requestQueue(data);
-    emit requestQueueToPrivate(row, data);
+    QVariantMap data;
+    data.insert(QLatin1String(TYPE_KEY), imageType);
+    data.insert(QLatin1String(IDENTIFIER_KEY), identifier);
+    data.insert(QLatin1String(URL_KEY), url);
+    data.insert(QLatin1String(ROW_KEY), row);
+    emit requestQueue(url, data);
 }
 
 FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCacheModel *q)
@@ -245,35 +245,30 @@ FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCach
 {
 }
 
-void FacebookImageCacheModelPrivate::queue(int row, const FacebookImageDownloaderImageData &data)
+void FacebookImageCacheModelPrivate::queue(const QString &url, const QVariantMap &data)
 {
-    m_queuedImages.insert(data.url, qMakePair<FacebookImageDownloaderImageData, int>(data, row));
+    m_queuedImages.insert(url, data);
 }
 
 void FacebookImageCacheModelPrivate::slotDataUpdated(const QString &url, const QString &path)
 {
     Q_Q(FacebookImageCacheModel);
     if (m_queuedImages.contains(url)) {
-        FacebookImageDownloaderImageData entry = m_queuedImages.value(url).first;
-        int row = m_queuedImages.value(url).second;
+        QVariantMap imageData = m_queuedImages.value(url);
+        int row = imageData.value(ROW_KEY).toInt();
         if (row < 0 || row >= data.count()) {
-            qWarning() << Q_FUNC_INFO << "Incorrect number of rows" << data.count();
+            qWarning() << Q_FUNC_INFO << "Incorrect number of rows" << imageData.count();
             return;
         }
 
-        switch (entry.type) {
-            case FacebookImageDownloaderImageData::Image:
-                switch (entry.imageType) {
-                case FacebookImageDownloaderImageData::ThumbnailImage:
-                    data[row].insert(FacebookImageCacheModel::Thumbnail, path);
-                    break;
-                case FacebookImageDownloaderImageData::FullImage:
-                    data[row].insert(FacebookImageCacheModel::Image, path);
-                    break;
-                }
-                break;
-            default:
-                break;
+        int type = imageData.value(TYPE_KEY).toInt();
+        switch (type) {
+        case FacebookImageDownloaderWorkerObject::ThumbnailImage:
+            data[row].insert(FacebookImageCacheModel::Thumbnail, path);
+            break;
+        case FacebookImageDownloaderWorkerObject::FullImage:
+            data[row].insert(FacebookImageCacheModel::Image, path);
+            break;
         }
 
         emit q->dataChanged(q->index(row), q->index(row));
@@ -288,7 +283,7 @@ void FacebookImageCacheModelPrivate::initWorkerObject(AbstractWorkerObject *work
         return;
     }
 
-    connect(facebookImageWorkerObject, &FacebookImageWorkerObject::requestQueueToPrivate,
+    connect(facebookImageWorkerObject, &FacebookImageWorkerObject::requestQueue,
             this, &FacebookImageCacheModelPrivate::queue);
     connect(this, &FacebookImageCacheModelPrivate::queueImages,
             facebookImageWorkerObject, &FacebookImageWorkerObject::queueImages);
@@ -360,8 +355,8 @@ void FacebookImageCacheModel::setDownloader(FacebookImageDownloader *downloader)
         FacebookImageWorkerObject *imageWorkerObject
                 = qobject_cast<FacebookImageWorkerObject *>(d->workerObject);
         connect(imageWorkerObject, &FacebookImageWorkerObject::requestQueue,
-                d->downloader->workerObject(), &FacebookImageDownloaderWorkerObject::queue);
-        connect(d->downloader->workerObject(), &FacebookImageDownloaderWorkerObject::dataUpdated,
+                d->downloader->workerObject(), &AbstractImageDownloader::queue);
+        connect(d->downloader->workerObject(), &AbstractImageDownloader::imageDownloaded,
                 d, &FacebookImageCacheModelPrivate::slotDataUpdated);
 
         emit downloaderChanged();
