@@ -474,10 +474,10 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
     // * timestamp is the timestamp, converted to milliseconds
     //   from epoch (makes sorting easier).
     query.prepare( "CREATE TABLE IF NOT EXISTS posts ("\
-                   "identifier STRING UNIQUE PRIMARY KEY,"\
-                   "name STRING,"\
-                   "body STRING,"\
-                   "timestamp VARCHAR(30))");
+                   "identifier TEXT UNIQUE PRIMARY KEY,"\
+                   "name TEXT,"\
+                   "body TEXT,"\
+                   "timestamp INTEGER)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create posts table" << query.lastError().text();
         d->db.close();
@@ -485,10 +485,10 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
     }
 
     query.prepare("CREATE TABLE IF NOT EXISTS images ("\
-                  "postId STRING, "\
+                  "postId TEXT, "\
                   "position INTEGER, "\
-                  "url STRING, "\
-                  "type VARCHAR(20))");
+                  "url TEXT, "\
+                  "type TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create images table" << query.lastError().text();
         d->db.close();
@@ -496,9 +496,9 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
     }
 
     query.prepare("CREATE TABLE IF NOT EXISTS extra ("\
-                  "postId STRING, "\
-                  "key VARCHAR(30), "\
-                  "value STRING)");
+                  "postId TEXT, "\
+                  "key TEXT, "\
+                  "value TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create extra table" << query.lastError().text();
         d->db.close();
@@ -506,7 +506,7 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
     }
 
     query.prepare("CREATE TABLE IF NOT EXISTS link_post_account ("\
-                  "postId STRING, "\
+                  "postId TEXT, "\
                   "account INTEGER, "\
                   "CONSTRAINT id PRIMARY KEY (postId, account))");
     if (!query.exec()) {
