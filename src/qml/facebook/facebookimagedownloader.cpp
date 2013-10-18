@@ -164,7 +164,7 @@ void FacebookImageDownloaderWorkerObject::slotImageDownloaded()
 FacebookImageDownloaderPrivate::FacebookImageDownloaderPrivate(FacebookImageDownloader *q)
     : QObject(), q_ptr(q), workerObject(new FacebookImageDownloaderWorkerObject())
 {
-    m_workerThread.start(QThread::LowestPriority);
+    m_workerThread.start(QThread::IdlePriority);
     workerObject->moveToThread(&m_workerThread);
 }
 

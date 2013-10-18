@@ -96,7 +96,7 @@ void AbstractSocialCacheModelPrivate::updateRow(int row, const SocialCacheModelR
 void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *workerObjectToSet)
 {
     if (workerObjectToSet) {
-        m_workerThread.start(QThread::LowestPriority);
+        m_workerThread.start(QThread::IdlePriority);
         workerObject = workerObjectToSet;
         workerObject->moveToThread(&m_workerThread);
         connect(this, &AbstractSocialCacheModelPrivate::nodeIdentifierChanged,
