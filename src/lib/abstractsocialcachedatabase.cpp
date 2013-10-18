@@ -153,7 +153,7 @@ bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
     return ok;
 }
 
-// Perform a batch delete
+// Perform deletions (cannot use execBatch() as QSqlQuery only supports batch Selects)
 bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QString &key,
                                                         const QVariantList &entries)
 {
@@ -161,18 +161,26 @@ bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QS
     queryString.append(table);
     queryString.append(QLatin1String(" WHERE "));
     queryString.append(key);
-    queryString.append(QLatin1String(" = ?"));
+    queryString.append(QLatin1String(" = :val"));
 
+    bool allSucceeded = true;
     QSqlQuery query (db);
-    query.prepare(queryString);
-    query.addBindValue(entries);
-
-    bool ok = query.execBatch();
-    if (!ok) {
-        qWarning() << Q_FUNC_INFO << "Failed to execute query. Request:" << queryString
-                   << "Error:" << query.lastError().text();
+    if (!query.prepare(queryString)) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare delete query:" << queryString
+                   << "\nError:" << query.lastError().text();
+        allSucceeded = false;
+    } else {
+        foreach (const QVariant &value, entries) {
+            query.bindValue(":val", value);
+            if (!query.exec()) {
+                qWarning() << Q_FUNC_INFO << "Failed to exec delete query:" << queryString << " with :val =" << value
+                           << "\nError:" << query.lastError().text();
+                allSucceeded = false;
+            }
+        }
     }
-    return ok;
+
+    return allSucceeded;
 }
 
 AbstractSocialCacheDatabase::AbstractSocialCacheDatabase()
