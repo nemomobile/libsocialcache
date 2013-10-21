@@ -27,6 +27,7 @@ class FacebookPostsDatabase: public AbstractSocialPostCacheDatabase
 public:
     explicit FacebookPostsDatabase();
     void initDatabase();
+
     void addFacebookPost(const QString &identifier, const QString &name, const QString &body,
                          const QDateTime &timestamp,
                          const QString &icon,
@@ -34,6 +35,7 @@ public:
                          const QString &attachmentName,  const QString &attachmentCaption,
                          const QString &attachmentDescription, bool allowLike, bool allowComment,
                          const QString &clientId, int account);
+
     static QString attachmentName(const SocialPost::ConstPtr &post);
     static QString attachmentCaption(const SocialPost::ConstPtr &post);
     static QString attachmentDescription(const SocialPost::ConstPtr &post);

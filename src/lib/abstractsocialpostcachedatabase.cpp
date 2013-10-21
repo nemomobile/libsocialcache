@@ -214,6 +214,7 @@ private:
                                       QMap<QString, QVariantList> &entries);
     QMap<QString, SocialPost::ConstPtr> queuedPosts;
     QMultiMap<QString, int> queuedPostsAccounts;
+    QList<int> queuedRemovePostsForAccount;
     Q_DECLARE_PUBLIC(AbstractSocialPostCacheDatabase)
 };
 
@@ -406,6 +407,14 @@ void AbstractSocialPostCacheDatabase::addPost(const QString &identifier, const Q
     d->queuedPostsAccounts.insert(identifier, account);
 }
 
+void AbstractSocialPostCacheDatabase::removePosts(int accountId)
+{
+    Q_D(AbstractSocialPostCacheDatabase);
+    if (!d->queuedRemovePostsForAccount.contains(accountId)) {
+        d->queuedRemovePostsForAccount.append(accountId);
+    }
+}
+
 bool AbstractSocialPostCacheDatabase::write()
 {
     Q_D(AbstractSocialPostCacheDatabase);
@@ -421,6 +430,47 @@ bool AbstractSocialPostCacheDatabase::write()
     QMap<QString, QVariantList> imageEntries;
     QMap<QString, QVariantList> extraEntries;
 
+    // perform removals first.
+    if (d->queuedRemovePostsForAccount.size()) {
+        QSqlQuery postIdsToRemoveQuery(d->db);
+        if (!postIdsToRemoveQuery.prepare(QString::fromLatin1(
+                "SELECT PostId FROM link_post_account WHERE account = :accid"))) {
+            qWarning() << "Failed to prepare PostIdsToRemoveQuery:" << postIdsToRemoveQuery.lastError();
+            dbRollbackTransaction();
+            return false;
+        }
+
+        QVariantList postIdsToRemove;
+        foreach (int accountId, d->queuedRemovePostsForAccount) {
+            postIdsToRemoveQuery.bindValue(":accid", accountId);
+            if (!postIdsToRemoveQuery.exec()) {
+                qWarning() << "Failed to exec PostIdsToRemoveQuery:" << postIdsToRemoveQuery.lastError();
+                dbRollbackTransaction();
+                return false;
+            }
+
+            while (postIdsToRemoveQuery.next()) {
+                postIdsToRemove.append(postIdsToRemoveQuery.value(0).toString());
+            }
+        }
+        d->queuedRemovePostsForAccount.clear();
+
+        if (postIdsToRemove.size()) {
+            QMap<QString, QVariantList> deletePostsEntries, deleteOtherTablesEntries;
+            deleteOtherTablesEntries.insert(QString::fromLatin1("postId"), postIdsToRemove);
+            deletePostsEntries.insert(QString::fromLatin1("identifier"), postIdsToRemove);
+            QStringList deletePostsKeys("identifier"), deleteOtherTablesKeys("postId");
+            if (!dbWrite(QLatin1String("link_post_account"), deleteOtherTablesKeys, deleteOtherTablesEntries, Delete)
+                    || !dbWrite(QLatin1String("extra"), deleteOtherTablesKeys, deleteOtherTablesEntries, Delete)
+                    || !dbWrite(QLatin1String("images"), deleteOtherTablesKeys, deleteOtherTablesEntries, Delete)
+                    || !dbWrite(QLatin1String("posts"), deletePostsKeys, deletePostsEntries, Delete)) {
+                dbRollbackTransaction();
+                return false;
+            }
+        }
+    }
+
+    // then perform additions.
     d->createPostsEntries(d->queuedPosts, postKeys, imageKeys, extraKeys, postEntries,
                           imageEntries, extraEntries);
 
