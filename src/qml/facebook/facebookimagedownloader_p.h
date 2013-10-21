@@ -22,8 +22,32 @@
 
 #include <QtCore/QObject>
 #include <QtCore/QThread>
+#include <QtCore/QMutex>
+#include <QtCore/QWaitCondition>
+
 #include "abstractimagedownloader.h"
 #include "facebookimagesdatabase.h"
+
+class FacebookImageDownloaderWorkerObject;
+class AbstractSocialCacheModel;
+class FacebookImageDownloader;
+class FacebookImageDownloaderPrivate: public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit FacebookImageDownloaderPrivate(FacebookImageDownloader *q);
+    virtual ~FacebookImageDownloaderPrivate();
+
+protected:
+    FacebookImageDownloader * const q_ptr;
+
+private:
+    QThread m_workerThread;
+    FacebookImageDownloaderWorkerObject *m_workerObject;
+    Q_DECLARE_PUBLIC(FacebookImageDownloader)
+};
+
 
 // We try to minimize the use of signals and slots exposed to QML,
 // so we FacebookImageDownloader only expose one method in C++.
@@ -54,31 +78,27 @@ public:
     };
 
     explicit FacebookImageDownloaderWorkerObject();
+
+public Q_SLOTS:
+    void quitGracefully();
+
 protected:
     QString outputFile(const QString &url, const QVariantMap &data) const;
     bool dbInit();
     void dbQueueImage(const QString &url, const QVariantMap &data, const QString &file);
     void dbWrite();
+    bool dbClose();
+
 private:
     bool m_initialized;
     FacebookImagesDatabase m_db;
-};
 
-class AbstractSocialCacheModel;
-class FacebookImageDownloader;
-class FacebookImageDownloaderPrivate: public QObject
-{
-    Q_OBJECT
-public:
-    explicit FacebookImageDownloaderPrivate(FacebookImageDownloader *q);
-    virtual ~FacebookImageDownloaderPrivate();
-protected:
-    FacebookImageDownloader * const q_ptr;
+    bool m_killed;
+
 private:
-    QThread m_workerThread;
-    FacebookImageDownloaderWorkerObject *m_workerObject;
-    Q_DECLARE_PUBLIC(FacebookImageDownloader)
+    friend class FacebookImageDownloaderPrivate;
+    QMutex m_quitMutex;
+    QWaitCondition m_quitWC;
 };
-
 
 #endif // FACEBOOKIMAGEDOWNLOADER_P_H

@@ -20,6 +20,8 @@
 #include "twitterpostsdatabase.h"
 #include "socialsyncinterface.h"
 
+#include <QtDebug>
+
 static const char *DB_NAME = "twitter.db";
 static const char *SCREEN_NAME_KEY = "screen_name";
 static const char *RETWEETER_KEY = "retweeter";
@@ -28,6 +30,10 @@ static const char *CONSUMER_SECRET_KEY = "consumer_secret";
 
 TwitterPostsDatabase::TwitterPostsDatabase()
     : AbstractSocialPostCacheDatabase()
+{
+}
+
+TwitterPostsDatabase::~TwitterPostsDatabase()
 {
 }
 

@@ -40,7 +40,7 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 
-#include <QDebug>
+#include <QtDebug>
 
 namespace {
 
@@ -152,15 +152,25 @@ ProcessMutex::ProcessMutex(const QString &path)
 
 bool ProcessMutex::lock()
 {
-    return m_semaphore.decrement();
+    if (!m_semaphore.decrement()) {
+        return false;
+    }
+
+    if (m_mutex.tryLock(40)) {
+        return true;
+    }
+
+    return false;
 }
 
 bool ProcessMutex::unlock()
 {
-    return m_semaphore.increment();
+    m_mutex.unlock();
+    bool couldRelease = m_semaphore.increment();
+    if (!couldRelease) {
+        return false;
+    }
+
+    return true;
 }
 
-bool ProcessMutex::isLocked() const
-{
-    return (m_semaphore.value() == 0);
-}

@@ -34,6 +34,7 @@
 #define SEMAPHORE_P_H
 
 #include <QString>
+#include <QMutex>
 
 class Semaphore
 {
@@ -57,12 +58,12 @@ private:
 class ProcessMutex
 {
     Semaphore m_semaphore;
+    QMutex m_mutex;
 
 public:
     ProcessMutex(const QString &path);
     bool lock();
     bool unlock();
-    bool isLocked() const;
 };
 
 

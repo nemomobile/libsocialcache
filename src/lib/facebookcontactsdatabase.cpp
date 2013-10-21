@@ -20,10 +20,12 @@
 #include "facebookcontactsdatabase.h"
 #include "abstractsocialcachedatabase_p.h"
 #include "socialsyncinterface.h"
-#include <QtCore/QtDebug>
+
 #include <QtCore/QStringList>
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
+
+#include <QtDebug>
 
 static const char *DB_NAME = "facebook.db";
 static const int VERSION = 3;

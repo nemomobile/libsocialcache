@@ -17,7 +17,7 @@
  */
 
 #include "abstractimagedownloader.h"
-#include <QtCore/QDebug>
+
 #include <QtCore/QFileInfo>
 #include <QtCore/QDir>
 #include <QtCore/QCryptographicHash>
@@ -26,6 +26,8 @@
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
+
+#include <QtDebug>
 
 // The AbstractImageDownloader is a class used to build image downloader objects
 //
@@ -48,18 +50,24 @@ typedef QPair<QString, QVariantMap> ImageInfo;
 class AbstractImageDownloaderPrivate: public QObject
 {
     Q_OBJECT
+
 public:
     explicit AbstractImageDownloaderPrivate(AbstractImageDownloader *q);
     virtual ~AbstractImageDownloaderPrivate();
+
     void manageStack();
+
     QNetworkAccessManager *networkAccessManager;
     QMap<QNetworkReply *, ImageInfo> runningReplies;
     QList<ImageInfo> stack;
     int loadedCount;
+
 protected:
     AbstractImageDownloader * const q_ptr;
+
 private:
     Q_DECLARE_PUBLIC(AbstractImageDownloader)
+
 private Q_SLOTS:
     void slotFinished();
 };

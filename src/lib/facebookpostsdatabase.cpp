@@ -20,6 +20,8 @@
 #include "facebookpostsdatabase.h"
 #include "socialsyncinterface.h"
 
+#include <QtDebug>
+
 static const char *DB_NAME = "facebook.db";
 static const char *ATTACHMENT_NAME_KEY = "post_attachment_name";
 static const char *ATTACHMENT_CAPTION_KEY = "post_attachment_caption";
@@ -30,6 +32,10 @@ static const char *ALLOW_COMMENT_KEY = "allow_comment";
 
 FacebookPostsDatabase::FacebookPostsDatabase()
     : AbstractSocialPostCacheDatabase()
+{
+}
+
+FacebookPostsDatabase::~FacebookPostsDatabase()
 {
 }
 

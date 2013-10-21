@@ -31,8 +31,10 @@ class FacebookImageCacheModel: public AbstractSocialCacheModel
                NOTIFY typeChanged)
     Q_PROPERTY(FacebookImageDownloader * downloader READ downloader WRITE setDownloader
                NOTIFY downloaderChanged)
+
     Q_ENUMS(FacebookGalleryRole)
     Q_ENUMS(ModelDataType)
+
 public:
     enum FacebookGalleryRole {
         FacebookId = 0,
@@ -62,17 +64,18 @@ public:
     FacebookImageCacheModel::ModelDataType type() const;
     void setType(FacebookImageCacheModel::ModelDataType type);
 
-    FacebookImageDownloader * downloader() const;
+    FacebookImageDownloader *downloader() const;
     void setDownloader(FacebookImageDownloader *downloader);
 
 public Q_SLOTS:
     void loadImages();
+
 Q_SIGNALS:
     void typeChanged();
     void downloaderChanged();
+
 private:
     Q_DECLARE_PRIVATE(FacebookImageCacheModel)
-
 };
 
 #endif // FACEBOOKIMAGECACHEMODEL_H

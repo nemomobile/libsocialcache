@@ -327,7 +327,6 @@ protected:
                        "id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,"
                        "value TEXT)");
         if (!query.exec()) {
-            d->db.close();
             return false;
         }
 
@@ -335,7 +334,6 @@ protected:
                        "id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,"
                        "value TEXT)");
         if (!query.exec()) {
-            d->db.close();
             return false;
         }
 
@@ -344,7 +342,6 @@ protected:
                        "albumId INTEGER,"
                        "value TEXT)");
         if (!query.exec()) {
-            d->db.close();
             return false;
         }
 
@@ -361,19 +358,16 @@ protected:
         QSqlQuery query(d->db);
         query.prepare("DROP TABLE IF EXISTS tests");
         if (!query.exec()) {
-            d->db.close();
             return false;
         }
 
         query.prepare("DROP TABLE IF EXISTS albums");
         if (!query.exec()) {
-            d->db.close();
             return false;
         }
 
         query.prepare("DROP TABLE IF EXISTS photos");
         if (!query.exec()) {
-            d->db.close();
             return false;
         }
 

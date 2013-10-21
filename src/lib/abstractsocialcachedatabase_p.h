@@ -31,19 +31,25 @@ class AbstractSocialCacheDatabasePrivate
 public:
     explicit AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q);
     virtual ~AbstractSocialCacheDatabasePrivate();
+
     QSqlDatabase db;
+
 protected:
     AbstractSocialCacheDatabase * const q_ptr;
+    ProcessMutex *mutex; // Process (and thread) mutex to prevent concurrent write
+
 private:
     int dbUserVersion(const QString &serviceName, const QString &dataType) const;
+
     bool doInsert(const QString &table, const QStringList &keys,
                   const QMap<QString, QVariantList> &entries,
                   bool replace = false);
     bool doUpdate(const QString &table, const QMap<QString, QVariantList> &entries,
                   const QString &primary);
     bool doDelete(const QString &table, const QString &key, const QVariantList &entries);
+
     bool valid; // Hold if the database has been correctly initialized
-    ProcessMutex *mutex; // Process mutex to prevent concurrent write
+
     Q_DECLARE_PUBLIC(AbstractSocialCacheDatabase)
 };
 
