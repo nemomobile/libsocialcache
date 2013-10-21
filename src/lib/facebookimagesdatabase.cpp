@@ -647,15 +647,27 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
 
     // Clean images
     foreach (const QVariant &userId, userIds) {
-        query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbUserId = :fbUserId");
-        query.bindValue(":fbUserId", userId);
-        d->clearCachedImages(query);
+        if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbUserId = :fbUserId")) {
+            qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
+                       << query.lastError().text();
+        } else {
+            query.bindValue(":fbUserId", userId);
+            if (!query.exec()) {
+                qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query:"
+                           << query.lastError().text();
+            } else {
+                d->clearCachedImages(query);
+            }
+        }
     }
 
-    query.prepare("DELETE FROM images WHERE fbUserId = ?");
-    query.addBindValue(userIds);
-    if (!query.execBatch()) {
-        qWarning() << Q_FUNC_INFO << "Failed to clean images for account" << accountId;
+    if (!query.prepare("DELETE FROM images WHERE fbUserId = ?")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare clean images query for account" << accountId;
+    } else {
+        query.addBindValue(userIds);
+        if (!query.execBatch()) {
+            qWarning() << Q_FUNC_INFO << "Failed to exec clean images for account" << accountId;
+        }
     }
 
     if (!dbCommitTransaction()) {
@@ -733,9 +745,19 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     }
 
     // Clean images
-    query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbUserId = :fbUserId");
-    query.bindValue(":fbUserId", fbUserId);
-    d->clearCachedImages(query);
+    if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbUserId = :fbUserId")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
+                   << query.lastError().text();
+    } else {
+        query.bindValue(":fbUserId", fbUserId);
+        if (!query.exec()) {
+            qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query:"
+                       << query.lastError().text();
+        } else {
+            d->clearCachedImages(query);
+        }
+    }
+
 
     query.prepare("DELETE FROM images WHERE fbUserId = :fbUserId");
     query.bindValue(":fbUserId", fbUserId);
@@ -857,9 +879,18 @@ void FacebookImagesDatabase::removeAlbum(const QString &fbAlbumId)
     }
 
     // Clean images
-    query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbAlbumId = :fbAlbumId");
-    query.bindValue(":fbAlbumId", fbAlbumId);
-    d->clearCachedImages(query);
+    if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbAlbumId = :fbAlbumId")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
+                   << query.lastError().text();
+    } else {
+        query.bindValue(":fbAlbumId", fbAlbumId);
+        if (!query.exec()) {
+            qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query:"
+                       << query.lastError().text();
+        } else {
+            d->clearCachedImages(query);
+        }
+    }
 
     query.prepare("DELETE FROM images WHERE fbAlbumId = :fbAlbumId");
     query.bindValue(":fbAlbumId", fbAlbumId);
@@ -899,9 +930,18 @@ void FacebookImagesDatabase::removeAlbums(const QStringList &fbAlbumIds)
 
     // Clean images
     foreach (const QString &fbAlbumId, fbAlbumIds) {
-        query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbAlbumId = :fbAlbumId");
-        query.bindValue(":fbAlbumId", fbAlbumId);
-        d->clearCachedImages(query);
+        if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbAlbumId = :fbAlbumId")) {
+            qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
+                       << query.lastError().text();
+        } else {
+            query.bindValue(":fbAlbumId", fbAlbumId);
+            if (!query.exec()) {
+                qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query:"
+                           << query.lastError().text();
+            } else {
+                d->clearCachedImages(query);
+            }
+        }
     }
 
     if (!dbWrite(QLatin1String("images"), keys, entries, Delete)) {
@@ -1040,10 +1080,18 @@ void FacebookImagesDatabase::removeImage(const QString &fbImageId)
     }
     // Clean images
     QSqlQuery query (d->db);
-
-    query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbImageId = :fbImageId");
-    query.bindValue(":fbAlbumId", fbImageId);
-    d->clearCachedImages(query);
+    if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbImageId = :fbImageId")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
+                   << query.lastError().text();
+    } else {
+        query.bindValue(":fbImageId", fbImageId);
+        if (!query.exec()) {
+            qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query:"
+                       << query.lastError().text();
+        } else {
+            d->clearCachedImages(query);
+        }
+    }
 
     query.prepare("DELETE FROM images WHERE fbImageId = :fbImageId");
     query.bindValue(":fbImageId", fbImageId);
@@ -1069,9 +1117,18 @@ void FacebookImagesDatabase::removeImages(const QStringList &fbImageIds)
     QSqlQuery query (d->db);
 
     foreach (const QString &fbImageId, fbImageIds) {
-        query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbImageId = :fbImageId");
-        query.bindValue(":fbAlbumId", fbImageId);
-        d->clearCachedImages(query);
+        if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbImageId = :fbImageId")) {
+            qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
+                       << query.lastError().text();
+        } else {
+            query.bindValue(":fbImageId", fbImageId);
+            if (!query.exec()) {
+                qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query:"
+                           << query.lastError().text();
+            } else {
+                d->clearCachedImages(query);
+            }
+        }
     }
 
     QVariantList fbImageIdList;
