@@ -56,27 +56,44 @@ void AbstractWorkerObject::setLoading(bool loading)
     m_loading = loading;
 }
 
+void AbstractWorkerObject::quitGracefully()
+{
+    m_quitMutex.lock();
+    finalCleanup();
+    m_quitWC.wakeAll();
+    m_quitMutex.unlock();
+}
+
 AbstractSocialCacheModelPrivate::AbstractSocialCacheModelPrivate(AbstractSocialCacheModel *q,
                                                                  QObject *parent)
-    :  QObject(parent), workerObject(0), q_ptr(q)
+    :  QObject(parent), m_workerObject(0), q_ptr(q)
 {
 }
 
 AbstractSocialCacheModelPrivate::~AbstractSocialCacheModelPrivate()
 {
     if (m_workerThread.isRunning()) {
+        // tell worker object to quit gracefully.
+        m_workerObject->m_quitMutex.lock();
+        QMetaObject::invokeMethod(m_workerObject, "quitGracefully", Qt::QueuedConnection);
+        m_workerObject->m_quitWC.wait(&m_workerObject->m_quitMutex);
+        m_workerObject->m_quitMutex.unlock();
+
+        // now terminate the thread
         m_workerThread.quit();
         m_workerThread.wait();
     }
-    workerObject->deleteLater();
+
+    // and delete the worker object - this will ensure the database gets closed.
+    delete m_workerObject;
 }
 
 void AbstractSocialCacheModelPrivate::clearData()
 {
     Q_Q(AbstractSocialCacheModel);
-    if (data.count() > 0) {
-        q->beginRemoveRows(QModelIndex(), 0, data.count() - 1);
-        data.clear();
+    if (m_data.count() > 0) {
+        q->beginRemoveRows(QModelIndex(), 0, m_data.count() - 1);
+        m_data.clear();
         q->endRemoveRows();
     }
 }
@@ -97,15 +114,15 @@ void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *wor
 {
     if (workerObjectToSet) {
         m_workerThread.start(QThread::IdlePriority);
-        workerObject = workerObjectToSet;
-        workerObject->moveToThread(&m_workerThread);
+        m_workerObject = workerObjectToSet;
+        m_workerObject->moveToThread(&m_workerThread);
         connect(this, &AbstractSocialCacheModelPrivate::nodeIdentifierChanged,
-                workerObject, &AbstractWorkerObject::setNodeIdentifier);
+                m_workerObject, &AbstractWorkerObject::setNodeIdentifier);
         connect(this, &AbstractSocialCacheModelPrivate::refreshRequested,
-                workerObject, &AbstractWorkerObject::triggerRefresh);
-        connect(workerObject, &AbstractWorkerObject::dataUpdated,
+                m_workerObject, &AbstractWorkerObject::triggerRefresh);
+        connect(m_workerObject, &AbstractWorkerObject::dataUpdated,
                 this, &AbstractSocialCacheModelPrivate::updateData);
-        connect(workerObject, &AbstractWorkerObject::rowUpdated,
+        connect(m_workerObject, &AbstractWorkerObject::rowUpdated,
                 this, &AbstractSocialCacheModelPrivate::updateRow);
     }
 
@@ -125,7 +142,7 @@ int AbstractSocialCacheModel::rowCount(const QModelIndex &parent) const
 {
     Q_UNUSED(parent)
     Q_D(const AbstractSocialCacheModel);
-    return d->data.count();
+    return d->m_data.count();
 }
 
 QVariant AbstractSocialCacheModel::data(const QModelIndex &index, int role) const
@@ -137,11 +154,11 @@ QVariant AbstractSocialCacheModel::data(const QModelIndex &index, int role) cons
 QVariant AbstractSocialCacheModel::getField(int row, int role) const
 {
     Q_D(const AbstractSocialCacheModel);
-    if (row < 0 || row >= d->data.count()) {
+    if (row < 0 || row >= d->m_data.count()) {
         return QVariant();
     }
 
-    return d->data.at(row).value(role);
+    return d->m_data.at(row).value(role);
 }
 
 QString AbstractSocialCacheModel::nodeIdentifier() const
@@ -171,7 +188,7 @@ void AbstractSocialCacheModel::updateData(const SocialCacheModelData &data)
     d->clearData();
     if (!data.isEmpty()) {
         beginInsertRows(QModelIndex(), 0, data.count() - 1);
-        d->data = data;
+        d->m_data = data;
         endInsertRows();
 
         emit countChanged();
@@ -182,7 +199,7 @@ void AbstractSocialCacheModel::updateRow(int row, const SocialCacheModelRow &dat
 {
     Q_D(AbstractSocialCacheModel);
     foreach (int key, data.keys()) {
-        d->data[row].insert(key, data.value(key));
+        d->m_data[row].insert(key, data.value(key));
     }
     emit dataChanged(index(row), index(row));
 }

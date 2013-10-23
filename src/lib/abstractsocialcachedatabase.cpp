@@ -19,7 +19,7 @@
 
 #include "abstractsocialcachedatabase.h"
 #include "abstractsocialcachedatabase_p.h"
-#include <QtCore/QtDebug>
+
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QStandardPaths>
@@ -27,6 +27,8 @@
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
 #include <QtSql/QSqlRecord>
+
+#include <QtDebug>
 
 // AbstractSocialCacheDatabase
 // This class is the base class for all classes
@@ -39,13 +41,21 @@
 // into db very fast.
 
 AbstractSocialCacheDatabasePrivate::AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q):
-    q_ptr(q), valid(false), mutex(0)
+    q_ptr(q), mutex(0), valid(false)
 {
 }
 
 AbstractSocialCacheDatabasePrivate::~AbstractSocialCacheDatabasePrivate()
 {
-    db.close();
+    // We "shouldn't" close the database here.
+    // The reason is that sometimes the object was moved to and
+    // initialised the database in a different thread.
+    // In that situation, closing the db needs to be done prior
+    // to thread termination.
+    if (db.isOpen()) {
+        qWarning() << Q_FUNC_INFO << "Database is open - must be closed explicitly in derived type!";
+        db.close();
+    }
 }
 
 // Get the user_version of the currently opened database
@@ -70,6 +80,7 @@ int AbstractSocialCacheDatabasePrivate::dbUserVersion(const QString &serviceName
         }
         return value.toInt();
     }
+
     return -1;
 }
 
@@ -195,6 +206,14 @@ AbstractSocialCacheDatabase::AbstractSocialCacheDatabase(AbstractSocialCacheData
 
 AbstractSocialCacheDatabase::~AbstractSocialCacheDatabase()
 {
+    if (!closeDatabase()) {
+        qWarning() << Q_FUNC_INFO << "unable to close database";
+    }
+}
+
+bool AbstractSocialCacheDatabase::closeDatabase()
+{
+    return dbClose();
 }
 
 bool AbstractSocialCacheDatabase::isValid() const
@@ -215,6 +234,16 @@ void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QStri
                                            const QString &dbFile, int userVersion)
 {
     Q_D(AbstractSocialCacheDatabase);
+
+    QString connectionName = QString(QLatin1String("socialcache/%1/%2/%3"))
+                             .arg(serviceName, dataType, QUuid::createUuid().toString());
+
+    d->mutex = new ProcessMutex(connectionName);
+    if (!d->mutex->lock()) {
+        qWarning() << Q_FUNC_INFO << "Error: unable to acquire mutex lock during database initialisation";
+        return;
+    }
+
     if (!QFile::exists(QString(QLatin1String("%1/%2/%3")).arg(PRIVILEGED_DATA_DIR, dataType,
                                                               dbFile))) {
         QDir dir(QString(QLatin1String("%1/%2")).arg(PRIVILEGED_DATA_DIR, dataType));
@@ -226,24 +255,20 @@ void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QStri
         if (!dbfile.open(QIODevice::ReadWrite)) {
             qWarning() << Q_FUNC_INFO << "Unable to create database" << dbFile << "Service"
                        << serviceName << "with data type" << dataType << "will be inactive";
+            d->mutex->unlock();
             return;
         }
         dbfile.close();
     }
 
-    QString connectionName
-            = QString(QLatin1String("socialcache/%1/%2/%3")).arg(serviceName, dataType,
-                                                                 QUuid::createUuid().toString());
-
     // open the database in which we store our synced image information
     d->db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
     d->db.setDatabaseName(QString("%1/%2/%3").arg(PRIVILEGED_DATA_DIR, dataType, dbFile));
 
-    d->mutex = new ProcessMutex(d->db.databaseName());
-
     if (!d->db.open()) {
         qWarning() << Q_FUNC_INFO << "Unable to open database" << dbFile << "Service"
                    << serviceName << "with data type" << dataType << "will be inactive";
+        d->mutex->unlock();
         return;
     }
 
@@ -257,6 +282,7 @@ void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QStri
             qWarning() << Q_FUNC_INFO << "Failed to update database" << dbFile
                        << "It is probably broken and need to be removed manually";
             d->db.close();
+            d->mutex->unlock();
             return;
         }
     }
@@ -265,10 +291,35 @@ void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QStri
         qWarning() << Q_FUNC_INFO << "Failed to update database" << dbFile
                    << "It is probably broken and need to be removed manually";
         d->db.close();
+        d->mutex->unlock();
         return;
     }
 
     d->valid = true;
+    d->mutex->unlock();
+}
+
+bool AbstractSocialCacheDatabase::dbClose()
+{
+    Q_D(AbstractSocialCacheDatabase);
+
+    if (!d->valid) {
+        // already closed.
+        return true;
+    }
+
+    if (!d->mutex->lock()) {
+        qWarning() << Q_FUNC_INFO << "unable to acquire lock!";
+        return false;
+    }
+
+    d->valid = false;
+    d->db.close();
+    d->mutex->unlock();
+    delete d->mutex;
+    d->mutex = NULL;
+
+    return true;
 }
 
 // Set a user_version to the currently opened database
@@ -402,9 +453,8 @@ bool AbstractSocialCacheDatabase::dbCommitTransaction()
                    << query.lastError().text();
     }
 
-    if (d->mutex->isLocked()) {
-        d->mutex->unlock();
-    }
+    // must have been locked (by dbBeginTransaction())
+    d->mutex->unlock();
 
     return ok;
 }
@@ -421,9 +471,8 @@ bool AbstractSocialCacheDatabase::dbRollbackTransaction()
                    << query.lastError().text();
     }
 
-    if (d->mutex->isLocked()) {
-        d->mutex->unlock();
-    }
+    // must have been locked (by dbBeginTransaction())
+    d->mutex->unlock();
 
     return ok;
 }

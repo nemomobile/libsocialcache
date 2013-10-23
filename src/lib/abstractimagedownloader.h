@@ -19,9 +19,10 @@
 #ifndef ABSTRACTIMAGEDOWNLOADER_H
 #define ABSTRACTIMAGEDOWNLOADER_H
 
+#include "socialsyncinterface.h"
+
 #include <QtCore/QObject>
 #include <QtCore/QVariantMap>
-#include "socialsyncinterface.h"
 
 class AbstractImageDownloaderPrivate;
 class AbstractImageDownloader : public QObject
@@ -30,10 +31,13 @@ class AbstractImageDownloader : public QObject
 public:
     explicit AbstractImageDownloader();
     virtual ~AbstractImageDownloader();
+
 public Q_SLOTS:
     void queue(const QString &url, const QVariantMap &data);
+
 Q_SIGNALS:
     void imageDownloaded(const QString &url, const QString &path);
+
 protected:
     static QString makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
                                   SocialSyncInterface::DataType dataType,
@@ -51,7 +55,13 @@ protected:
 
     // Write in the database
     virtual void dbWrite() = 0;
+
+    // Close the database.
+    // We must close the database prior to gracefully terminating the thread / destroying the worker object.
+    virtual bool dbClose() = 0;
+
     QScopedPointer<AbstractImageDownloaderPrivate> d_ptr;
+
 private:
     Q_DECLARE_PRIVATE(AbstractImageDownloader)
 };

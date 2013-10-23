@@ -30,15 +30,20 @@ class FacebookUser
 public:
     typedef QSharedPointer<FacebookUser> Ptr;
     typedef QSharedPointer<const FacebookUser> ConstPtr;
+
     virtual ~FacebookUser();
+
     static FacebookUser::Ptr create(const QString &fbUserId, const QDateTime &updatedTime,
                                     const QString &userName, int count = -1);
+
     QString fbUserId() const;
     QDateTime updatedTime() const;
     QString userName() const;
     int count() const;
+
 protected:
     QScopedPointer<FacebookUserPrivate> d_ptr;
+
 private:
     Q_DECLARE_PRIVATE(FacebookUser)
     explicit FacebookUser(const QString &fbUserId, const QDateTime &updatedTime,
@@ -51,18 +56,23 @@ class FacebookAlbum
 public:
     typedef QSharedPointer<FacebookAlbum> Ptr;
     typedef QSharedPointer<const FacebookAlbum> ConstPtr;
+
     virtual ~FacebookAlbum();
+
     static FacebookAlbum::Ptr create(const QString &fbAlbumId, const QString &fbUserId,
                                      const QDateTime &createdTime, const QDateTime &updatedTime,
                                      const QString &albumName, int imageCount);
+
     QString fbAlbumId() const;
     QString fbUserId() const;
     QDateTime createdTime() const;
     QDateTime updatedTime() const;
     QString albumName() const;
     int imageCount() const;
+
 protected:
     QScopedPointer<FacebookAlbumPrivate> d_ptr;
+
 private:
     Q_DECLARE_PRIVATE(FacebookAlbum)
     explicit FacebookAlbum(const QString &fbAlbumId, const QString &fbUserId,
@@ -76,13 +86,16 @@ class FacebookImage
 public:
     typedef QSharedPointer<FacebookImage> Ptr;
     typedef QSharedPointer<const FacebookImage> ConstPtr;
+
     virtual ~FacebookImage();
+
     static FacebookImage::Ptr create(const QString & fbImageId, const QString & fbAlbumId,
                                      const QString & fbUserId, const QDateTime & createdTime,
                                      const QDateTime &updatedTime, const QString &imageName,
                                      int width, int height, const QString & thumbnailUrl,
                                      const QString & imageUrl, const QString & thumbnailFile,
                                      const QString & imageFile, int account = -1);
+
     QString fbImageId() const;
     QString fbAlbumId() const;
     QString fbUserId() const;
@@ -96,8 +109,10 @@ public:
     QString thumbnailFile() const;
     QString imageFile() const;
     int account() const;
+
 protected:
     QScopedPointer<FacebookImagePrivate> d_ptr;
+
 private:
     Q_DECLARE_PRIVATE(FacebookImage)
     explicit FacebookImage(const QString & fbImageId, const QString & fbAlbumId,
@@ -162,6 +177,7 @@ public:
 protected:
     bool dbCreateTables();
     bool dbDropTables();
+
 private:
     Q_DECLARE_PRIVATE(FacebookImagesDatabase)
 };

@@ -20,10 +20,12 @@
 #include "facebookimagesdatabase.h"
 #include "abstractsocialcachedatabase.h"
 #include "socialsyncinterface.h"
-#include <QtCore/QtDebug>
+
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
 #include <QtCore/QFile>
+
+#include <QtDebug>
 
 static const char *DB_NAME = "facebook.db";
 static const int VERSION = 3;
@@ -314,8 +316,11 @@ class FacebookImagesDatabasePrivate: public AbstractSocialCacheDatabasePrivate
 {
 public:
     explicit FacebookImagesDatabasePrivate(FacebookImagesDatabase *q);
+    ~FacebookImagesDatabasePrivate();
+
 private:
     Q_DECLARE_PUBLIC(FacebookImagesDatabase)
+
     static void createUsersEntries(const QMap<QString, FacebookUser::ConstPtr> &users,
                                    QStringList &keys,
                                    QMap<QString, QVariantList> &entries);
@@ -329,7 +334,9 @@ private:
                                      const QString &primary,
                                      QMap<QString, QVariantList> &entries);
     static void clearCachedImages(QSqlQuery &query);
+
     QList<FacebookImage::ConstPtr> queryImages(const QString &fbUserId, const QString &fbAlbumId);
+
     QMap<QString, FacebookUser::ConstPtr> queuedUsers;
     QMap<QString, FacebookAlbum::ConstPtr> queuedAlbums;
     QMap<QString, FacebookImage::ConstPtr> queuedImages;
@@ -340,6 +347,10 @@ private:
 
 FacebookImagesDatabasePrivate::FacebookImagesDatabasePrivate(FacebookImagesDatabase *q)
     : AbstractSocialCacheDatabasePrivate(q)
+{
+}
+
+FacebookImagesDatabasePrivate::~FacebookImagesDatabasePrivate()
 {
 }
 
@@ -493,8 +504,6 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
                                         "ON accounts.fbUserId = images.fbUserId%1 "\
                                         "ORDER BY images.updatedTime %2");
 
-
-
     if (!fbUserId.isEmpty()) {
         queryString = queryString.arg(QLatin1String(" WHERE images.fbUserId = :fbUserId"),
                                       QLatin1String("DESC"));
@@ -503,6 +512,11 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
                                       QString());
     } else {
         queryString = queryString.arg(QString(), QLatin1String("DESC"));
+    }
+
+    if (!mutex->lock()) {
+        qWarning() << Q_FUNC_INFO << "unable to acquire lock";
+        return data;
     }
 
     QSqlQuery query (db);
@@ -516,6 +530,7 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
 
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to query all albums:" << query.lastError().text();
+        mutex->unlock();
         return data;
     }
 
@@ -531,6 +546,7 @@ QList<FacebookImage::ConstPtr> FacebookImagesDatabasePrivate::queryImages(const 
                                           query.value(12).toInt()));
     }
 
+    mutex->unlock();
     return data;
 }
 
@@ -592,6 +608,7 @@ bool FacebookImagesDatabase::syncAccount(int accountId, const QString &fbUserId)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
         dbRollbackTransaction();
         return false;
     }
@@ -616,6 +633,7 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     query.bindValue(":accountId", accountId);
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to query account" << accountId;
+        dbRollbackTransaction();
         return;
     }
 
@@ -671,6 +689,8 @@ void FacebookImagesDatabase::purgeAccount(int accountId)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
+        dbRollbackTransaction();
         return;
     }
 }
@@ -768,6 +788,7 @@ void FacebookImagesDatabase::removeUser(const QString &fbUserId)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
         dbRollbackTransaction();
         return;
     }
@@ -901,6 +922,8 @@ void FacebookImagesDatabase::removeAlbum(const QString &fbAlbumId)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
+        dbRollbackTransaction();
         return;
     }
 }
@@ -951,6 +974,8 @@ void FacebookImagesDatabase::removeAlbums(const QStringList &fbAlbumIds)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
+        dbRollbackTransaction();
         return;
     }
 }
@@ -1102,6 +1127,7 @@ void FacebookImagesDatabase::removeImage(const QString &fbImageId)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
         dbRollbackTransaction();
         return;
     }
@@ -1113,9 +1139,9 @@ void FacebookImagesDatabase::removeImages(const QStringList &fbImageIds)
     if (!dbBeginTransaction()) {
         return;
     }
+
     // Clean images
     QSqlQuery query (d->db);
-
     foreach (const QString &fbImageId, fbImageIds) {
         if (!query.prepare("SELECT thumbnailFile, imageFile FROM images WHERE fbImageId = :fbImageId")) {
             qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
@@ -1146,6 +1172,7 @@ void FacebookImagesDatabase::removeImages(const QStringList &fbImageIds)
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
         dbRollbackTransaction();
         return;
     }
@@ -1262,6 +1289,8 @@ bool FacebookImagesDatabase::write()
     }
 
     if (!dbCommitTransaction()) {
+        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
+        dbRollbackTransaction();
         return false;
     }
 
@@ -1278,6 +1307,7 @@ bool FacebookImagesDatabase::write()
 bool FacebookImagesDatabase::dbCreateTables()
 {
     Q_D(FacebookImagesDatabase);
+
     // create the facebook image db tables
     // images = fbImageId, fbAlbumId, fbUserId, createdTime, updatedTime, imageName, width, height,
     //          thumbnailUrl, imageUrl, thumbnailFile, imageFile
@@ -1300,7 +1330,6 @@ bool FacebookImagesDatabase::dbCreateTables()
                    "imageFile TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create images table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -1313,7 +1342,6 @@ bool FacebookImagesDatabase::dbCreateTables()
                    "imageCount INTEGER)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create albums table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -1323,7 +1351,6 @@ bool FacebookImagesDatabase::dbCreateTables()
                    "userName TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create users table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -1332,7 +1359,6 @@ bool FacebookImagesDatabase::dbCreateTables()
                    "fbUserId TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create accounts table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -1346,32 +1372,29 @@ bool FacebookImagesDatabase::dbCreateTables()
 bool FacebookImagesDatabase::dbDropTables()
 {
     Q_D(FacebookImagesDatabase);
+
     QSqlQuery query(d->db);
     query.prepare("DROP TABLE IF EXISTS images");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to delete images table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
     query.prepare("DROP TABLE IF EXISTS albums");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to delete albums table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
     query.prepare("DROP TABLE IF EXISTS users");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to delete users table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
     query.prepare("DROP TABLE IF EXISTS accounts");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to delete accounts table:" << query.lastError().text();
-        d->db.close();
         return false;
     }
 

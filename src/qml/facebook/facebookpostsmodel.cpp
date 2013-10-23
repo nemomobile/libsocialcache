@@ -26,9 +26,14 @@
 class FacebookPostsWorkerObject: public AbstractWorkerObject
 {
     Q_OBJECT
+
 public:
     explicit FacebookPostsWorkerObject();
+    ~FacebookPostsWorkerObject();
+
     void refresh();
+    void finalCleanup();
+
 private:
     FacebookPostsDatabase m_db;
     bool m_enabled;
@@ -37,6 +42,15 @@ private:
 FacebookPostsWorkerObject::FacebookPostsWorkerObject()
     : AbstractWorkerObject(), m_enabled(false)
 {
+}
+
+FacebookPostsWorkerObject::~FacebookPostsWorkerObject()
+{
+}
+
+void FacebookPostsWorkerObject::finalCleanup()
+{
+    m_db.closeDatabase();
 }
 
 void FacebookPostsWorkerObject::refresh()
@@ -87,6 +101,7 @@ class FacebookPostsModelPrivate: public AbstractSocialCacheModelPrivate
 {
 public:
     explicit FacebookPostsModelPrivate(FacebookPostsModel *q);
+
 private:
     Q_DECLARE_PUBLIC(FacebookPostsModel)
 };

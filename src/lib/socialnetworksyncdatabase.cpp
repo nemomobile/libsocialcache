@@ -19,12 +19,13 @@
 #include "socialnetworksyncdatabase.h"
 #include "abstractsocialcachedatabase_p.h"
 
-#include <QtCore/QDebug>
 #include <QtCore/QStringList>
 #include <QtCore/QVariantList>
 #include <QtCore/QMap>
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
+
+#include <QtDebug>
 
 static const char *SERVICE_NAME = "Sync";
 static const char *DATA_TYPE = "Sync";
@@ -186,7 +187,6 @@ bool SocialNetworkSyncDatabase::dbCreateTables()
                   "CONSTRAINT id PRIMARY KEY (accountId, serviceName, dataType))");
     if (!query.exec()) {
         qWarning() << "Unable to create syncTimestamps table" << query.lastError().text();
-        d->db.close();
         return false;
     }
 

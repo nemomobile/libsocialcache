@@ -32,8 +32,10 @@ class AbstractSocialCacheModel : public QAbstractListModel
     Q_PROPERTY(QString nodeIdentifier READ nodeIdentifier WRITE setNodeIdentifier
                NOTIFY nodeIdentifierChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
+
 public:
     virtual ~AbstractSocialCacheModel();
+
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant data(const QModelIndex &index, int role) const;
     Q_INVOKABLE QVariant getField(int row, int role) const;
@@ -46,14 +48,18 @@ public:
     // Methods used to update the model in the C++ side
     void updateData(const SocialCacheModelData &data);
     void updateRow(int row, const SocialCacheModelRow &data);
+
 public Q_SLOTS:
     void refresh();
+
 Q_SIGNALS:
     void nodeIdentifierChanged();
     void countChanged();
+
 protected:
     explicit AbstractSocialCacheModel(AbstractSocialCacheModelPrivate &dd, QObject *parent = 0);
     QScopedPointer<AbstractSocialCacheModelPrivate> d_ptr;
+
 private:
     Q_DECLARE_PRIVATE(AbstractSocialCacheModel)
 };

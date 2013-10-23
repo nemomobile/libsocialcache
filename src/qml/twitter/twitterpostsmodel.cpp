@@ -26,9 +26,14 @@
 class TwitterPostsWorkerObject: public AbstractWorkerObject
 {
     Q_OBJECT
+
 public:
     explicit TwitterPostsWorkerObject();
+    ~TwitterPostsWorkerObject();
+
     void refresh();
+    void finalCleanup();
+
 private:
     TwitterPostsDatabase m_db;
     bool m_enabled;
@@ -37,6 +42,15 @@ private:
 TwitterPostsWorkerObject::TwitterPostsWorkerObject()
     : AbstractWorkerObject(), m_enabled(false)
 {
+}
+
+TwitterPostsWorkerObject::~TwitterPostsWorkerObject()
+{
+}
+
+void TwitterPostsWorkerObject::finalCleanup()
+{
+    m_db.closeDatabase();
 }
 
 void TwitterPostsWorkerObject::refresh()
