@@ -20,8 +20,29 @@
 #include "abstractsocialcachemodel.h"
 #include "abstractsocialcachemodel_p.h"
 
+#include <synchronizelists_p.h>
+
 #include <QtCore/QDebug>
 #include <QtCore/QMutexLocker>
+
+template <> bool compareIdentity<SocialCacheModelRow>(
+        const SocialCacheModelRow &item, const SocialCacheModelRow &reference)
+{
+    return item.value(0) == reference.value(0);
+}
+
+template <>
+int updateRange<AbstractSocialCacheModelPrivate, SocialCacheModelData>(
+        AbstractSocialCacheModelPrivate *d,
+        int index,
+        int count,
+        const SocialCacheModelData &source,
+        int sourceIndex)
+{
+    d->updateRange(index, count, source, sourceIndex);
+
+    return count;
+}
 
 AbstractWorkerObject::AbstractWorkerObject():
     m_loading(false)
@@ -113,7 +134,7 @@ void AbstractSocialCacheModelPrivate::updateRow(int row, const SocialCacheModelR
 void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *workerObjectToSet)
 {
     if (workerObjectToSet) {
-        m_workerThread.start(QThread::IdlePriority);
+        m_workerThread.start(/*QThread::IdlePriority*/);
         m_workerObject = workerObjectToSet;
         m_workerObject->moveToThread(&m_workerThread);
         connect(this, &AbstractSocialCacheModelPrivate::nodeIdentifierChanged,
@@ -126,6 +147,37 @@ void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *wor
                 this, &AbstractSocialCacheModelPrivate::updateRow);
     }
 
+}
+
+void AbstractSocialCacheModelPrivate::insertRange(
+        int index, int count, const SocialCacheModelData &source, int sourceIndex)
+{
+    Q_Q(AbstractSocialCacheModel);
+
+    q->beginInsertRows(QModelIndex(), index, index + count - 1);
+    m_data = m_data.mid(0, index) + source.mid(sourceIndex, count) + m_data.mid(index);
+    q->endInsertRows();
+}
+
+void AbstractSocialCacheModelPrivate::removeRange(int index, int count)
+{
+    Q_Q(AbstractSocialCacheModel);
+
+    q->beginRemoveRows(QModelIndex(), index, index + count - 1);
+    m_data = m_data.mid(0, index) + m_data.mid(index + count);
+    q->endRemoveRows();
+}
+
+void AbstractSocialCacheModelPrivate::updateRange(
+        int index, int count, const SocialCacheModelData &source, int sourceIndex)
+{
+    Q_Q(AbstractSocialCacheModel);
+
+    for  (int i = 0; i < count; ++i) {
+        m_data[index + i] = source[sourceIndex + i];
+    }
+
+    emit q->dataChanged(q->createIndex(index, 0), q->createIndex(index + count - 1, 0));
 }
 
 AbstractSocialCacheModel::AbstractSocialCacheModel(AbstractSocialCacheModelPrivate &dd,
@@ -185,12 +237,12 @@ int AbstractSocialCacheModel::count() const
 void AbstractSocialCacheModel::updateData(const SocialCacheModelData &data)
 {
     Q_D(AbstractSocialCacheModel);
-    d->clearData();
-    if (!data.isEmpty()) {
-        beginInsertRows(QModelIndex(), 0, data.count() - 1);
-        d->m_data = data;
-        endInsertRows();
 
+    const int count = d->m_data.count();
+
+    synchronizeList(d, d->m_data, data);
+
+    if (d->m_data.count() != count) {
         emit countChanged();
     }
 }

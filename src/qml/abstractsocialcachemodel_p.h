@@ -75,6 +75,10 @@ public:
     virtual ~AbstractSocialCacheModelPrivate();
     QString nodeIdentifier;
 
+    void insertRange(int index, int count, const SocialCacheModelData &source, int sourceIndex);
+    void updateRange(int index, int count, const SocialCacheModelData &source, int sourceIndex);
+    void removeRange(int index, int count);
+
 public Q_SLOTS:
     void clearData();
     void updateData(const SocialCacheModelData &data);
