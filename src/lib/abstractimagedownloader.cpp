@@ -136,7 +136,7 @@ void AbstractImageDownloaderPrivate::slotFinished()
     q->dbQueueImage(data.first, data.second, file);
 
     // Emit signal
-    emit q->imageDownloaded(data.first, file);
+    emit q->imageDownloaded(data.first, file, data.second);
 
     loadedCount ++;
     manageStack();
@@ -159,7 +159,7 @@ AbstractImageDownloader::~AbstractImageDownloader()
 {
 }
 
-void AbstractImageDownloader::queue(const QString &url, const QVariantMap &data)
+void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metadata)
 {
     Q_D(AbstractImageDownloader);
     if (!dbInit()) {
@@ -167,7 +167,7 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &data)
         return;
     }
 
-    ImageInfo info = ImageInfo(url, data);
+    ImageInfo info = ImageInfo(url, metadata);
     if (d->stack.contains(info)) {
         d->stack.removeAll(info);
     }

@@ -63,7 +63,7 @@ public Q_SLOTS:
     void queueImageFull(int row, const FacebookImage::ConstPtr &image);
 
 Q_SIGNALS:
-    void requestQueue(const QString &url, const QVariantMap &data);
+    void requestQueue(const QString &url, const QVariantMap &metadata);
 
 protected:
     FacebookImageCacheModel::ModelDataType type;
@@ -87,7 +87,7 @@ public:
     FacebookImageDownloader *downloader;
 
 public Q_SLOTS:
-    void queue(const QString &url, const QVariantMap &data);
+    void queue(const QString &url, const QVariantMap &metadata);
     void slotDataUpdated(const QString &url, const QString &path);
 
 Q_SIGNALS:
@@ -258,12 +258,12 @@ void FacebookImageWorkerObject::queue(int row,
                                       FacebookImageDownloaderWorkerObject::ImageType imageType,
                                       const QString &identifier, const QString &url)
 {
-    QVariantMap data;
-    data.insert(QLatin1String(TYPE_KEY), imageType);
-    data.insert(QLatin1String(IDENTIFIER_KEY), identifier);
-    data.insert(QLatin1String(URL_KEY), url);
-    data.insert(QLatin1String(ROW_KEY), row);
-    emit requestQueue(url, data);
+    QVariantMap metadata;
+    metadata.insert(QLatin1String(TYPE_KEY), imageType);
+    metadata.insert(QLatin1String(IDENTIFIER_KEY), identifier);
+    metadata.insert(QLatin1String(URL_KEY), url);
+    metadata.insert(QLatin1String(ROW_KEY), row);
+    emit requestQueue(url, metadata);
 }
 
 FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCacheModel *q)
@@ -271,9 +271,9 @@ FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCach
 {
 }
 
-void FacebookImageCacheModelPrivate::queue(const QString &url, const QVariantMap &data)
+void FacebookImageCacheModelPrivate::queue(const QString &url, const QVariantMap &metadata)
 {
-    m_queuedImages.insert(url, data);
+    m_queuedImages.insert(url, metadata);
 }
 
 void FacebookImageCacheModelPrivate::slotDataUpdated(const QString &url, const QString &path)
