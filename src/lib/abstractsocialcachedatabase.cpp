@@ -136,6 +136,10 @@ bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
         }
     }
 
+    if (otherEntries.isEmpty()) {
+        return true;
+    }
+
     QString queryString = QLatin1String("UPDATE ");
     queryString.append(table);
     queryString.append(QLatin1String(" SET "));
