@@ -36,7 +36,7 @@ public Q_SLOTS:
     void queue(const QString &url, const QVariantMap &data);
 
 Q_SIGNALS:
-    void imageDownloaded(const QString &url, const QString &path);
+    void imageDownloaded(const QString &url, const QString &path, const QVariantMap &metadata);
 
 protected:
     static QString makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
@@ -44,14 +44,15 @@ protected:
                                   const QString &identifier);
 
     // Output file based on passed data
-    virtual QString outputFile(const QString &url, const QVariantMap &data) const = 0;
+    virtual QString outputFile(const QString &url, const QVariantMap &metadata) const = 0;
 
     // Init the database if not initialized
     // used to delay initialization of the database
     virtual bool dbInit() = 0;
 
     // Queue an image in the database
-    virtual void dbQueueImage(const QString &url, const QVariantMap &data, const QString &file) = 0;
+    virtual void dbQueueImage(const QString &url, const QVariantMap &metadata,
+                              const QString &file) = 0;
 
     // Write in the database
     virtual void dbWrite() = 0;
