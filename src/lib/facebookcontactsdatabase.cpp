@@ -119,7 +119,8 @@ public:
                               const QString &primary, QMap<QString, QVariantList> &entries);
     void clearCachedImages(QSqlQuery &query);
     QList<FacebookContact::ConstPtr> queuedContacts;
-    QMap<QString, QMap<QString, QVariant> > queuedUpdatedContacts;
+    QMap<QString, QMap<QString, QVariant> > queuedContactsWithUpdatedPicture;
+    QMap<QString, QMap<QString, QVariant> > queuedContactsWithUpdatedCover;
 };
 
 FacebookContactsDatabasePrivate::FacebookContactsDatabasePrivate(FacebookContactsDatabase *q)
@@ -373,26 +374,24 @@ void FacebookContactsDatabase::updatePictureFile(const QString &fbFriendId,
                                                  const QString &pictureFile)
 {
     Q_D(FacebookContactsDatabase);
-    if (!d->queuedUpdatedContacts.contains(fbFriendId)) {
+    if (!d->queuedContactsWithUpdatedPicture.contains(fbFriendId)) {
         QMap<QString, QVariant> data;
         data.insert(QLatin1String(PICTURE_FILE_KEY), pictureFile);
-        data.insert(QLatin1String(COVER_FILE_KEY), QString());
-        d->queuedUpdatedContacts.insert(fbFriendId, data);
+        d->queuedContactsWithUpdatedPicture.insert(fbFriendId, data);
     } else {
-        d->queuedUpdatedContacts[fbFriendId].insert(QLatin1String(PICTURE_FILE_KEY), pictureFile);
+        d->queuedContactsWithUpdatedPicture[fbFriendId].insert(QLatin1String(PICTURE_FILE_KEY), pictureFile);
     }
 }
 
 void FacebookContactsDatabase::updateCoverFile(const QString &fbFriendId, const QString &coverFile)
 {
     Q_D(FacebookContactsDatabase);
-    if (!d->queuedUpdatedContacts.contains(fbFriendId)) {
+    if (!d->queuedContactsWithUpdatedCover.contains(fbFriendId)) {
         QMap<QString, QVariant> data;
-        data.insert(QLatin1String(PICTURE_FILE_KEY), QString());
         data.insert(QLatin1String(COVER_FILE_KEY), coverFile);
-        d->queuedUpdatedContacts.insert(fbFriendId, data);
+        d->queuedContactsWithUpdatedCover.insert(fbFriendId, data);
     } else {
-        d->queuedUpdatedContacts[fbFriendId].insert(QLatin1String(COVER_FILE_KEY), coverFile);
+        d->queuedContactsWithUpdatedCover[fbFriendId].insert(QLatin1String(COVER_FILE_KEY), coverFile);
     }
 }
 
@@ -427,9 +426,8 @@ bool FacebookContactsDatabase::write()
     }
 
     QMap<QString, QVariantList> entries;
-    d->createUpdatedEntries(d->queuedUpdatedContacts, QLatin1String("fbFriendId"),
+    d->createUpdatedEntries(d->queuedContactsWithUpdatedPicture, QLatin1String("fbFriendId"),
                             entries);
-
 
     if (!dbWrite(QLatin1String("friends"), QStringList(), entries, Update,
                  QLatin1String("fbFriendId"))) {
@@ -437,10 +435,21 @@ bool FacebookContactsDatabase::write()
         return false;
     }
 
-    qWarning() << "Updated" << d->queuedUpdatedContacts.count() << "contacts";
+    d->createUpdatedEntries(d->queuedContactsWithUpdatedCover, QLatin1String("fbFriendId"),
+                            entries);
+
+    if (!dbWrite(QLatin1String("friends"), QStringList(), entries, Update,
+                 QLatin1String("fbFriendId"))) {
+        dbRollbackTransaction();
+        return false;
+    }
+
+    qWarning() << "Updated" << d->queuedContactsWithUpdatedPicture.count() << "pictures";
+    qWarning() << "Updated" << d->queuedContactsWithUpdatedCover.count() << "covers";
     qWarning() << "Inserted" << d->queuedContacts.count() << "contacts";
 
-    d->queuedUpdatedContacts.clear();
+    d->queuedContactsWithUpdatedPicture.clear();
+    d->queuedContactsWithUpdatedCover.clear();
     d->queuedContacts.clear();
 
     return dbCommitTransaction();
