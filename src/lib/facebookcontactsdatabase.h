@@ -57,8 +57,11 @@ public:
     void initDatabase();
 
     bool removeContacts(int accountId);
+    bool removeContacts(const QStringList &fbFriendIds);
 
-    QList<FacebookContact::ConstPtr> contacts(int accountId);
+    FacebookContact::ConstPtr contact(const QString &fbFriendId, int accountId) const;
+    QList<FacebookContact::ConstPtr> contacts(int accountId) const;
+    QStringList contactIds(int accountId) const;
     void addSyncedContact(const QString &fbFriendId, int accountId, const QString &pictureUrl,
                           const QString &coverUrl);
     void updatePictureFile(const QString &fbFriendId, const QString &pictureFile);
