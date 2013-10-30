@@ -215,6 +215,12 @@ private:
     QMap<QString, SocialPost::ConstPtr> queuedPosts;
     QMultiMap<QString, int> queuedPostsAccounts;
     QList<int> queuedRemovePostsForAccount;
+
+    QSqlQuery postQuery;
+    QSqlQuery imageQuery;
+    QSqlQuery extraQuery;
+    QSqlQuery accountQuery;
+
     Q_DECLARE_PUBLIC(AbstractSocialPostCacheDatabase)
 };
 
@@ -304,76 +310,69 @@ AbstractSocialPostCacheDatabase::AbstractSocialPostCacheDatabase()
 QList<SocialPost::ConstPtr> AbstractSocialPostCacheDatabase::posts() const
 {
     // This might be slow
-    Q_D(const AbstractSocialPostCacheDatabase);
-    QSqlQuery query (d->db);
+    AbstractSocialPostCacheDatabasePrivate * const d = const_cast<AbstractSocialPostCacheDatabasePrivate *>(d_func());
 
-    query.prepare("SELECT identifier, name, body, timestamp FROM posts "\
-                  "ORDER BY timestamp DESC");
-    if (!query.exec()) {
-        qWarning() << Q_FUNC_INFO << "Error reading from posts table:" << query.lastError();
+    if (!d->postQuery.exec()) {
+        qWarning() << Q_FUNC_INFO << "Error reading from posts table:" << d->postQuery.lastError();
         return QList<SocialPost::ConstPtr>();
     }
 
     QList<SocialPost::ConstPtr> posts;
-    while (query.next()) {
-        QString identifier = query.value(0).toString();
+    while (d->postQuery.next()) {
+        QString identifier = d->postQuery.value(0).toString();
 
-        QString name = query.value(1).toString();
-        QString body = query.value(2).toString();
-        int timestamp = query.value(3).toInt();
+        QString name = d->postQuery.value(1).toString();
+        QString body = d->postQuery.value(2).toString();
+        int timestamp = d->postQuery.value(3).toInt();
         SocialPost::Ptr post = SocialPost::create(identifier, name, body,
                                                   QDateTime::fromTime_t(timestamp));
 
-        QSqlQuery postQuery (d->db);
-        postQuery.prepare("SELECT position, url, type FROM images WHERE postId = :postId");
-        postQuery.bindValue(":postId", identifier);
+        d->imageQuery.bindValue(":postId", identifier);
 
         QMap<int, SocialPostImage::ConstPtr> images;
-        if (postQuery.exec()) {
-            while (postQuery.next()) {
+        if (d->imageQuery.exec()) {
+            while (d->imageQuery.next()) {
                 SocialPostImage::ImageType type = SocialPostImage::Invalid;
-                QString typeString = postQuery.value(2).toString();
+                QString typeString = d->imageQuery.value(2).toString();
                 if (typeString == QLatin1String(PHOTO)) {
                     type = SocialPostImage::Photo;
                 } else if (typeString == QLatin1String(VIDEO)) {
                     type = SocialPostImage::Video;
                 }
 
-                int position = postQuery.value(0).toInt();
-                SocialPostImage::Ptr image  = SocialPostImage::create(postQuery.value(1).toString(),
+                int position = d->imageQuery.value(0).toInt();
+                SocialPostImage::Ptr image  = SocialPostImage::create(d->imageQuery.value(1).toString(),
                                                                       type);
                 images.insert(position, image);
             }
             post->setImages(images);
         } else {
             qWarning() << Q_FUNC_INFO << "Error reading from images table:"
-                       << postQuery.lastError();
+                       << d->imageQuery.lastError();
         }
 
-        postQuery.prepare("SELECT key, value FROM extra WHERE postId = :postId");
-        postQuery.bindValue(":postId", identifier);
+        d->extraQuery.bindValue(":postId", identifier);
 
         QVariantMap extra;
-        if (postQuery.exec()) {
-            while (postQuery.next()) {
-                QString key = postQuery.value(0).toString();
-                QVariant value = postQuery.value(1);
+        if (d->extraQuery.exec()) {
+            while (d->extraQuery.next()) {
+                QString key = d->extraQuery.value(0).toString();
+                QVariant value = d->extraQuery.value(1);
                 extra.insert(key, value);
             }
         } else {
             qWarning() << Q_FUNC_INFO << "Error reading from extra table:"
-                       << postQuery.lastError();
+                       << d->extraQuery.lastError();
         }
 
         post->setExtra(extra);
 
-        postQuery.prepare("SELECT account FROM link_posts_account WHERE postId = :postId");
-        postQuery.bindValue(":postId", identifier);
+        d->accountQuery.bindValue(":postId", identifier);
 
         QList<int> accounts;
-        if (postQuery.exec()) {
-            while (postQuery.next()) {
-                accounts.append(postQuery.value(0).toInt());
+        if (d->accountQuery.exec()) {
+            while (d->accountQuery.next()) {
+                accounts.append(d->accountQuery.value(0).toInt());
             }
         }
 
@@ -567,6 +566,28 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
 
     if (!dbCreatePragmaVersion(POST_DB_VERSION)) {
         return false;
+    }
+
+
+    d->postQuery = QSqlQuery(d->db);
+    if (!d->postQuery.prepare("SELECT identifier, name, body, timestamp FROM posts "\
+                  "ORDER BY timestamp DESC")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare posts query" << d->postQuery.lastError();
+    }
+
+    d->imageQuery = QSqlQuery(d->db);
+    if (!d->imageQuery.prepare("SELECT position, url, type FROM images WHERE postId = :postId")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare images query" << d->imageQuery.lastError();
+    }
+
+    d->extraQuery = QSqlQuery(d->db);
+    if (!d->extraQuery.prepare("SELECT key, value FROM extra WHERE postId = :postId")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare extras query" << d->extraQuery.lastError();
+    }
+
+    d->accountQuery = QSqlQuery(d->db);
+    if (!d->accountQuery.prepare("SELECT account FROM link_post_account WHERE postId = :postId")) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare accounts query" << d->accountQuery.lastError();
     }
 
     return true;
