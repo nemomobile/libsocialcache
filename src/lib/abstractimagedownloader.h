@@ -24,6 +24,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QVariantMap>
 
+class QNetworkReply;
 class AbstractImageDownloaderPrivate;
 class AbstractImageDownloader : public QObject
 {
@@ -43,23 +44,25 @@ protected:
                                   SocialSyncInterface::DataType dataType,
                                   const QString &identifier);
 
+    virtual QNetworkReply * createReply(const QString &url, const QVariantMap &metadata);
+
     // Output file based on passed data
     virtual QString outputFile(const QString &url, const QVariantMap &metadata) const = 0;
 
     // Init the database if not initialized
     // used to delay initialization of the database
-    virtual bool dbInit() = 0;
+    virtual bool dbInit();
 
     // Queue an image in the database
     virtual void dbQueueImage(const QString &url, const QVariantMap &metadata,
-                              const QString &file) = 0;
+                              const QString &file);
 
     // Write in the database
-    virtual void dbWrite() = 0;
+    virtual void dbWrite();
 
     // Close the database.
     // We must close the database prior to gracefully terminating the thread / destroying the worker object.
-    virtual bool dbClose() = 0;
+    virtual bool dbClose();
 
     QScopedPointer<AbstractImageDownloaderPrivate> d_ptr;
 

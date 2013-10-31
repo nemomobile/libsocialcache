@@ -15,11 +15,13 @@ HEADERS +=  ../../src/lib/semaphore_p.h \
             ../../src/lib/abstractsocialcachedatabase_p.h \
             ../../src/lib/facebookimagesdatabase.h \
             ../../src/lib/abstractimagedownloader.h \
+            ../../src/lib/abstractimagedownloader_p.h \
             ../../src/qml/abstractsocialcachemodel.h \
             ../../src/qml/abstractsocialcachemodel_p.h \
             ../../src/qml/facebook/facebookimagecachemodel.h \
             ../../src/qml/facebook/facebookimagedownloader_p.h \
             ../../src/qml/facebook/facebookimagedownloader.h
+
 SOURCES +=  ../../src/lib/semaphore_p.cpp \
             ../../src/lib/socialsyncinterface.cpp \
             ../../src/lib/abstractsocialcachedatabase.cpp \
