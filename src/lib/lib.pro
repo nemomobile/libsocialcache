@@ -16,6 +16,7 @@ HEADERS = \
     semaphore_p.h \
     socialsyncinterface.h \
     abstractimagedownloader.h \
+    abstractimagedownloader_p.h \
     abstractsocialcachedatabase.h \
     abstractsocialcachedatabase_p.h \
     abstractsocialpostcachedatabase.h \

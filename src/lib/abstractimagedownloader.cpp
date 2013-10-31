@@ -29,6 +29,8 @@
 
 #include <QtDebug>
 
+#include "abstractimagedownloader_p.h"
+
 // The AbstractImageDownloader is a class used to build image downloader objects
 //
 // An image downloader object is a QObject based object that lives in
@@ -45,35 +47,9 @@
 
 static int MAX_SIMULTANEOUS_DOWNLOAD = 5;
 static int MAX_BATCH_SAVE = 50;
-typedef QPair<QString, QVariantMap> ImageInfo;
-
-class AbstractImageDownloaderPrivate: public QObject
-{
-    Q_OBJECT
-
-public:
-    explicit AbstractImageDownloaderPrivate(AbstractImageDownloader *q);
-    virtual ~AbstractImageDownloaderPrivate();
-
-    void manageStack();
-
-    QNetworkAccessManager *networkAccessManager;
-    QMap<QNetworkReply *, ImageInfo> runningReplies;
-    QList<ImageInfo> stack;
-    int loadedCount;
-
-protected:
-    AbstractImageDownloader * const q_ptr;
-
-private:
-    Q_DECLARE_PUBLIC(AbstractImageDownloader)
-
-private Q_SLOTS:
-    void slotFinished();
-};
 
 AbstractImageDownloaderPrivate::AbstractImageDownloaderPrivate(AbstractImageDownloader *q)
-    : QObject(q), networkAccessManager(0), loadedCount(0), q_ptr(q)
+    : QObject(q), networkAccessManager(0), q_ptr(q), loadedCount(0)
 {
 }
 
@@ -83,12 +59,12 @@ AbstractImageDownloaderPrivate::~AbstractImageDownloaderPrivate()
 
 void AbstractImageDownloaderPrivate::manageStack()
 {
+    Q_Q(AbstractImageDownloader);
     while (runningReplies.count() < MAX_SIMULTANEOUS_DOWNLOAD && !stack.isEmpty()) {
         // Create a reply to download the image
         ImageInfo data = stack.takeFirst();
 
-        QNetworkRequest request (data.first);
-        QNetworkReply *reply = networkAccessManager->get(request);
+        QNetworkReply *reply = q->createReply(data.first, data.second);
         connect(reply, &QNetworkReply::finished,
                 this, &AbstractImageDownloaderPrivate::slotFinished);
         runningReplies.insert(reply, data);
@@ -176,6 +152,14 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
     d->manageStack();
 }
 
+QNetworkReply *AbstractImageDownloader::createReply(const QString &url, const QVariantMap &metadata)
+{
+    Q_UNUSED(metadata)
+    Q_D(AbstractImageDownloader);
+    QNetworkRequest request (url);
+    return d->networkAccessManager->get(request);
+}
+
 QString AbstractImageDownloader::makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
                                                  SocialSyncInterface::DataType dataType,
                                                  const QString &identifier)
@@ -195,5 +179,28 @@ QString AbstractImageDownloader::makeOutputFile(SocialSyncInterface::SocialNetwo
                                                         firstLetter, identifier);
     return path;
 }
+
+bool AbstractImageDownloader::dbInit()
+{
+    return true;
+}
+
+void AbstractImageDownloader::dbQueueImage(const QString &url, const QVariantMap &metadata,
+                                           const QString &file)
+{
+    Q_UNUSED(url)
+    Q_UNUSED(metadata)
+    Q_UNUSED(file)
+}
+
+void AbstractImageDownloader::dbWrite()
+{
+}
+
+bool AbstractImageDownloader::dbClose()
+{
+}
+
+
 
 #include "abstractimagedownloader.moc"
