@@ -37,6 +37,7 @@ public:
         AttachmentName,
         AttachmentCaption,
         AttachmentDescription,
+        AttachmentUrl,
         AllowLike,
         AllowComment,
         ClientId,
