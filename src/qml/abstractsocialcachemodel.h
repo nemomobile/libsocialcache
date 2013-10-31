@@ -55,6 +55,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void nodeIdentifierChanged();
     void countChanged();
+    void modelUpdated();
 
 protected:
     explicit AbstractSocialCacheModel(AbstractSocialCacheModelPrivate &dd, QObject *parent = 0);
