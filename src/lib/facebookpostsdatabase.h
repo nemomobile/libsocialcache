@@ -35,12 +35,14 @@ public:
                          const QString &icon,
                          const QList<QPair<QString, SocialPostImage::ImageType> > &images,
                          const QString &attachmentName,  const QString &attachmentCaption,
-                         const QString &attachmentDescription, bool allowLike, bool allowComment,
+                         const QString &attachmentDescription, const QString &attachmentUrl,
+                         bool allowLike, bool allowComment,
                          const QString &clientId, int account);
 
     static QString attachmentName(const SocialPost::ConstPtr &post);
     static QString attachmentCaption(const SocialPost::ConstPtr &post);
     static QString attachmentDescription(const SocialPost::ConstPtr &post);
+    static QString attachmentUrl(const SocialPost::ConstPtr &post);
     static bool allowLike(const SocialPost::ConstPtr &post);
     static bool allowComment(const SocialPost::ConstPtr &post);
     static QString clientId(const SocialPost::ConstPtr &post);

@@ -82,6 +82,7 @@ void FacebookPostsWorkerObject::refresh()
         eventMap.insert(FacebookPostsModel::AttachmentCaption, m_db.attachmentCaption(post));
         eventMap.insert(FacebookPostsModel::AttachmentDescription,
                         m_db.attachmentDescription(post));
+        eventMap.insert(FacebookPostsModel::AttachmentUrl, m_db.attachmentUrl(post));
         eventMap.insert(FacebookPostsModel::AllowLike, m_db.allowLike(post));
         eventMap.insert(FacebookPostsModel::AllowComment, m_db.allowComment(post));
         eventMap.insert(FacebookPostsModel::ClientId, m_db.clientId(post));
@@ -130,6 +131,7 @@ QHash<int, QByteArray> FacebookPostsModel::roleNames() const
     roleNames.insert(AttachmentName, "attachmentName");
     roleNames.insert(AttachmentCaption, "attachmentCaption");
     roleNames.insert(AttachmentDescription, "attachmentDescription");
+    roleNames.insert(AttachmentUrl, "attachmentUrl");
     roleNames.insert(AllowLike, "allowLike");
     roleNames.insert(AllowComment, "allowComment");
     roleNames.insert(ClientId, "clientId");

@@ -26,6 +26,7 @@ static const char *DB_NAME = "facebook.db";
 static const char *ATTACHMENT_NAME_KEY = "post_attachment_name";
 static const char *ATTACHMENT_CAPTION_KEY = "post_attachment_caption";
 static const char *ATTACHMENT_DESCRIPTION_KEY = "post_attachment_description";
+static const char *ATTACHMENT_URL_KEY = "post_attachment_url";
 static const char *CLIENT_ID_KEY = "client_id";
 static const char *ALLOW_LIKE_KEY = "allow_like";
 static const char *ALLOW_COMMENT_KEY = "allow_comment";
@@ -53,6 +54,7 @@ void FacebookPostsDatabase::addFacebookPost(const QString &identifier, const QSt
                                             const QString &attachmentName,
                                             const QString &attachmentCaption,
                                             const QString &attachmentDescription,
+                                            const QString &attachmentUrl,
                                             bool allowLike, bool allowComment,
                                             const QString &clientId, int account)
 {
@@ -62,6 +64,7 @@ void FacebookPostsDatabase::addFacebookPost(const QString &identifier, const QSt
     extra.insert(ATTACHMENT_DESCRIPTION_KEY, attachmentDescription);
     extra.insert(ALLOW_LIKE_KEY, allowLike);
     extra.insert(ALLOW_COMMENT_KEY, allowComment);
+    extra.insert(ATTACHMENT_URL_KEY, attachmentUrl);
     extra.insert(CLIENT_ID_KEY, clientId);
 
     addPost(identifier, name, body, timestamp, icon, images, extra, account);
@@ -89,6 +92,14 @@ QString FacebookPostsDatabase::attachmentDescription(const SocialPost::ConstPtr 
         return QString();
     }
     return post->extra().value(ATTACHMENT_DESCRIPTION_KEY).toString();
+}
+
+QString FacebookPostsDatabase::attachmentUrl(const SocialPost::ConstPtr &post)
+{
+    if (post.isNull()) {
+        return QString();
+    }
+    return post->extra().value(ATTACHMENT_URL_KEY).toString();
 }
 
 bool FacebookPostsDatabase::allowLike(const SocialPost::ConstPtr &post)
