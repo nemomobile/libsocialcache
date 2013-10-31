@@ -199,8 +199,5 @@ void AbstractImageDownloader::dbWrite()
 
 bool AbstractImageDownloader::dbClose()
 {
+    return true;
 }
-
-
-
-#include "abstractimagedownloader.moc"
