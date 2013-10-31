@@ -245,6 +245,7 @@ void AbstractSocialCacheModel::updateData(const SocialCacheModelData &data)
     if (d->m_data.count() != count) {
         emit countChanged();
     }
+    emit modelUpdated();
 }
 
 void AbstractSocialCacheModel::updateRow(int row, const SocialCacheModelRow &data)
