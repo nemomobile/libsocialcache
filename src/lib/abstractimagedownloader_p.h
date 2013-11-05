@@ -33,12 +33,21 @@
 #define ABSTRACTIMAGEDOWNLOADER_P_H
 
 #include <QtCore/QObject>
+#include <QtCore/QFile>
 #include <QtCore/QMap>
 #include <QtCore/QPair>
 #include <QtCore/QVariantMap>
 #include <QtNetwork/QNetworkAccessManager>
 
-typedef QPair<QString, QVariantMap> ImageInfo;
+struct ImageInfo
+{
+    ImageInfo(const QString &url, const QVariantMap &data) : url(url), data(data) {}
+
+    QString url;
+    QVariantMap data;
+    QFile file;
+};
+
 
 class AbstractImageDownloader;
 class AbstractImageDownloaderPrivate: public QObject
@@ -54,12 +63,13 @@ protected:
 
 private:
     void manageStack();
-    QMap<QNetworkReply *, ImageInfo> runningReplies;
-    QList<ImageInfo> stack;
+    QMap<QNetworkReply *, ImageInfo *> runningReplies;
+    QList<ImageInfo *> stack;
     int loadedCount;
     Q_DECLARE_PUBLIC(AbstractImageDownloader)
 
 private Q_SLOTS:
+    void readyRead();
     void slotFinished();
 };
 
