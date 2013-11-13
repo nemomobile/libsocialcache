@@ -88,6 +88,9 @@ void AbstractImageDownloaderPrivate::slotFinished()
     if (!loadedOk || image.isNull()) {
         qWarning() << Q_FUNC_INFO << "Data downloaded from" << data.first
                    << "is not an image";
+        // Emit signal
+        // Empty file means: failed to download image
+        emit q->imageDownloaded(data.first, QString(), data.second);
         return;
     }
 
@@ -95,6 +98,9 @@ void AbstractImageDownloaderPrivate::slotFinished()
     QString file = q->outputFile(data.first, data.second);
     if (file.isEmpty()) {
         qWarning() << Q_FUNC_INFO << "Output file is not valid";
+        // Emit signal
+        // Empty file means: failed to generate an output file name
+        emit q->imageDownloaded(data.first, QString(), data.second);
         return;
     }
 
@@ -105,6 +111,10 @@ void AbstractImageDownloaderPrivate::slotFinished()
 
     bool saveOk = image.save(file);
     if (!saveOk) {
+
+        // Emit signal
+        // Empty file means: failed save the downloaded image
+        emit q->imageDownloaded(data.first, QString(), data.second);
         qWarning() << Q_FUNC_INFO << "Cannot save image downloaded from" << data.first;
         return;
     }
