@@ -65,9 +65,14 @@ void AbstractImageDownloaderPrivate::manageStack()
         ImageInfo data = stack.takeFirst();
 
         QNetworkReply *reply = q->createReply(data.first, data.second);
-        connect(reply, &QNetworkReply::finished,
-                this, &AbstractImageDownloaderPrivate::slotFinished);
-        runningReplies.insert(reply, data);
+        if (reply) {
+            connect(reply, &QNetworkReply::finished,
+                    this, &AbstractImageDownloaderPrivate::slotFinished);
+            runningReplies.insert(reply, data);
+        } else {
+            // emit signal.  Empty file signifies error.
+            emit q->imageDownloaded(data.first, QString(), data.second);
+        }
     }
 }
 
@@ -82,43 +87,42 @@ void AbstractImageDownloaderPrivate::slotFinished()
     const ImageInfo &data = runningReplies.value(reply);
     runningReplies.remove(reply);
 
+    QString file;
     QImage image;
     bool loadedOk = image.loadFromData(reply->readAll());
     reply->deleteLater();
     if (!loadedOk || image.isNull()) {
-        qWarning() << Q_FUNC_INFO << "Data downloaded from" << data.first
-                   << "is not an image";
-        return;
+        qWarning() << Q_FUNC_INFO << "Data downloaded from" << data.first << "is not an image";
+    } else {
+        // Save the new image (eg fbphotoid-thumb.jpg or fbphotoid-image.jpg)
+        file = q->outputFile(data.first, data.second);
+        if (file.isEmpty()) {
+            qWarning() << Q_FUNC_INFO << "Output file is not valid";
+            file = QString(); // reset file to signify error.
+        } else {
+            QDir parentDir = QFileInfo(file).dir();
+            if (!parentDir.exists()) {
+                QDir::root().mkpath(parentDir.absolutePath());
+            }
+
+            bool saveOk = image.save(file);
+            if (!saveOk) {
+                qWarning() << Q_FUNC_INFO << "Cannot save image downloaded from" << data.first;
+                file = QString(); // reset file to signify error.
+            } else {
+                // success - queue to have the path recorded in the database.
+                q->dbQueueImage(data.first, data.second, file);
+            }
+        }
     }
 
-    // Save the new image (eg fbphotoid-thumb.jpg or fbphotoid-image.jpg)
-    QString file = q->outputFile(data.first, data.second);
-    if (file.isEmpty()) {
-        qWarning() << Q_FUNC_INFO << "Output file is not valid";
-        return;
-    }
-
-    QDir parentDir = QFileInfo(file).dir();
-    if (!parentDir.exists()) {
-        QDir::root().mkpath(parentDir.absolutePath());
-    }
-
-    bool saveOk = image.save(file);
-    if (!saveOk) {
-        qWarning() << Q_FUNC_INFO << "Cannot save image downloaded from" << data.first;
-        return;
-    }
-
-    q->dbQueueImage(data.first, data.second, file);
-
-    // Emit signal
+    // Emit signal.  If file is empty, it signifies an error occurred.
     emit q->imageDownloaded(data.first, file, data.second);
-
     loadedCount ++;
     manageStack();
 
     if (loadedCount > MAX_BATCH_SAVE
-        || (runningReplies.isEmpty() && stack.isEmpty())) {
+            || (runningReplies.isEmpty() && stack.isEmpty())) {
         q->dbWrite();
         loadedCount = 0;
     }
@@ -140,6 +144,7 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
     Q_D(AbstractImageDownloader);
     if (!dbInit()) {
         qWarning() << "Cannot perform operation, database is not initialized";
+        emit imageDownloaded(url, QString(), metadata); // empty file signifies error.
         return;
     }
 
