@@ -21,36 +21,93 @@
 #define ABSTRACTSOCIALCACHEDATABASE_P_H
 
 #include <QtCore/QtGlobal>
+#include <QtCore/QWaitCondition>
+#include <QtCore/QRunnable>
+#include <QtCore/QThreadStorage>
+#include <QtCore/QWaitCondition>
 #include <QtSql/QSqlDatabase>
+#include <QtSql/QSqlQuery>
 #include "semaphore_p.h"
 #include "abstractsocialcachedatabase.h"
 
 class AbstractSocialCacheDatabase;
-class AbstractSocialCacheDatabasePrivate
+class AbstractSocialCacheDatabasePrivate : public QRunnable
 {
-public:
-    explicit AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q);
-    virtual ~AbstractSocialCacheDatabasePrivate();
-
-    QSqlDatabase db;
-
 protected:
     AbstractSocialCacheDatabase * const q_ptr;
-    ProcessMutex *mutex; // Process (and thread) mutex to prevent concurrent write
+
+public:
+    enum Status
+    {
+        Null,
+        Queued,
+        Executing,
+        Finished,
+        Error
+    };
+
+    struct ThreadData
+    {
+        ThreadData() : mutex(0) {}
+        ~ThreadData() { database.close(); delete mutex; }
+
+        QSqlDatabase database;
+        QHash<QString, QSqlQuery> preparedQueries;
+        QString threadId;
+        ProcessMutex *mutex; // Process (and thread) mutex to prevent concurrent write
+    };
+
+    explicit AbstractSocialCacheDatabasePrivate(
+            AbstractSocialCacheDatabase *q,
+            const QString &serviceName,
+            const QString &dataType,
+            const QString &databaseFile,
+            int version);
+    virtual ~AbstractSocialCacheDatabasePrivate();
+
+    bool initializeThreadData(ThreadData *threadData) const;
+
+    static QThreadStorage<QHash<QString, ThreadData> > globalThreadData;
+
+    QMutex mutex;
+    QWaitCondition condition;
+
+    const QString serviceName;
+    const QString dataType;
+    const QString filePath;
+    const int version;
+
+    AbstractSocialCacheDatabase::Status readStatus;
+    AbstractSocialCacheDatabase::Status writeStatus;
+
+    Status asyncReadStatus;
+    Status asyncWriteStatus;
+
+    bool running;
+
+    void run();
 
 private:
-    int dbUserVersion(const QString &serviceName, const QString &dataType) const;
-
-    bool doInsert(const QString &table, const QStringList &keys,
-                  const QMap<QString, QVariantList> &entries,
-                  bool replace = false);
-    bool doUpdate(const QString &table, const QMap<QString, QVariantList> &entries,
-                  const QString &primary);
-    bool doDelete(const QString &table, const QString &key, const QVariantList &entries);
-
-    bool valid; // Hold if the database has been correctly initialized
 
     Q_DECLARE_PUBLIC(AbstractSocialCacheDatabase)
 };
+
+#define executeSocialCacheQuery(query) \
+    if (!query.exec()) { \
+        qWarning() << Q_FUNC_INFO << "Failed to execute query"; \
+        qWarning() << query.lastQuery(); \
+        qWarning() << query.lastError(); \
+        success = false; \
+    } \
+    query.finish()
+
+#define executeBatchSocialCacheQuery(query) \
+    if (!query.execBatch()) { \
+        qWarning() << Q_FUNC_INFO << "Failed to execute query"; \
+        qWarning() << query.lastQuery(); \
+        qWarning() << query.lastError(); \
+        success = false; \
+    } \
+    query.finish()
 
 #endif // ABSTRACTSOCIALCACHEDATABASE_P_H

@@ -32,19 +32,14 @@ static const char *ALLOW_LIKE_KEY = "allow_like";
 static const char *ALLOW_COMMENT_KEY = "allow_comment";
 
 FacebookPostsDatabase::FacebookPostsDatabase()
-    : AbstractSocialPostCacheDatabase()
+    : AbstractSocialPostCacheDatabase(
+          SocialSyncInterface::socialNetwork(SocialSyncInterface::Facebook),
+          QLatin1String(DB_NAME))
 {
 }
 
 FacebookPostsDatabase::~FacebookPostsDatabase()
 {
-}
-
-void FacebookPostsDatabase::initDatabase()
-{
-    dbInit(SocialSyncInterface::socialNetwork(SocialSyncInterface::Facebook),
-           SocialSyncInterface::dataType(SocialSyncInterface::Posts),
-           QLatin1String(DB_NAME), POST_DB_VERSION);
 }
 
 void FacebookPostsDatabase::addFacebookPost(const QString &identifier, const QString &name,

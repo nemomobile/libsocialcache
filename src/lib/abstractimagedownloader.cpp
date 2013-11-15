@@ -49,7 +49,7 @@ static int MAX_SIMULTANEOUS_DOWNLOAD = 5;
 static int MAX_BATCH_SAVE = 50;
 
 AbstractImageDownloaderPrivate::AbstractImageDownloaderPrivate(AbstractImageDownloader *q)
-    : QObject(q), networkAccessManager(0), q_ptr(q), loadedCount(0)
+    : networkAccessManager(0), q_ptr(q), loadedCount(0)
 {
 }
 
@@ -75,9 +75,10 @@ void AbstractImageDownloaderPrivate::manageStack()
         } else if (QNetworkReply *reply = q->createReply(info->url, info->data)) {
             reply->setReadBufferSize(250000);
 
-            connect(reply, &QIODevice::readyRead, this, &AbstractImageDownloaderPrivate::readyRead);
-            connect(reply, &QNetworkReply::finished,
-                    this, &AbstractImageDownloaderPrivate::slotFinished);
+            QObject::connect(reply, &QIODevice::readyRead,
+                    q, &AbstractImageDownloader::readyRead);
+            QObject::connect(reply, &QNetworkReply::finished,
+                    q, &AbstractImageDownloader::slotFinished);
 
             runningReplies.insert(reply, info);
 
@@ -107,7 +108,7 @@ static void readData(ImageInfo *info, QNetworkReply *reply)
             bytesAvailable -= bytesRead;
             buffer += bytesRead;
 
-            if (bytesRead > 0) {
+            if (bytesRead <= 0) {
                 break;
             }
         }
@@ -115,28 +116,31 @@ static void readData(ImageInfo *info, QNetworkReply *reply)
     }
 }
 
-void AbstractImageDownloaderPrivate::readyRead()
+void AbstractImageDownloader::readyRead()
 {
+    Q_D(AbstractImageDownloader);
+
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if (!reply) {
         return;
     }
 
-    ImageInfo *info = runningReplies.value(reply);
+    ImageInfo *info = d->runningReplies.value(reply);
     if (info) {
         readData(info, reply);
     }
 }
 
-void AbstractImageDownloaderPrivate::slotFinished()
+void AbstractImageDownloader::slotFinished()
 {
-    Q_Q(AbstractImageDownloader);
+    Q_D(AbstractImageDownloader);
+
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if (!reply) {
         return;
     }
 
-    ImageInfo *info = runningReplies.take(reply);
+    ImageInfo *info = d->runningReplies.take(reply);
     if (!info) {
         return;
     }
@@ -148,31 +152,38 @@ void AbstractImageDownloaderPrivate::slotFinished()
 
     info->file.close();
 
-
     QImageReader reader(fileName);
     if (reader.canRead()) {
-        q->dbQueueImage(info->url, info->data, fileName);
+        dbQueueImage(info->url, info->data, fileName);
 
         // Emit signal
-        emit q->imageDownloaded(info->url, fileName, info->data);
+        emit imageDownloaded(info->url, fileName, info->data);
     } else {
-        emit q->imageDownloaded(info->url, QString(), info->data);
+        emit imageDownloaded(info->url, QString(), info->data);
     }
 
     delete info;
 
-    loadedCount ++;
-    manageStack();
+    d->loadedCount ++;
+    d->manageStack();
 
-    if (loadedCount > MAX_BATCH_SAVE
-            || (runningReplies.isEmpty() && stack.isEmpty())) {
-        q->dbWrite();
-        loadedCount = 0;
+    if (d->loadedCount > MAX_BATCH_SAVE
+        || (d->runningReplies.isEmpty() && d->stack.isEmpty())) {
+        dbWrite();
+        d->loadedCount = 0;
     }
 }
 
-AbstractImageDownloader::AbstractImageDownloader() :
-    QObject(), d_ptr(new AbstractImageDownloaderPrivate(this))
+AbstractImageDownloader::AbstractImageDownloader(QObject *parent)
+    : QObject(parent)
+    , d_ptr(new AbstractImageDownloaderPrivate(this))
+{
+    Q_D(AbstractImageDownloader);
+    d->networkAccessManager = new QNetworkAccessManager(this);
+}
+
+AbstractImageDownloader::AbstractImageDownloader(AbstractImageDownloaderPrivate &dd, QObject *parent)
+    : QObject(parent), d_ptr(&dd)
 {
     Q_D(AbstractImageDownloader);
     d->networkAccessManager = new QNetworkAccessManager(this);
@@ -192,7 +203,7 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
     }
 
 
-    foreach (ImageInfo *info, d->runningReplies) {
+    Q_FOREACH (ImageInfo *info, d->runningReplies) {
         if (info->url == url) {
             return;
         }
@@ -257,9 +268,4 @@ void AbstractImageDownloader::dbQueueImage(const QString &url, const QVariantMap
 
 void AbstractImageDownloader::dbWrite()
 {
-}
-
-bool AbstractImageDownloader::dbClose()
-{
-    return true;
 }

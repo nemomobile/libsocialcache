@@ -97,8 +97,11 @@ private:
 class AbstractSocialPostCacheDatabasePrivate;
 class AbstractSocialPostCacheDatabase: public AbstractSocialCacheDatabase
 {
+    Q_OBJECT
 public:
-    explicit AbstractSocialPostCacheDatabase();
+    explicit AbstractSocialPostCacheDatabase(
+            const QString &serviceName, const QString &databaseFile);
+    ~AbstractSocialPostCacheDatabase();
 
     QList<SocialPost::ConstPtr> posts() const;
 
@@ -110,16 +113,24 @@ public:
 
     void removePosts(int accountId);
 
-    bool write();
+    void commit();
+    void refresh();
+
+Q_SIGNALS:
+    void postsChanged();
 
 protected:
-    bool dbCreateTables();
-    bool dbDropTables();
+    bool read();
+    bool write();
+    bool createTables(QSqlDatabase database) const;
+    bool dropTables(QSqlDatabase database) const;
+
+    void readFinished();
+
 
 private:
     Q_DECLARE_PRIVATE(AbstractSocialPostCacheDatabase)
 };
 
-static const int POST_DB_VERSION = 1;
 
 #endif // ABSTRACTSOCIALPOSTCACHEDATABASE_H

@@ -50,10 +50,8 @@ struct ImageInfo
 
 
 class AbstractImageDownloader;
-class AbstractImageDownloaderPrivate: public QObject
+class AbstractImageDownloaderPrivate
 {
-    Q_OBJECT
-
 public:
     explicit AbstractImageDownloaderPrivate(AbstractImageDownloader *q);
     virtual ~AbstractImageDownloaderPrivate();
@@ -67,10 +65,6 @@ private:
     QList<ImageInfo *> stack;
     int loadedCount;
     Q_DECLARE_PUBLIC(AbstractImageDownloader)
-
-private Q_SLOTS:
-    void readyRead();
-    void slotFinished();
 };
 
 #endif // ABSTRACTIMAGEDOWNLOADER_P_H

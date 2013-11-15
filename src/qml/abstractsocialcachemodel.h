@@ -45,12 +45,9 @@ public:
     void setNodeIdentifier(const QString &nodeIdentifier);
     int count() const;
 
-    // Methods used to update the model in the C++ side
-    void updateData(const SocialCacheModelData &data);
-    void updateRow(int row, const SocialCacheModelRow &data);
 
 public Q_SLOTS:
-    void refresh();
+    virtual void refresh() = 0;
 
 Q_SIGNALS:
     void nodeIdentifierChanged();
@@ -58,6 +55,11 @@ Q_SIGNALS:
     void modelUpdated();
 
 protected:
+
+    // Methods used to update the model in the C++ side
+    void updateData(const SocialCacheModelData &data);
+    void updateRow(int row, const SocialCacheModelRow &data);
+
     explicit AbstractSocialCacheModel(AbstractSocialCacheModelPrivate &dd, QObject *parent = 0);
     QScopedPointer<AbstractSocialCacheModelPrivate> d_ptr;
 

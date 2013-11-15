@@ -28,16 +28,20 @@ class SocialNetworkSyncDatabase: public AbstractSocialCacheDatabase
 {
 public:
     explicit SocialNetworkSyncDatabase();
-    void initDatabase();
+    ~SocialNetworkSyncDatabase();
+
     QList<int> syncedAccounts(const QString &serviceName, const QString &dataType) const;
     QDateTime lastSyncTimestamp(const QString &serviceName, const QString &dataType,
                                 int accountId) const;
     void addSyncTimestamp(const QString &serviceName, const QString &dataType,
                           int accountId, const QDateTime &timestamp);
-    bool write();
+    void commit();
+
 protected:
-    bool dbCreateTables();
-    bool dbDropTables();
+    bool write();
+    bool createTables(QSqlDatabase database) const;
+    bool dropTables(QSqlDatabase database) const;
+
 private:
     Q_DECLARE_PRIVATE(SocialNetworkSyncDatabase)
 };

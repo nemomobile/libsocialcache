@@ -30,7 +30,7 @@ class AbstractImageDownloader : public QObject
 {
     Q_OBJECT
 public:
-    explicit AbstractImageDownloader();
+    AbstractImageDownloader(QObject *parent = 0);
     virtual ~AbstractImageDownloader();
 
 public Q_SLOTS:
@@ -40,6 +40,8 @@ Q_SIGNALS:
     void imageDownloaded(const QString &url, const QString &path, const QVariantMap &metadata);
 
 protected:
+    explicit AbstractImageDownloader(AbstractImageDownloaderPrivate &dd, QObject *parent);
+
     static QString makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
                                   SocialSyncInterface::DataType dataType,
                                   const QString &identifier);
@@ -60,11 +62,11 @@ protected:
     // Write in the database
     virtual void dbWrite();
 
-    // Close the database.
-    // We must close the database prior to gracefully terminating the thread / destroying the worker object.
-    virtual bool dbClose();
-
     QScopedPointer<AbstractImageDownloaderPrivate> d_ptr;
+
+private Q_SLOTS:
+    void readyRead();
+    void slotFinished();
 
 private:
     Q_DECLARE_PRIVATE(AbstractImageDownloader)

@@ -48,16 +48,18 @@ public:
     explicit FacebookCalendarDatabase();
     ~FacebookCalendarDatabase();
 
-    void initDatabase();
-    bool removeEvents(int accountId);
+    void removeEvents(int accountId);
 
     QList<FacebookEvent::ConstPtr> events(int accountId);
     void addSyncedEvent(const QString &fbEventId, int accountId, const QString &incidenceId);
 
-    bool sync(int accountId);
+    void sync(int accountId);
+
 protected:
-    bool dbCreateTables();
-    bool dbDropTables();
+    bool write();
+    bool createTables(QSqlDatabase database) const;
+    bool dropTables(QSqlDatabase database) const;
+
 private:
     Q_DECLARE_PRIVATE(FacebookCalendarDatabase)
 };
