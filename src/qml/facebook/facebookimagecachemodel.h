@@ -69,10 +69,15 @@ public:
 
 public Q_SLOTS:
     void loadImages();
+    void refresh();
 
 Q_SIGNALS:
     void typeChanged();
     void downloaderChanged();
+
+private Q_SLOTS:
+    void queryFinished();
+    void imageDownloaded(const QString &url, const QString &path, const QVariantMap &imageData);
 
 private:
     Q_DECLARE_PRIVATE(FacebookImageCacheModel)

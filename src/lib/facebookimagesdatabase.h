@@ -130,11 +130,10 @@ bool operator==(const FacebookImage::ConstPtr &image1, const FacebookImage::Cons
 class FacebookImagesDatabasePrivate;
 class FacebookImagesDatabase: public AbstractSocialCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit FacebookImagesDatabase();
     ~FacebookImagesDatabase();
-
-    void initDatabase();
 
     // Account manipulation
     bool syncAccount(int accountId, const QString &fbUserId);
@@ -145,7 +144,6 @@ public:
     void addUser(const QString &fbUserId, const QDateTime &updatedTime,
                  const QString &userName);
     void removeUser(const QString &fbUserId);
-    QList<FacebookUser::ConstPtr> users() const;
 
     // Album cache manipulation
     QStringList allAlbumIds(bool *ok = 0) const;
@@ -154,7 +152,6 @@ public:
                   const QDateTime &updatedTime, const QString &albumName, int imageCount);
     void removeAlbum(const QString &fbAlbumId);
     void removeAlbums(const QStringList &fbAlbumIds);
-    QList<FacebookAlbum::ConstPtr> albums(const QString &fbUserId = QString());
 
     // Images cache manipulation
     QStringList allImageIds(bool *ok = 0) const;
@@ -169,14 +166,29 @@ public:
     void updateImageFile(const QString &fbImageId, const QString &imageFile);
     void removeImage(const QString &fbImageId);
     void removeImages(const QStringList &fbImageIds);
-    QList<FacebookImage::ConstPtr> userImages(const QString &fbUserId = QString());
-    QList<FacebookImage::ConstPtr> albumImages(const QString &fbAlbumId);
 
-    bool write();
+    void commit();
+
+    QList<FacebookUser::ConstPtr> users() const;
+    QList<FacebookImage::ConstPtr> images() const;
+    QList<FacebookAlbum::ConstPtr> albums() const;
+
+    void queryUsers();
+    void queryAlbums(const QString &userId = QString());
+    void queryUserImages(const QString &userId = QString());
+    void queryAlbumImages(const QString &albumId);
+
+Q_SIGNALS:
+    void queryFinished();
 
 protected:
-    bool dbCreateTables();
-    bool dbDropTables();
+    bool read();
+    void readFinished();
+
+    bool write();
+    bool createTables(QSqlDatabase database) const;
+    bool dropTables(QSqlDatabase database) const;
+
 
 private:
     Q_DECLARE_PRIVATE(FacebookImagesDatabase)

@@ -18,7 +18,9 @@
 
 #include "abstractsocialpostcachedatabase.h"
 #include "abstractsocialcachedatabase_p.h"
+#include "socialsyncinterface.h"
 #include <QtCore/QDebug>
+#include <QtCore/QRunnable>
 #include <QtCore/QStringList>
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
@@ -26,6 +28,8 @@
 static const char *INVALID = "invalid";
 static const char *PHOTO = "photo";
 static const char *VIDEO = "video";
+
+static const int POST_DB_VERSION = 1;
 
 struct SocialPostImagePrivate
 {
@@ -153,7 +157,7 @@ QList<SocialPostImage::ConstPtr> SocialPost::images() const
 {
     Q_D(const SocialPost);
     QList<SocialPostImage::ConstPtr> images;
-    foreach (int key, d->images.keys()) {
+    Q_FOREACH (int key, d->images.keys()) {
         if (key > 0) {
             images.append(d->images.value(key));
         }
@@ -201,187 +205,48 @@ void SocialPost::setAccounts(const QList<int> &accounts)
 class AbstractSocialPostCacheDatabasePrivate: public AbstractSocialCacheDatabasePrivate
 {
 public:
-    AbstractSocialPostCacheDatabasePrivate(AbstractSocialPostCacheDatabase *q);
+    AbstractSocialPostCacheDatabasePrivate(
+            AbstractSocialPostCacheDatabase *q, const QString &serviceName, const QString &databaseFile);
 private:
-    static void createPostsEntries(const QMap<QString, SocialPost::ConstPtr> &posts,
-                                    QStringList &postKeys,
-                                    QStringList &imageKeys, QStringList &extraKeys,
-                                    QMap<QString, QVariantList> &postEntries,
-                                    QMap<QString, QVariantList> &imageEntries,
-                                    QMap<QString, QVariantList> &extraEntries);
-    static void createAccountsEntries(const QMultiMap<QString, int> &accounts,
-                                      QStringList &keys,
-                                      QMap<QString, QVariantList> &entries);
-    QMap<QString, SocialPost::ConstPtr> queuedPosts;
-    QMultiMap<QString, int> queuedPostsAccounts;
-    QList<int> queuedRemovePostsForAccount;
+    struct {
+        QMap<QString, SocialPost::ConstPtr> insertPosts;
+        QMultiMap<QString, int> mapPostsToAccounts;
+        QList<int> removePostsForAccount;
+    } queue;
 
-    QSqlQuery postQuery;
-    QSqlQuery imageQuery;
-    QSqlQuery extraQuery;
-    QSqlQuery accountQuery;
+    QList<SocialPost::ConstPtr> asyncPosts;
+    QList<SocialPost::ConstPtr> posts;
 
     Q_DECLARE_PUBLIC(AbstractSocialPostCacheDatabase)
 };
 
-AbstractSocialPostCacheDatabasePrivate::AbstractSocialPostCacheDatabasePrivate(AbstractSocialPostCacheDatabase *q)
-    : AbstractSocialCacheDatabasePrivate(q)
+AbstractSocialPostCacheDatabasePrivate::AbstractSocialPostCacheDatabasePrivate(
+        AbstractSocialPostCacheDatabase *q, const QString &serviceName, const QString &databaseFile)
+    : AbstractSocialCacheDatabasePrivate(
+            q,
+            serviceName,
+            SocialSyncInterface::dataType(SocialSyncInterface::Posts),
+            databaseFile,
+            POST_DB_VERSION)
 {
 }
 
-void AbstractSocialPostCacheDatabasePrivate::createPostsEntries(const QMap<QString, SocialPost::ConstPtr> &posts,
-                                                                 QStringList &postKeys,
-                                                                 QStringList &imageKeys,
-                                                                 QStringList &extraKeys,
-                                                                 QMap<QString, QVariantList> &postEntries,
-                                                                 QMap<QString, QVariantList> &imageEntries,
-                                                                 QMap<QString, QVariantList> &extraEntries)
+AbstractSocialPostCacheDatabase::~AbstractSocialPostCacheDatabase()
 {
-    postKeys.clear();
-    imageKeys.clear();
-    extraKeys.clear();
-    postKeys << QLatin1String("identifier") << QLatin1String("name") << QLatin1String("body")
-               << QLatin1String("timestamp");
-    imageKeys << QLatin1String("postId") << QLatin1String("position") << QLatin1String("url")
-               << QLatin1String("type");
-    extraKeys << QLatin1String("postId") << QLatin1String("key") << QLatin1String("value");
-
-    postEntries.clear();
-    imageEntries.clear();
-    extraEntries.clear();
-
-    foreach (const SocialPost::ConstPtr &post, posts) {
-        postEntries[QLatin1String("identifier")].append(post->identifier());
-        postEntries[QLatin1String("name")].append(post->name());
-        postEntries[QLatin1String("body")].append(post->body());
-        postEntries[QLatin1String("timestamp")].append(post->timestamp().toTime_t());
-
-
-        foreach (int key, post->allImages().keys()) {
-            const SocialPostImage::ConstPtr image = post->allImages().value(key);
-            imageEntries[QLatin1String("postId")].append(post->identifier());
-            imageEntries[QLatin1String("position")].append(key);
-            imageEntries[QLatin1String("url")].append(image->url());
-            switch (image->type()) {
-            case SocialPostImage::Photo:
-                imageEntries[QLatin1String("type")].append(QLatin1String(PHOTO));
-                break;
-            case SocialPostImage::Video:
-                imageEntries[QLatin1String("type")].append(QLatin1String(VIDEO));
-                break;
-            default:
-                imageEntries[QLatin1String("type")].append(QLatin1String(INVALID));
-                break;
-            }
-        }
-
-        QVariantMap extra = post->extra();
-        foreach (const QString &key, extra.keys()) {
-            extraEntries[QLatin1String("postId")].append(post->identifier());
-            extraEntries[QLatin1String("key")].append(key);
-            extraEntries[QLatin1String("value")].append(extra.value(key).toString());
-        }
-    }
-
+    cancelRead();
+    wait();
 }
 
-void AbstractSocialPostCacheDatabasePrivate::createAccountsEntries(const QMultiMap<QString, int> &accounts,
-                                                                   QStringList &keys,
-                                                                   QMap<QString, QVariantList> &entries)
-{
-    keys.clear();
-    keys << QLatin1String("postId") << QLatin1String("account");
-
-    entries.clear();
-
-    foreach (const QString &key, accounts.keys()) {
-        foreach (int value, accounts.values(key)) {
-            entries[QLatin1String("postId")].append(key);
-            entries[QLatin1String("account")].append(value);
-        }
-    }
-}
-
-AbstractSocialPostCacheDatabase::AbstractSocialPostCacheDatabase()
-    : AbstractSocialCacheDatabase(*(new AbstractSocialPostCacheDatabasePrivate(this)))
+AbstractSocialPostCacheDatabase::AbstractSocialPostCacheDatabase(
+        const QString &serviceName, const QString &databaseFile)
+    : AbstractSocialCacheDatabase(
+            *(new AbstractSocialPostCacheDatabasePrivate(this, serviceName, databaseFile)))
 {
 }
 
 QList<SocialPost::ConstPtr> AbstractSocialPostCacheDatabase::posts() const
 {
-    // This might be slow
-    AbstractSocialPostCacheDatabasePrivate * const d = const_cast<AbstractSocialPostCacheDatabasePrivate *>(d_func());
-
-    if (!d->postQuery.exec()) {
-        qWarning() << Q_FUNC_INFO << "Error reading from posts table:" << d->postQuery.lastError();
-        return QList<SocialPost::ConstPtr>();
-    }
-
-    QList<SocialPost::ConstPtr> posts;
-    while (d->postQuery.next()) {
-        QString identifier = d->postQuery.value(0).toString();
-
-        QString name = d->postQuery.value(1).toString();
-        QString body = d->postQuery.value(2).toString();
-        int timestamp = d->postQuery.value(3).toInt();
-        SocialPost::Ptr post = SocialPost::create(identifier, name, body,
-                                                  QDateTime::fromTime_t(timestamp));
-
-        d->imageQuery.bindValue(":postId", identifier);
-
-        QMap<int, SocialPostImage::ConstPtr> images;
-        if (d->imageQuery.exec()) {
-            while (d->imageQuery.next()) {
-                SocialPostImage::ImageType type = SocialPostImage::Invalid;
-                QString typeString = d->imageQuery.value(2).toString();
-                if (typeString == QLatin1String(PHOTO)) {
-                    type = SocialPostImage::Photo;
-                } else if (typeString == QLatin1String(VIDEO)) {
-                    type = SocialPostImage::Video;
-                }
-
-                int position = d->imageQuery.value(0).toInt();
-                SocialPostImage::Ptr image  = SocialPostImage::create(d->imageQuery.value(1).toString(),
-                                                                      type);
-                images.insert(position, image);
-            }
-            post->setImages(images);
-        } else {
-            qWarning() << Q_FUNC_INFO << "Error reading from images table:"
-                       << d->imageQuery.lastError();
-        }
-
-        d->extraQuery.bindValue(":postId", identifier);
-
-        QVariantMap extra;
-        if (d->extraQuery.exec()) {
-            while (d->extraQuery.next()) {
-                QString key = d->extraQuery.value(0).toString();
-                QVariant value = d->extraQuery.value(1);
-                extra.insert(key, value);
-            }
-        } else {
-            qWarning() << Q_FUNC_INFO << "Error reading from extra table:"
-                       << d->extraQuery.lastError();
-        }
-
-        post->setExtra(extra);
-
-        d->accountQuery.bindValue(":postId", identifier);
-
-        QList<int> accounts;
-        if (d->accountQuery.exec()) {
-            while (d->accountQuery.next()) {
-                accounts.append(d->accountQuery.value(0).toInt());
-            }
-        }
-
-        post->setAccounts(accounts);
-
-        posts.append(post);
-    }
-
-    return posts;
+    return d_func()->posts;
 }
 
 void AbstractSocialPostCacheDatabase::addPost(const QString &identifier, const QString &name,
@@ -391,6 +256,7 @@ void AbstractSocialPostCacheDatabase::addPost(const QString &identifier, const Q
                                               const QVariantMap &extra, int account)
 {
     Q_D(AbstractSocialPostCacheDatabase);
+    QMutexLocker locker(&d->mutex);
     QMap<int, SocialPostImage::ConstPtr> formattedImages;
     if (!icon.isEmpty()) {
         formattedImages.insert(0, SocialPostImage::create(icon, SocialPostImage::Photo));
@@ -401,116 +267,327 @@ void AbstractSocialPostCacheDatabase::addPost(const QString &identifier, const Q
         formattedImages.insert(i + 1, SocialPostImage::create(imagePair.first, imagePair.second));
     }
 
-    d->queuedPosts.insert(identifier, SocialPost::create(identifier, name, body, timestamp,
+    d->queue.insertPosts.insert(identifier, SocialPost::create(identifier, name, body, timestamp,
                                                          formattedImages, extra));
-    d->queuedPostsAccounts.insert(identifier, account);
+    d->queue.mapPostsToAccounts.insert(identifier, account);
 }
 
 void AbstractSocialPostCacheDatabase::removePosts(int accountId)
 {
     Q_D(AbstractSocialPostCacheDatabase);
-    if (!d->queuedRemovePostsForAccount.contains(accountId)) {
-        d->queuedRemovePostsForAccount.append(accountId);
+
+    QMutexLocker locker(&d->mutex);
+    if (!d->queue.removePostsForAccount.contains(accountId)) {
+        d->queue.removePostsForAccount.append(accountId);
     }
+}
+
+void AbstractSocialPostCacheDatabase::commit()
+{
+    executeWrite();
+}
+
+void AbstractSocialPostCacheDatabase::refresh()
+{
+    executeRead();
+}
+
+bool AbstractSocialPostCacheDatabase::read()
+{
+    Q_D(AbstractSocialPostCacheDatabase);
+    // This might be slow
+
+    QSqlQuery postQuery = prepare(QLatin1String(
+                "SELECT identifier, name, body, timestamp "
+                "FROM posts "
+                "ORDER BY timestamp DESC"));
+    QSqlQuery imageQuery = prepare(QLatin1String(
+                "SELECT position, url, type "
+                "FROM images "
+                "WHERE postId = :postId "
+                "ORDER BY position"));
+    QSqlQuery extraQuery = prepare(QLatin1String(
+                "SELECT key, value "
+                "FROM extra "
+                "WHERE postId = :postId"));
+    QSqlQuery accountQuery = prepare(QLatin1String(
+                "SELECT account "
+                "FROM link_post_account "
+                "WHERE postId = :postId"));
+
+    if (!postQuery.exec()) {
+        qWarning() << Q_FUNC_INFO << "Error reading from posts table:" << postQuery.lastError();
+        return false;
+    }
+
+    QList<SocialPost::ConstPtr> posts;
+    while (postQuery.next()) {
+        QString identifier = postQuery.value(0).toString();
+
+        QString name = postQuery.value(1).toString();
+        QString body = postQuery.value(2).toString();
+        int timestamp = postQuery.value(3).toInt();
+        SocialPost::Ptr post = SocialPost::create(identifier, name, body,
+                                                  QDateTime::fromTime_t(timestamp));
+
+        imageQuery.bindValue(":postId", identifier);
+
+        QMap<int, SocialPostImage::ConstPtr> images;
+        if (imageQuery.exec()) {
+            while (imageQuery.next()) {
+                SocialPostImage::ImageType type = SocialPostImage::Invalid;
+                QString typeString = imageQuery.value(2).toString();
+                if (typeString == QLatin1String(PHOTO)) {
+                    type = SocialPostImage::Photo;
+                } else if (typeString == QLatin1String(VIDEO)) {
+                    type = SocialPostImage::Video;
+                }
+
+                int position = imageQuery.value(0).toInt();
+                SocialPostImage::Ptr image  = SocialPostImage::create(imageQuery.value(1).toString(),
+                                                                      type);
+                images.insert(position, image);
+            }
+            post->setImages(images);
+        } else {
+            qWarning() << Q_FUNC_INFO << "Error reading from images table:"
+                       << imageQuery.lastError();
+        }
+
+        extraQuery.bindValue(":postId", identifier);
+
+        QVariantMap extra;
+        if (extraQuery.exec()) {
+            while (extraQuery.next()) {
+                QString key = extraQuery.value(0).toString();
+                QVariant value = extraQuery.value(1);
+                extra.insert(key, value);
+            }
+        } else {
+            qWarning() << Q_FUNC_INFO << "Error reading from extra table:"
+                       << extraQuery.lastError();
+        }
+
+        post->setExtra(extra);
+
+        accountQuery.bindValue(":postId", identifier);
+
+        QList<int> accounts;
+        if (accountQuery.exec()) {
+            while (accountQuery.next()) {
+                accounts.append(accountQuery.value(0).toInt());
+            }
+        }
+
+        post->setAccounts(accounts);
+
+        posts.append(post);
+    }
+
+    QMutexLocker locker(&d->mutex);
+    d->asyncPosts = posts;
+
+    return true;
 }
 
 bool AbstractSocialPostCacheDatabase::write()
 {
     Q_D(AbstractSocialPostCacheDatabase);
-    if (!dbBeginTransaction()) {
-        return false;
-    }
 
-    QStringList postKeys;
-    QStringList imageKeys;
-    QStringList extraKeys;
+    QMutexLocker locker(&d->mutex);
 
-    QMap<QString, QVariantList> postEntries;
-    QMap<QString, QVariantList> imageEntries;
-    QMap<QString, QVariantList> extraEntries;
+    const QMap<QString, SocialPost::ConstPtr> insertPosts = d->queue.insertPosts;
+    const QMultiMap<QString, int> mapPostsToAccounts = d->queue.mapPostsToAccounts;
+    const QList<int> removePostsForAccount = d->queue.removePostsForAccount;
+
+    d->queue.insertPosts.clear();
+    d->queue.mapPostsToAccounts.clear();
+    d->queue.removePostsForAccount.clear();
+
+    locker.unlock();
+
+    bool success = true;
+
+    QSqlQuery query;
 
     // perform removals first.
-    if (d->queuedRemovePostsForAccount.size()) {
-        QSqlQuery postIdsToRemoveQuery(d->db);
-        if (!postIdsToRemoveQuery.prepare(QString::fromLatin1(
-                "SELECT PostId FROM link_post_account WHERE account = :accid"))) {
-            qWarning() << "Failed to prepare PostIdsToRemoveQuery:" << postIdsToRemoveQuery.lastError();
-            dbRollbackTransaction();
-            return false;
+    if (!removePostsForAccount.isEmpty()) {
+        QVariantList accountIds;
+
+        Q_FOREACH (int accountId, removePostsForAccount) {
+            accountIds.append(accountId);
         }
 
-        QVariantList postIdsToRemove;
-        foreach (int accountId, d->queuedRemovePostsForAccount) {
-            postIdsToRemoveQuery.bindValue(":accid", accountId);
-            if (!postIdsToRemoveQuery.exec()) {
-                qWarning() << "Failed to exec PostIdsToRemoveQuery:" << postIdsToRemoveQuery.lastError();
-                dbRollbackTransaction();
-                return false;
-            }
+        query = prepare(QStringLiteral(
+                    "DELETE FROM link_post_account "
+                    "WHERE account = :accountId"));
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        executeBatchSocialCacheQuery(query);
 
-            while (postIdsToRemoveQuery.next()) {
-                postIdsToRemove.append(postIdsToRemoveQuery.value(0).toString());
+        query = prepare(QStringLiteral(
+                    "DELETE FROM extra "
+                    "WHERE postId NOT IN ("
+                    "SELECT postId FROM link_post_account)"));
+        executeSocialCacheQuery(query);
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM images "
+                    "WHERE postId NOT IN ("
+                    "SELECT postId FROM link_post_account)"));
+        executeSocialCacheQuery(query);
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM posts "
+                    "WHERE identifier NOT IN ("
+                    "SELECT postId FROM link_post_account)"));
+        executeSocialCacheQuery(query);
+    }
+
+    struct {
+        QVariantList postIds;
+        QVariantList names;
+        QVariantList bodies;
+        QVariantList timestamps;
+    } posts;
+
+    struct {
+        QVariantList postIds;
+        QVariantList positions;
+        QVariantList urls;
+        QVariantList types;
+    } images;
+
+    struct {
+        QVariantList postIds;
+        QVariantList keys;
+        QVariantList values;
+    } extras;
+
+    struct {
+        QVariantList postIds;
+        QVariantList accountIds;
+    } accounts;
+
+    const QVariant invalidImageType = QLatin1String(INVALID);
+    const QVariant photoImageType = QLatin1String(PHOTO);
+    const QVariant videoImageType = QLatin1String(VIDEO);
+
+    Q_FOREACH (const SocialPost::ConstPtr &post, insertPosts) {
+        const QVariant postId = post->identifier();
+
+        posts.postIds.append(postId);
+        posts.names.append(post->name());
+        posts.bodies.append(post->body());
+        posts.timestamps.append(post->timestamp().toTime_t());
+
+        const QMap<int, SocialPostImage::ConstPtr> postImages = post->allImages();
+        typedef QMap<int, SocialPostImage::ConstPtr>::const_iterator iterator;
+        for (iterator it = postImages.begin(); it != postImages.end(); ++it) {
+            images.postIds.append(postId);
+            images.positions.append(it.key());
+            images.urls.append(it.value()->url());
+
+            switch (it.value()->type()) {
+            case SocialPostImage::Photo:
+                images.types.append(photoImageType);
+                break;
+            case SocialPostImage::Video:
+                images.types.append(videoImageType);
+                break;
+            default:
+                images.types.append(invalidImageType);
+                break;
             }
         }
-        d->queuedRemovePostsForAccount.clear();
 
-        if (postIdsToRemove.size()) {
-            QMap<QString, QVariantList> deletePostsEntries, deleteOtherTablesEntries;
-            deleteOtherTablesEntries.insert(QString::fromLatin1("postId"), postIdsToRemove);
-            deletePostsEntries.insert(QString::fromLatin1("identifier"), postIdsToRemove);
-            QStringList deletePostsKeys("identifier"), deleteOtherTablesKeys("postId");
-            if (!dbWrite(QLatin1String("link_post_account"), deleteOtherTablesKeys, deleteOtherTablesEntries, Delete)
-                    || !dbWrite(QLatin1String("extra"), deleteOtherTablesKeys, deleteOtherTablesEntries, Delete)
-                    || !dbWrite(QLatin1String("images"), deleteOtherTablesKeys, deleteOtherTablesEntries, Delete)
-                    || !dbWrite(QLatin1String("posts"), deletePostsKeys, deletePostsEntries, Delete)) {
-                dbRollbackTransaction();
-                return false;
-            }
+        const QVariantMap extra = post->extra();
+        for (QVariantMap::const_iterator it = extra.begin(); it != extra.end(); ++it) {
+            extras.postIds.append(postId);
+            extras.keys.append(it.key());
+            extras.values.append(it.value());
         }
     }
 
-    // then perform additions.
-    d->createPostsEntries(d->queuedPosts, postKeys, imageKeys, extraKeys, postEntries,
-                          imageEntries, extraEntries);
-
-    if (!dbWrite(QLatin1String("posts"), postKeys, postEntries, InsertOrReplace)) {
-        dbRollbackTransaction();
-        return false;
+    for (QMultiMap<QString, int>::const_iterator it = mapPostsToAccounts.begin();
+            it != mapPostsToAccounts.end();
+            ++it) {
+        accounts.postIds.append(it.key());
+        accounts.accountIds.append(it.value());
     }
 
-    if (!dbWrite(QLatin1String("images"), imageKeys, imageEntries, InsertOrReplace)) {
-        dbRollbackTransaction();
-        return false;
+    if (!posts.postIds.isEmpty()) {
+        query = prepare(QStringLiteral(
+                    "DELETE FROM images "
+                    "WHERE postId = :postId"));
+        query.bindValue(QStringLiteral(":postId"), posts.postIds);
+        executeBatchSocialCacheQuery(query);
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM extra "
+                    "WHERE postId = :postId"));
+        query.bindValue(QStringLiteral(":postId"), posts.postIds);
+        executeBatchSocialCacheQuery(query);
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM link_post_account "
+                    "WHERE postId = :postId"));
+        query.bindValue(QStringLiteral(":postId"), posts.postIds);
+        executeBatchSocialCacheQuery(query);
+
+        query = prepare(QStringLiteral(
+                    "INSERT OR REPLACE INTO posts ("
+                    " identifier, name, body, timestamp) "
+                    "VALUES ("
+                    " :postId, :name, :body, :timestamp)"));
+        query.bindValue(QStringLiteral(":postId"), posts.postIds);
+        query.bindValue(QStringLiteral(":name"), posts.names);
+        query.bindValue(QStringLiteral(":body"), posts.bodies);
+        query.bindValue(QStringLiteral(":timestamp"), posts.timestamps);
+        executeBatchSocialCacheQuery(query);
     }
 
-    if (!dbWrite(QLatin1String("extra"), extraKeys, extraEntries, InsertOrReplace)) {
-        dbRollbackTransaction();
-        return false;
+    if (!images.postIds.isEmpty()) {
+        query = prepare(QStringLiteral(
+                    "INSERT INTO images ("
+                    " postId, position, url, type) "
+                    "VALUES ("
+                    " :postId, :position, :url, :type)"));
+        query.bindValue(QStringLiteral(":postId"), images.postIds);
+        query.bindValue(QStringLiteral(":position"), images.positions);
+        query.bindValue(QStringLiteral(":url"), images.urls);
+        query.bindValue(QStringLiteral(":type"), images.types);
+        executeBatchSocialCacheQuery(query);
     }
 
-    QStringList keys;
-    QMap<QString, QVariantList> entries;
-    d->createAccountsEntries(d->queuedPostsAccounts, keys, entries);
-    if (!dbWrite(QLatin1String("link_post_account"), keys, entries, InsertOrReplace)) {
-        dbRollbackTransaction();
-        return false;
+    if (!extras.postIds.isEmpty()) {
+        query = prepare(QStringLiteral(
+                    "INSERT INTO extra ("
+                    " postId, key, value) "
+                    "VALUES ("
+                    " :postId, :key, :value)"));
+        query.bindValue(QStringLiteral(":postId"), extras.postIds);
+        query.bindValue(QStringLiteral(":key"), extras.keys);
+        query.bindValue(QStringLiteral(":value"), extras.values);
+        executeBatchSocialCacheQuery(query);
     }
 
-    if (!dbCommitTransaction()) {
-        dbRollbackTransaction();
-        return false;
+    if (!accounts.postIds.isEmpty()) {
+        query = prepare(QStringLiteral(
+                    "INSERT INTO link_post_account ("
+                    " postId, account) "
+                    "VALUES ("
+                    " :postId, :account)"));
+        query.bindValue(QStringLiteral(":postId"), accounts.postIds);
+        query.bindValue(QStringLiteral(":account"), accounts.accountIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    d->queuedPosts.clear();
-    d->queuedPostsAccounts.clear();
-
-    return true;
+    return success;
 }
 
-bool AbstractSocialPostCacheDatabase::dbCreateTables()
+bool AbstractSocialPostCacheDatabase::createTables(QSqlDatabase database) const
 {
-    Q_D(AbstractSocialPostCacheDatabase);
-    QSqlQuery query (d->db);
+    QSqlQuery query (database);
 
     // Heavily inspired from libeventfeeds
     // posts is composed of
@@ -529,7 +606,6 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
                    "timestamp INTEGER)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create posts table" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -540,7 +616,6 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
                   "type TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create images table" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -550,7 +625,6 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
                   "value TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create extra table" << query.lastError().text();
-        d->db.close();
         return false;
     }
 
@@ -564,39 +638,12 @@ bool AbstractSocialPostCacheDatabase::dbCreateTables()
         return false;
     }
 
-    if (!dbCreatePragmaVersion(POST_DB_VERSION)) {
-        return false;
-    }
-
-
-    d->postQuery = QSqlQuery(d->db);
-    if (!d->postQuery.prepare("SELECT identifier, name, body, timestamp FROM posts "\
-                  "ORDER BY timestamp DESC")) {
-        qWarning() << Q_FUNC_INFO << "Failed to prepare posts query" << d->postQuery.lastError();
-    }
-
-    d->imageQuery = QSqlQuery(d->db);
-    if (!d->imageQuery.prepare("SELECT position, url, type FROM images WHERE postId = :postId")) {
-        qWarning() << Q_FUNC_INFO << "Failed to prepare images query" << d->imageQuery.lastError();
-    }
-
-    d->extraQuery = QSqlQuery(d->db);
-    if (!d->extraQuery.prepare("SELECT key, value FROM extra WHERE postId = :postId")) {
-        qWarning() << Q_FUNC_INFO << "Failed to prepare extras query" << d->extraQuery.lastError();
-    }
-
-    d->accountQuery = QSqlQuery(d->db);
-    if (!d->accountQuery.prepare("SELECT account FROM link_post_account WHERE postId = :postId")) {
-        qWarning() << Q_FUNC_INFO << "Failed to prepare accounts query" << d->accountQuery.lastError();
-    }
-
     return true;
 }
 
-bool AbstractSocialPostCacheDatabase::dbDropTables()
+bool AbstractSocialPostCacheDatabase::dropTables(QSqlDatabase database) const
 {
-    Q_D(AbstractSocialPostCacheDatabase);
-    QSqlQuery query(d->db);
+    QSqlQuery query(database);
     query.prepare("DROP TABLE IF EXISTS posts");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to delete posts table"
@@ -626,4 +673,17 @@ bool AbstractSocialPostCacheDatabase::dbDropTables()
     }
 
     return true;
+}
+
+void AbstractSocialPostCacheDatabase::readFinished()
+{
+    Q_D(AbstractSocialPostCacheDatabase);
+    QMutexLocker locker(&d->mutex);
+
+    d->posts = d->asyncPosts;
+    d->asyncPosts.clear();
+
+    locker.unlock();
+
+    emit postsChanged();
 }

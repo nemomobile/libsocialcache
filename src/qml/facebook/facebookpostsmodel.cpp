@@ -23,85 +23,12 @@
 #include <QtCore/QDebug>
 #include "postimagehelper_p.h"
 
-class FacebookPostsWorkerObject: public AbstractWorkerObject
-{
-    Q_OBJECT
-
-public:
-    explicit FacebookPostsWorkerObject();
-    ~FacebookPostsWorkerObject();
-
-    void refresh();
-    void finalCleanup();
-
-private:
-    FacebookPostsDatabase m_db;
-    bool m_enabled;
-};
-
-FacebookPostsWorkerObject::FacebookPostsWorkerObject()
-    : AbstractWorkerObject(), m_enabled(false)
-{
-}
-
-FacebookPostsWorkerObject::~FacebookPostsWorkerObject()
-{
-}
-
-void FacebookPostsWorkerObject::finalCleanup()
-{
-    m_db.closeDatabase();
-}
-
-void FacebookPostsWorkerObject::refresh()
-{
-    // We initialize the database when refresh is called
-    // When it is called, we are sure that the object is already in a different thread
-    if (!m_enabled) {
-        m_db.initDatabase();
-        m_enabled = true;
-    }
-
-    SocialCacheModelData data;
-    QList<SocialPost::ConstPtr> postsData = m_db.posts();
-    foreach (const SocialPost::ConstPtr &post, postsData) {
-        QMap<int, QVariant> eventMap;
-        eventMap.insert(FacebookPostsModel::FacebookId, post->identifier());
-        eventMap.insert(FacebookPostsModel::Name, post->name());
-        eventMap.insert(FacebookPostsModel::Body, post->body());
-        eventMap.insert(FacebookPostsModel::Timestamp, post->timestamp());
-        eventMap.insert(FacebookPostsModel::Icon, post->icon());
-
-        QVariantList images;
-        foreach (const SocialPostImage::ConstPtr &image, post->images()) {
-            images.append(createImageData(image));
-        }
-        eventMap.insert(FacebookPostsModel::Images, images);
-
-        eventMap.insert(FacebookPostsModel::AttachmentName, m_db.attachmentName(post));
-        eventMap.insert(FacebookPostsModel::AttachmentCaption, m_db.attachmentCaption(post));
-        eventMap.insert(FacebookPostsModel::AttachmentDescription,
-                        m_db.attachmentDescription(post));
-        eventMap.insert(FacebookPostsModel::AttachmentUrl, m_db.attachmentUrl(post));
-        eventMap.insert(FacebookPostsModel::AllowLike, m_db.allowLike(post));
-        eventMap.insert(FacebookPostsModel::AllowComment, m_db.allowComment(post));
-        eventMap.insert(FacebookPostsModel::ClientId, m_db.clientId(post));
-
-        QVariantList accountsVariant;
-        foreach (int account, post->accounts()) {
-            accountsVariant.append(account);
-        }
-        eventMap.insert(FacebookPostsModel::Accounts, accountsVariant);
-        data.append(eventMap);
-    }
-
-    emit dataUpdated(data);
-}
-
 class FacebookPostsModelPrivate: public AbstractSocialCacheModelPrivate
 {
 public:
     explicit FacebookPostsModelPrivate(FacebookPostsModel *q);
+
+    FacebookPostsDatabase database;
 
 private:
     Q_DECLARE_PUBLIC(FacebookPostsModel)
@@ -116,7 +43,9 @@ FacebookPostsModel::FacebookPostsModel(QObject *parent)
     : AbstractSocialCacheModel(*(new FacebookPostsModelPrivate(this)), parent)
 {
     Q_D(FacebookPostsModel);
-    d->initWorkerObject(new FacebookPostsWorkerObject());
+
+    connect(&d->database, &AbstractSocialPostCacheDatabase::postsChanged,
+            this, &FacebookPostsModel::postsChanged);
 }
 
 QHash<int, QByteArray> FacebookPostsModel::roleNames() const
@@ -139,4 +68,50 @@ QHash<int, QByteArray> FacebookPostsModel::roleNames() const
     return roleNames;
 }
 
-#include "facebookpostsmodel.moc"
+void FacebookPostsModel::refresh()
+{
+    Q_D(FacebookPostsModel);
+
+    d->database.refresh();
+}
+
+void FacebookPostsModel::postsChanged()
+{
+    Q_D(FacebookPostsModel);
+
+    SocialCacheModelData data;
+    QList<SocialPost::ConstPtr> postsData = d->database.posts();
+
+    Q_FOREACH (const SocialPost::ConstPtr &post, postsData) {
+        QMap<int, QVariant> eventMap;
+        eventMap.insert(FacebookPostsModel::FacebookId, post->identifier());
+        eventMap.insert(FacebookPostsModel::Name, post->name());
+        eventMap.insert(FacebookPostsModel::Body, post->body());
+        eventMap.insert(FacebookPostsModel::Timestamp, post->timestamp());
+        eventMap.insert(FacebookPostsModel::Icon, post->icon());
+
+        QVariantList images;
+        Q_FOREACH (const SocialPostImage::ConstPtr &image, post->images()) {
+            images.append(createImageData(image));
+        }
+        eventMap.insert(FacebookPostsModel::Images, images);
+
+        eventMap.insert(FacebookPostsModel::AttachmentName, d->database.attachmentName(post));
+        eventMap.insert(FacebookPostsModel::AttachmentCaption, d->database.attachmentCaption(post));
+        eventMap.insert(FacebookPostsModel::AttachmentDescription,
+                        d->database.attachmentDescription(post));
+        eventMap.insert(FacebookPostsModel::AttachmentUrl, d->database.attachmentUrl(post));
+        eventMap.insert(FacebookPostsModel::AllowLike, d->database.allowLike(post));
+        eventMap.insert(FacebookPostsModel::AllowComment, d->database.allowComment(post));
+        eventMap.insert(FacebookPostsModel::ClientId, d->database.clientId(post));
+
+        QVariantList accountsVariant;
+        Q_FOREACH (int account, post->accounts()) {
+            accountsVariant.append(account);
+        }
+        eventMap.insert(FacebookPostsModel::Accounts, accountsVariant);
+        data.append(eventMap);
+    }
+
+    updateData(data);
+}

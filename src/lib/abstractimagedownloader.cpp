@@ -22,7 +22,7 @@
 #include <QtCore/QDir>
 #include <QtCore/QCryptographicHash>
 #include <QtCore/QStandardPaths>
-#include <QtGui/QImage>
+#include <QtGui/QImageReader>
 #include <QtNetwork/QNetworkAccessManager>
 #include <QtNetwork/QNetworkReply>
 #include <QtNetwork/QNetworkRequest>
@@ -49,7 +49,7 @@ static int MAX_SIMULTANEOUS_DOWNLOAD = 5;
 static int MAX_BATCH_SAVE = 50;
 
 AbstractImageDownloaderPrivate::AbstractImageDownloaderPrivate(AbstractImageDownloader *q)
-    : QObject(q), networkAccessManager(0), q_ptr(q), loadedCount(0)
+    : networkAccessManager(0), q_ptr(q), loadedCount(0)
 {
 }
 
@@ -62,74 +62,128 @@ void AbstractImageDownloaderPrivate::manageStack()
     Q_Q(AbstractImageDownloader);
     while (runningReplies.count() < MAX_SIMULTANEOUS_DOWNLOAD && !stack.isEmpty()) {
         // Create a reply to download the image
-        ImageInfo data = stack.takeFirst();
+        ImageInfo *info = stack.takeLast();
 
-        QNetworkReply *reply = q->createReply(data.first, data.second);
-        if (reply) {
-            connect(reply, &QNetworkReply::finished,
-                    this, &AbstractImageDownloaderPrivate::slotFinished);
-            runningReplies.insert(reply, data);
-        } else {
-            // emit signal.  Empty file signifies error.
-            emit q->imageDownloaded(data.first, QString(), data.second);
+        info->file.setFileName(q->outputFile(info->url, info->data));
+
+        QDir parentDir = QFileInfo(info->file.fileName()).dir();
+        if (!parentDir.exists()) {
+            parentDir.mkpath(".");
         }
+
+        if (!info->file.open(QIODevice::ReadWrite)) {
+        } else if (QNetworkReply *reply = q->createReply(info->url, info->data)) {
+            reply->setReadBufferSize(250000);
+
+            QObject::connect(reply, &QIODevice::readyRead,
+                    q, &AbstractImageDownloader::readyRead);
+            QObject::connect(reply, &QNetworkReply::finished,
+                    q, &AbstractImageDownloader::slotFinished);
+
+            runningReplies.insert(reply, info);
+
+            return;
+        }
+        qWarning() << Q_FUNC_INFO << "Failed to open file for write" << info->file.errorString();
+
+        // emit signal.  Empty file signifies error.
+        emit q->imageDownloaded(info->url, QString(), info->data);
+
+        delete info;
     }
 }
 
-void AbstractImageDownloaderPrivate::slotFinished()
+static void readData(ImageInfo *info, QNetworkReply *reply)
 {
-    Q_Q(AbstractImageDownloader);
+    qint64 size = info->file.size();
+    qint64 bytesAvailable = reply->bytesAvailable();
+    if (bytesAvailable == 0)
+        return;
+
+    info->file.resize(size + bytesAvailable);
+    if (uchar *fileData = info->file.map(size, bytesAvailable)) {
+        char *buffer = reinterpret_cast<char *>(fileData);
+        while (bytesAvailable > 0) {
+            qint64 bytesRead = reply->read(buffer, bytesAvailable);
+            bytesAvailable -= bytesRead;
+            buffer += bytesRead;
+
+            if (bytesRead <= 0) {
+                break;
+            }
+        }
+        info->file.unmap(fileData);
+    }
+}
+
+void AbstractImageDownloader::readyRead()
+{
+    Q_D(AbstractImageDownloader);
+
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if (!reply) {
         return;
     }
 
-    const ImageInfo &data = runningReplies.value(reply);
-    runningReplies.remove(reply);
-
-    QString file;
-    QImage image;
-    bool loadedOk = image.loadFromData(reply->readAll());
-    reply->deleteLater();
-    if (!loadedOk || image.isNull()) {
-        qWarning() << Q_FUNC_INFO << "Data downloaded from" << data.first << "is not an image";
-    } else {
-        // Save the new image (eg fbphotoid-thumb.jpg or fbphotoid-image.jpg)
-        file = q->outputFile(data.first, data.second);
-        if (file.isEmpty()) {
-            qWarning() << Q_FUNC_INFO << "Output file is not valid";
-            file = QString(); // reset file to signify error.
-        } else {
-            QDir parentDir = QFileInfo(file).dir();
-            if (!parentDir.exists()) {
-                QDir::root().mkpath(parentDir.absolutePath());
-            }
-
-            bool saveOk = image.save(file);
-            if (!saveOk) {
-                qWarning() << Q_FUNC_INFO << "Cannot save image downloaded from" << data.first;
-                file = QString(); // reset file to signify error.
-            } else {
-                // success - queue to have the path recorded in the database.
-                q->dbQueueImage(data.first, data.second, file);
-            }
-        }
-    }
-
-    // Emit signal.  If file is empty, it signifies an error occurred.
-    emit q->imageDownloaded(data.first, file, data.second);
-    loadedCount ++;
-    manageStack();
-
-    if (loadedCount > MAX_BATCH_SAVE
-            || (runningReplies.isEmpty() && stack.isEmpty())) {
-        q->dbWrite();
-        loadedCount = 0;
+    ImageInfo *info = d->runningReplies.value(reply);
+    if (info) {
+        readData(info, reply);
     }
 }
 
-AbstractImageDownloader::AbstractImageDownloader() :
-    QObject(), d_ptr(new AbstractImageDownloaderPrivate(this))
+void AbstractImageDownloader::slotFinished()
+{
+    Q_D(AbstractImageDownloader);
+
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    if (!reply) {
+        return;
+    }
+
+    ImageInfo *info = d->runningReplies.take(reply);
+    if (!info) {
+        return;
+    }
+
+    readData(info, reply);
+
+    const QString fileName = info->file.fileName();
+
+
+    info->file.close();
+
+    QImageReader reader(fileName);
+    if (reader.canRead()) {
+        dbQueueImage(info->url, info->data, fileName);
+
+        // Emit signal
+        emit imageDownloaded(info->url, fileName, info->data);
+    } else {
+        emit imageDownloaded(info->url, QString(), info->data);
+    }
+
+    delete info;
+
+    d->loadedCount ++;
+    d->manageStack();
+
+    if (d->loadedCount > MAX_BATCH_SAVE
+        || (d->runningReplies.isEmpty() && d->stack.isEmpty())) {
+        dbWrite();
+        d->loadedCount = 0;
+    }
+}
+
+AbstractImageDownloader::AbstractImageDownloader(QObject *parent)
+    : QObject(parent)
+    , d_ptr(new AbstractImageDownloaderPrivate(this))
+{
+    Q_D(AbstractImageDownloader);
+    d->networkAccessManager = new QNetworkAccessManager(this);
+}
+
+AbstractImageDownloader::AbstractImageDownloader(AbstractImageDownloaderPrivate &dd, QObject *parent)
+    : QObject(parent), d_ptr(&dd)
 {
     Q_D(AbstractImageDownloader);
     d->networkAccessManager = new QNetworkAccessManager(this);
@@ -148,12 +202,26 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
         return;
     }
 
-    ImageInfo info = ImageInfo(url, metadata);
-    if (d->stack.contains(info)) {
-        d->stack.removeAll(info);
+
+    Q_FOREACH (ImageInfo *info, d->runningReplies) {
+        if (info->url == url) {
+            return;
+        }
     }
 
-    d->stack.prepend(info);
+    ImageInfo *info = 0;
+    for (int i = 0; i < d->stack.count(); ++i) {
+        if (d->stack.at(i)->url == url) {
+            info = d->stack.takeAt(i);
+            break;
+        }
+    }
+
+    if (!info) {
+        info = new ImageInfo(url, metadata);
+    }
+
+    d->stack.append(info);
     d->manageStack();
 }
 
@@ -200,9 +268,4 @@ void AbstractImageDownloader::dbQueueImage(const QString &url, const QVariantMap
 
 void AbstractImageDownloader::dbWrite()
 {
-}
-
-bool AbstractImageDownloader::dbClose()
-{
-    return true;
 }
