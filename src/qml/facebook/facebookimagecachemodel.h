@@ -58,6 +58,8 @@ public:
     };
 
     explicit FacebookImageCacheModel(QObject *parent = 0);
+    ~FacebookImageCacheModel();
+
     QHash<int, QByteArray> roleNames() const;
 
     // properties
@@ -66,6 +68,9 @@ public:
 
     FacebookImageDownloader *downloader() const;
     void setDownloader(FacebookImageDownloader *downloader);
+
+    // from AbstractListModel
+    QVariant data(const QModelIndex &index, int role) const;
 
 public Q_SLOTS:
     void loadImages();
@@ -81,6 +86,7 @@ private Q_SLOTS:
 
 private:
     Q_DECLARE_PRIVATE(FacebookImageCacheModel)
+    friend class FacebookImageDownloader;
 };
 
 #endif // FACEBOOKIMAGECACHEMODEL_H

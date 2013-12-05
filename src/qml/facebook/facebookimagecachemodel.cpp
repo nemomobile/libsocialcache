@@ -41,6 +41,7 @@ static const char *PHOTO_ALBUM_PREFIX = "album-";
 
 static const char *URL_KEY = "url";
 static const char *ROW_KEY = "row";
+static const char *MODEL_KEY = "model";
 
 #define SOCIALCACHE_FACEBOOK_IMAGE_DIR   PRIVILEGED_DATA_DIR + QLatin1String("/Images/")
 
@@ -58,7 +59,6 @@ public:
     FacebookImageDownloader *downloader;
     FacebookImagesDatabase database;
     FacebookImageCacheModel::ModelDataType type;
-
 };
 
 FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCacheModel *q)
@@ -72,12 +72,14 @@ void FacebookImageCacheModelPrivate::queue(
         const QString &identifier,
         const QString &url)
 {
+    FacebookImageCacheModel *modelPtr = qobject_cast<FacebookImageCacheModel*>(q_ptr);
     if (downloader) {
         QVariantMap metadata;
         metadata.insert(QLatin1String(TYPE_KEY), imageType);
         metadata.insert(QLatin1String(IDENTIFIER_KEY), identifier);
         metadata.insert(QLatin1String(URL_KEY), url);
         metadata.insert(QLatin1String(ROW_KEY), row);
+        metadata.insert(QLatin1String(MODEL_KEY), QVariant::fromValue<void*>((void*)modelPtr));
 
         downloader->queue(url, metadata);
     }
@@ -89,6 +91,14 @@ FacebookImageCacheModel::FacebookImageCacheModel(QObject *parent)
     Q_D(const FacebookImageCacheModel);
     connect(&d->database, &FacebookImagesDatabase::queryFinished,
             this, &FacebookImageCacheModel::queryFinished);
+}
+
+FacebookImageCacheModel::~FacebookImageCacheModel()
+{
+    Q_D(FacebookImageCacheModel);
+    if (d->downloader) {
+        d->downloader->removeModelFromHash(this);
+    }
 }
 
 QHash<int, QByteArray> FacebookImageCacheModel::roleNames() const
@@ -136,16 +146,37 @@ void FacebookImageCacheModel::setDownloader(FacebookImageDownloader *downloader)
         if (d->downloader) {
             // Disconnect worker object
             disconnect(d->downloader);
+            d->downloader->removeModelFromHash(this);
         }
 
         d->downloader = downloader;
-
-        // Needed for the new Qt connection system
-        connect(d->downloader, &AbstractImageDownloader::imageDownloaded,
-                this, &FacebookImageCacheModel::imageDownloaded);
-
+        d->downloader->addModelToHash(this);
         emit downloaderChanged();
     }
+}
+
+QVariant FacebookImageCacheModel::data(const QModelIndex &index, int role) const
+{
+    Q_D(const FacebookImageCacheModel);
+    int row = index.row();
+    if (row < 0 || row >= d->m_data.count()) {
+        return QVariant();
+    }
+
+    if (role == FacebookImageCacheModel::Image) {
+        if (d->m_data.at(row).value(role).toString().isEmpty()) {
+            // haven't downloaded the image yet.  Download it.
+            if (d->database.images().size() > row) {
+                FacebookImage::ConstPtr imageData = d->database.images().at(row);
+                FacebookImageCacheModelPrivate *nonconstD = const_cast<FacebookImageCacheModelPrivate*>(d);
+                nonconstD->queue(row, FacebookImageDownloader::FullImage,
+                                 imageData->fbImageId(),
+                                 imageData->imageUrl());
+            }
+        }
+    }
+
+    return d->m_data.at(row).value(role);
 }
 
 void FacebookImageCacheModel::loadImages()
@@ -181,6 +212,9 @@ void FacebookImageCacheModel::refresh()
     }
 }
 
+// NOTE: this is now called directly by FacebookImageDownloader
+// rather than connected to the imageDownloaded signal, for
+// performance reasons.
 void FacebookImageCacheModel::imageDownloaded(
         const QString &, const QString &path, const QVariantMap &imageData)
 {
@@ -188,7 +222,9 @@ void FacebookImageCacheModel::imageDownloaded(
 
     int row = imageData.value(ROW_KEY).toInt();
     if (row < 0 || row >= d->m_data.count()) {
-        qWarning() << Q_FUNC_INFO << "Incorrect number of rows" << imageData.count();
+        qWarning() << Q_FUNC_INFO
+                   << "Invalid row:" << row
+                   << "max row:" << d->m_data.count();
         return;
     }
 
@@ -209,6 +245,7 @@ void FacebookImageCacheModel::queryFinished()
 {
     Q_D(FacebookImageCacheModel);
 
+    QList<QVariantMap> thumbQueue;
     SocialCacheModelData data;
     switch (d->type) {
     case Users: {
@@ -276,16 +313,15 @@ void FacebookImageCacheModel::queryFinished()
             QMap<int, QVariant> imageMap;
             imageMap.insert(FacebookImageCacheModel::FacebookId, imageData->fbImageId());
             if (imageData->thumbnailFile().isEmpty()) {
-                d->queue(i, FacebookImageDownloader::ThumbnailImage,
-                            imageData->fbImageId(),
-                            imageData->thumbnailUrl());
+                QVariantMap thumbQueueData;
+                thumbQueueData.insert("row", QVariant::fromValue<int>(i));
+                thumbQueueData.insert("imageType", QVariant::fromValue<int>(FacebookImageDownloader::ThumbnailImage));
+                thumbQueueData.insert("identifier", imageData->fbImageId());
+                thumbQueueData.insert("url", imageData->thumbnailUrl());
+                thumbQueue.append(thumbQueueData);
             }
+            // note: we don't queue the image file until the user explicitly opens that in fullscreen.
             imageMap.insert(FacebookImageCacheModel::Thumbnail, imageData->thumbnailFile());
-            if (imageData->imageFile().isEmpty()) {
-                d->queue(i, FacebookImageDownloader::FullImage,
-                            imageData->fbImageId(),
-                            imageData->imageUrl());
-            }
             imageMap.insert(FacebookImageCacheModel::Image, imageData->imageFile());
             imageMap.insert(FacebookImageCacheModel::Title, imageData->imageName());
             imageMap.insert(FacebookImageCacheModel::DateTaken, imageData->createdTime());
@@ -303,4 +339,12 @@ void FacebookImageCacheModel::queryFinished()
     }
 
     updateData(data);
+
+    // now download the queued thumbnails.
+    foreach (const QVariantMap &thumbQueueData, thumbQueue) {
+        d->queue(thumbQueueData["row"].toInt(),
+                 static_cast<FacebookImageDownloader::ImageType>(thumbQueueData["imageType"].toInt()),
+                 thumbQueueData["identifier"].toString(),
+                 thumbQueueData["url"].toString());
+    }
 }
