@@ -26,18 +26,28 @@
 
 #include <QtDebug>
 
-FacebookImageDownloaderWorkerObject::FacebookImageDownloaderWorkerObject()
-    : AbstractImageDownloader(), m_initialized(false), m_killed(false)
+FacebookImageDownloaderPrivate::FacebookImageDownloaderPrivate(FacebookImageDownloader *q)
+    : AbstractImageDownloaderPrivate(q)
 {
 }
 
-QString FacebookImageDownloaderWorkerObject::outputFile(const QString &url,
+FacebookImageDownloaderPrivate::~FacebookImageDownloaderPrivate()
+{
+}
+
+FacebookImageDownloader::FacebookImageDownloader(QObject *parent) :
+    AbstractImageDownloader(*new FacebookImageDownloaderPrivate(this), parent)
+{
+}
+
+FacebookImageDownloader::~FacebookImageDownloader()
+{
+}
+
+QString FacebookImageDownloader::outputFile(const QString &url,
                                                         const QVariantMap &data) const
 {
-    Q_UNUSED(url)
-    if (m_killed) {
-        return QString(); // we are in the process of being terminated.
-    }
+    Q_UNUSED(url);
 
     // We create the identifier by appending the type to the real identifier
     QString identifier = data.value(QLatin1String(IDENTIFIER_KEY)).toString();
@@ -55,37 +65,11 @@ QString FacebookImageDownloaderWorkerObject::outputFile(const QString &url,
     return makeOutputFile(SocialSyncInterface::Facebook, SocialSyncInterface::Images, identifier);
 }
 
-bool FacebookImageDownloaderWorkerObject::dbInit()
-{
-    if (m_killed) {
-        return false; // we are in the process of being terminated.
-    }
-
-    if (!m_initialized) {
-        m_db.initDatabase();
-        m_initialized = true;
-    }
-
-    return m_db.isValid();
-}
-
-bool FacebookImageDownloaderWorkerObject::dbClose()
-{
-    if (m_killed) {
-        return false; // we are in the process of being terminated.
-    }
-
-    m_initialized = false;
-    return m_db.closeDatabase();
-}
-
-void FacebookImageDownloaderWorkerObject::dbQueueImage(const QString &url, const QVariantMap &data,
+void FacebookImageDownloader::dbQueueImage(const QString &url, const QVariantMap &data,
                                                        const QString &file)
 {
-    Q_UNUSED(url)
-    if (m_killed) {
-        return; // we are in the process of being terminated.
-    }
+    Q_D(FacebookImageDownloader);
+    Q_UNUSED(url);
 
     QString identifier = data.value(QLatin1String(IDENTIFIER_KEY)).toString();
     if (identifier.isEmpty()) {
@@ -95,77 +79,17 @@ void FacebookImageDownloaderWorkerObject::dbQueueImage(const QString &url, const
 
     switch (type) {
     case ThumbnailImage:
-        m_db.updateImageThumbnail(identifier, file);
+        d->database.updateImageThumbnail(identifier, file);
         break;
     case FullImage:
-        m_db.updateImageFile(identifier, file);
+        d->database.updateImageFile(identifier, file);
         break;
     }
 }
 
-void FacebookImageDownloaderWorkerObject::dbWrite()
+void FacebookImageDownloader::dbWrite()
 {
-    if (m_killed) {
-        return; // we are in the process of being terminated.
-    }
+    Q_D(FacebookImageDownloader);
 
-    m_db.write();
-}
-
-void FacebookImageDownloaderWorkerObject::quitGracefully()
-{
-    m_quitMutex.lock();
-    // Note: we cannot dbWrite() / dbClose() here.
-    // Most likely, the database has already been closed
-    // by the time this function is called.
-    // So any attempt to lock, will result in a crash.
-    // Thus, set m_killed to avoid possibility of doing that.
-    m_killed = true;
-    // We also need to push this object to the null
-    // thread to stop event processing (so that we
-    // can delete the object).  XXX TODO: why is this needed?
-    this->moveToThread(0);
-    // now we can die.
-    m_quitWC.wakeAll();
-    m_quitMutex.unlock();
-}
-
-FacebookImageDownloaderPrivate::FacebookImageDownloaderPrivate(FacebookImageDownloader *q)
-    : QObject(), q_ptr(q), m_workerObject(new FacebookImageDownloaderWorkerObject())
-{
-    m_workerThread.start(QThread::IdlePriority);
-    m_workerObject->moveToThread(&m_workerThread);
-}
-
-FacebookImageDownloaderPrivate::~FacebookImageDownloaderPrivate()
-{
-    if (m_workerThread.isRunning()) {
-        // tell worker object to quit gracefully.
-        m_workerObject->m_quitMutex.lock();
-        QMetaObject::invokeMethod(m_workerObject, "quitGracefully", Qt::QueuedConnection);
-        m_workerObject->m_quitWC.wait(&m_workerObject->m_quitMutex);
-        m_workerObject->m_quitMutex.unlock();
-
-        // now terminate the thread
-        m_workerThread.quit();
-        m_workerThread.wait();
-    }
-
-    // and delete the worker object - this will ensure the database gets closed.
-    delete m_workerObject;
-}
-
-FacebookImageDownloader::FacebookImageDownloader(QObject *parent) :
-    QObject(parent), d_ptr(new FacebookImageDownloaderPrivate(this))
-{
-}
-
-FacebookImageDownloader::~FacebookImageDownloader()
-{
-}
-
-FacebookImageDownloaderWorkerObject * FacebookImageDownloader::workerObject() const
-{
-    Q_D(const FacebookImageDownloader);
-    return d->m_workerObject;
+    d->database.commit();
 }

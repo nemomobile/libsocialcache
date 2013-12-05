@@ -115,55 +115,26 @@ class FacebookContactsDatabasePrivate: public AbstractSocialCacheDatabasePrivate
 {
 public:
     explicit FacebookContactsDatabasePrivate(FacebookContactsDatabase *q);
-    void createUpdatedEntries(const QMap<QString, QMap<QString, QVariant> > &input,
-                              const QString &primary, QMap<QString, QVariantList> &entries);
+
     void clearCachedImages(QSqlQuery &query);
-    QList<FacebookContact::ConstPtr> queuedContacts;
-    QMap<QString, QMap<QString, QVariant> > queuedContactsWithUpdatedPicture;
-    QMap<QString, QMap<QString, QVariant> > queuedContactsWithUpdatedCover;
+
+    struct {
+        QList<int> removeAccounts;
+        QStringList removeContacts;
+        QList<FacebookContact::ConstPtr> insertContacts;
+        QMap<QString, QString> updatePictures;
+        QMap<QString, QString> updateCovers;
+    } queue;
 };
 
 FacebookContactsDatabasePrivate::FacebookContactsDatabasePrivate(FacebookContactsDatabase *q)
-    : AbstractSocialCacheDatabasePrivate(q)
+    : AbstractSocialCacheDatabasePrivate(
+            q,
+            SocialSyncInterface::socialNetwork(SocialSyncInterface::Facebook),
+            SocialSyncInterface::dataType(SocialSyncInterface::Contacts),
+            QLatin1String(DB_NAME),
+            VERSION)
 {
-}
-
-void FacebookContactsDatabasePrivate::createUpdatedEntries(const QMap<QString, QMap<QString, QVariant> > &input,
-                                                           const QString &primary,
-                                                           QMap<QString, QVariantList> &entries)
-{
-    entries.clear();
-
-    // Check if we have the same data
-    QStringList keys;
-    foreach (const QVariantMap &inputEntry, input) {
-        // TODO: instead of return, we should only insert entries that "works" to
-        // the list.
-        if (inputEntry.isEmpty()) {
-            return;
-        }
-
-        if (keys.isEmpty()) {
-            keys = inputEntry.keys();
-        } else if (inputEntry.keys() != keys) {
-            return;
-        }
-    }
-
-    foreach (const QString &key, keys) {
-        entries.insert(key, QVariantList());
-    }
-    entries.insert(primary, QVariantList());
-
-    for (QMap<QString, QMap<QString, QVariant> >::const_iterator i = input.begin();
-         i != input.end(); i++) {
-        entries[primary].append(i.key());
-
-        const QMap<QString, QVariant> &inputEntry = i.value();
-        foreach (const QString &key, inputEntry.keys()) {
-            entries[key].append(inputEntry.value(key));
-        }
-    }
 }
 
 void FacebookContactsDatabasePrivate::clearCachedImages(QSqlQuery &query)
@@ -186,7 +157,6 @@ void FacebookContactsDatabasePrivate::clearCachedImages(QSqlQuery &query)
             }
         }
     }
-
 }
 
 FacebookContactsDatabase::FacebookContactsDatabase()
@@ -196,92 +166,27 @@ FacebookContactsDatabase::FacebookContactsDatabase()
 
 FacebookContactsDatabase::~FacebookContactsDatabase()
 {
-}
-
-void FacebookContactsDatabase::initDatabase()
-{
-    dbInit(SocialSyncInterface::socialNetwork(SocialSyncInterface::Facebook),
-           SocialSyncInterface::dataType(SocialSyncInterface::Contacts),
-           QLatin1String(DB_NAME), VERSION);
+    wait();
 }
 
 bool FacebookContactsDatabase::removeContacts(int accountId)
 {
     Q_D(FacebookContactsDatabase);
-    if (!dbBeginTransaction()) {
-        return false;
-    }
 
-    // Clean images
-    QSqlQuery query (d->db);
-    if (!query.prepare("SELECT pictureFile, coverFile FROM friends WHERE accountId = :accountId")) {
-        qWarning() << Q_FUNC_INFO << "Failed to prepare cached images selection query:"
-                   << query.lastError().text();
-    } else {
-        query.bindValue(":accountId", accountId);
-        if (!query.exec()) {
-            qWarning() << Q_FUNC_INFO << "Failed to exec cached contacts selection query:"
-                       << query.lastError().text();
-        } else {
-            d->clearCachedImages(query);
-        }
-    }
+    QMutexLocker locker(&d->mutex);
 
-    query.prepare(QLatin1String("DELETE FROM friends WHERE accountId = :accountId"));
-    query.bindValue(":accountId", accountId);
+    d->queue.removeAccounts.append(accountId);
 
-    if (!query.exec()) {
-        qWarning() << Q_FUNC_INFO << "Failed to delete contacts" << query.lastError().text();
-        dbRollbackTransaction();
-        return false;
-    }
-
-    return dbCommitTransaction();
+    return true;
 }
 
 bool FacebookContactsDatabase::removeContacts(const QStringList &fbFriendIds)
 {
     Q_D(FacebookContactsDatabase);
-    if (!dbBeginTransaction()) {
-        return false;
-    }
 
-    // Clean images
-    QSqlQuery query (d->db);
-    foreach (const QString &fbFriendId, fbFriendIds) {
-        if (!query.prepare("SELECT pictureFile, coverFile FROM friends WHERE fbFriendId = :fbFriendId")) {
-            qWarning() << Q_FUNC_INFO << "Failed to prepare cached contacts selection query:"
-                       << query.lastError().text();
-        } else {
-            query.bindValue(":fbFriendId", fbFriendId);
-            if (!query.exec()) {
-                qWarning() << Q_FUNC_INFO << "Failed to exec cached contacts selection query:"
-                           << query.lastError().text();
-            } else {
-                d->clearCachedImages(query);
-            }
-        }
-    }
+    QMutexLocker locker(&d->mutex);
 
-    QVariantList fbFriendIdList;
-    foreach (const QString &fbFriendId, fbFriendIds) {
-        fbFriendIdList.append(fbFriendId);
-    }
-    QMap<QString, QVariantList> entries;
-    entries.insert(QLatin1String("fbFriendId"), fbFriendIdList);
-    QStringList keys;
-    keys.append(QLatin1String("fbFriendId"));
-    if (!dbWrite(QLatin1String("friends"), keys, entries, Delete)) {
-        qWarning() << Q_FUNC_INFO << "Failed to clean contacts" << fbFriendIds;
-        dbRollbackTransaction();
-        return false;
-    }
-
-    if (!dbCommitTransaction()) {
-        qWarning() << Q_FUNC_INFO << "Failed to commit transaction";
-        dbRollbackTransaction();
-        return false;
-    }
+    d->queue.removeContacts += fbFriendIds;
 
     return true;
 }
@@ -289,10 +194,8 @@ bool FacebookContactsDatabase::removeContacts(const QStringList &fbFriendIds)
 FacebookContact::ConstPtr FacebookContactsDatabase::contact(const QString &fbFriendId,
                                                             int accountId) const
 {
-    Q_D(const FacebookContactsDatabase);
-
-    QSqlQuery query (d->db);
-    query.prepare(QLatin1String("SELECT fbFriendId, accountId, pictureUrl, coverUrl, "\
+    QSqlQuery query = prepare(QStringLiteral(
+                                "SELECT fbFriendId, accountId, pictureUrl, coverUrl, "\
                                 "pictureFile, coverFile "\
                                 "FROM friends "\
                                 "WHERE fbFriendId = :fbFriendId "\
@@ -309,18 +212,21 @@ FacebookContact::ConstPtr FacebookContactsDatabase::contact(const QString &fbFri
         return FacebookContact::ConstPtr();
     }
 
-    return FacebookContact::create(query.value(0).toString(), query.value(1).toInt(),
+    FacebookContact::ConstPtr contact = FacebookContact::create(
+                                   query.value(0).toString(), query.value(1).toInt(),
                                    query.value(2).toString(), query.value(3).toString(),
                                    query.value(4).toString(), query.value(5).toString());
+    query.finish();
+
+    return contact;
 }
 
 QList<FacebookContact::ConstPtr> FacebookContactsDatabase::contacts(int accountId) const
 {
-    Q_D(const FacebookContactsDatabase);
     QList<FacebookContact::ConstPtr> data;
 
-    QSqlQuery query (d->db);
-    query.prepare(QLatin1String("SELECT fbFriendId, accountId, pictureUrl, coverUrl, "\
+    QSqlQuery query = prepare(QStringLiteral(
+                                "SELECT fbFriendId, accountId, pictureUrl, coverUrl, "\
                                 "pictureFile, coverFile "\
                                 "FROM friends "\
                                 "WHERE accountId = :accountId"));
@@ -342,11 +248,10 @@ QList<FacebookContact::ConstPtr> FacebookContactsDatabase::contacts(int accountI
 
 QStringList FacebookContactsDatabase::contactIds(int accountId) const
 {
-    Q_D(const FacebookContactsDatabase);
     QStringList data;
 
-    QSqlQuery query (d->db);
-    query.prepare(QLatin1String("SELECT fbFriendId FROM friends "\
+    QSqlQuery query = prepare(QStringLiteral(
+                                "SELECT fbFriendId FROM friends "\
                                 "WHERE accountId = :accountId"));
     query.bindValue(":accountId", accountId);
 
@@ -366,7 +271,10 @@ void FacebookContactsDatabase::addSyncedContact(const QString &fbFriendId, int a
                                                 const QString &pictureUrl, const QString &coverUrl)
 {
     Q_D(FacebookContactsDatabase);
-    d->queuedContacts.append(FacebookContact::create(fbFriendId, accountId, pictureUrl, coverUrl,
+
+    QMutexLocker locker(&d->mutex);
+
+    d->queue.insertContacts.append(FacebookContact::create(fbFriendId, accountId, pictureUrl, coverUrl,
                                                      QString(), QString()));
 }
 
@@ -374,91 +282,175 @@ void FacebookContactsDatabase::updatePictureFile(const QString &fbFriendId,
                                                  const QString &pictureFile)
 {
     Q_D(FacebookContactsDatabase);
-    if (!d->queuedContactsWithUpdatedPicture.contains(fbFriendId)) {
-        QMap<QString, QVariant> data;
-        data.insert(QLatin1String(PICTURE_FILE_KEY), pictureFile);
-        d->queuedContactsWithUpdatedPicture.insert(fbFriendId, data);
-    } else {
-        d->queuedContactsWithUpdatedPicture[fbFriendId].insert(QLatin1String(PICTURE_FILE_KEY), pictureFile);
-    }
+
+    QMutexLocker locker(&d->mutex);
+
+    d->queue.updatePictures.insert(fbFriendId, pictureFile);
 }
 
 void FacebookContactsDatabase::updateCoverFile(const QString &fbFriendId, const QString &coverFile)
 {
     Q_D(FacebookContactsDatabase);
-    if (!d->queuedContactsWithUpdatedCover.contains(fbFriendId)) {
-        QMap<QString, QVariant> data;
-        data.insert(QLatin1String(COVER_FILE_KEY), coverFile);
-        d->queuedContactsWithUpdatedCover.insert(fbFriendId, data);
-    } else {
-        d->queuedContactsWithUpdatedCover[fbFriendId].insert(QLatin1String(COVER_FILE_KEY), coverFile);
-    }
+
+    QMutexLocker locker(&d->mutex);
+
+    d->queue.updateCovers.insert(fbFriendId, coverFile);
+}
+
+void FacebookContactsDatabase::commit()
+{
+    executeWrite();
 }
 
 bool FacebookContactsDatabase::write()
 {
     Q_D(FacebookContactsDatabase);
 
-    // We sync for one given account. We should have all the interesting
-    // events queued. So we will wipe all events from the account id
-    // and only add the events that are queued, and match the account id.
-    if (!dbBeginTransaction()) {
-        return false;
+    QMutexLocker locker(&d->mutex);
+
+    const QList<int> removeAccounts = d->queue.removeAccounts;
+    const QStringList removeContacts = d->queue.removeContacts;
+    const QList<FacebookContact::ConstPtr> insertContacts = d->queue.insertContacts;
+    const QMap<QString, QString> updatePictures = d->queue.updatePictures;
+    const QMap<QString, QString> updateCovers = d->queue.updateCovers;
+
+    d->queue.removeAccounts.clear();
+    d->queue.removeContacts.clear();
+    d->queue.insertContacts.clear();
+    d->queue.updatePictures.clear();
+    d->queue.updateCovers.clear();
+
+    locker.unlock();
+
+    bool success = true;
+    QSqlQuery query;
+
+    if (!removeAccounts.isEmpty()) {
+        QVariantList accountIds;
+
+        query = prepare(QStringLiteral(
+                    "SELECT pictureFile, coverFile "
+                    "FROM friends "
+                    "WHERE accountId = :accountId"));
+        Q_FOREACH (int accountId, removeAccounts) {
+            accountIds.append(accountId);
+
+            query.bindValue(QStringLiteral(":accountId"), accountId);
+            if (!query.exec()) {
+                qWarning() << Q_FUNC_INFO << "Failed to exec cached contacts selection query:"
+                           << query.lastError().text();
+            } else {
+                d->clearCachedImages(query);
+            }
+        }
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM friends "
+                    "WHERE accountId = :accountId"));
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    QStringList keys;
-    keys << QLatin1String("fbFriendId") << QLatin1String("accountId")
-         << QLatin1String("pictureUrl") << QLatin1String("coverUrl")
-         << QLatin1String("pictureFile") << QLatin1String("coverFile");
-    QMap<QString, QVariantList> data;
-    foreach (const FacebookContact::ConstPtr &contact,d->queuedContacts) {
-        data[QLatin1String("fbFriendId")].append(contact->fbFriendId());
-        data[QLatin1String("accountId")].append(contact->accountId());
-        data[QLatin1String("pictureUrl")].append(contact->pictureUrl());
-        data[QLatin1String("coverUrl")].append(contact->coverUrl());
-        data[QLatin1String("pictureFile")].append(contact->pictureFile());
-        data[QLatin1String("coverFile")].append(contact->coverFile());
+    if (!removeContacts.isEmpty()) {
+        QVariantList friendIds;
+
+        query = prepare(QStringLiteral(
+                    "SELECT pictureFile, coverFile "
+                    "FROM friends "
+                    "WHERE fbFriendId = :fbFriendId"));
+        Q_FOREACH (const QString &friendId, removeContacts) {
+            friendIds.append(friendId);
+
+            query.bindValue(QStringLiteral(":fbFriendId"), friendId);
+            if (!query.exec()) {
+                qWarning() << Q_FUNC_INFO << "Failed to exec cached contacts selection query:"
+                           << query.lastError().text();
+            } else {
+                d->clearCachedImages(query);
+            }
+        }
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM friends "
+                    "WHERE fbFriendId = :fbFriendId"));
+        query.bindValue(QStringLiteral(":fbFriendId"), friendIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    if (!dbWrite(QLatin1String("friends"), keys, data, InsertOrReplace)) {
-        dbRollbackTransaction();
-        return false;
+    if (!insertContacts.isEmpty()) {
+        QVariantList friendIds, accountIds;
+        QVariantList pictureUrls, coverUrls;
+        QVariantList pictureFiles, coverFiles;
+
+        Q_FOREACH (const FacebookContact::ConstPtr &contact, insertContacts) {
+            friendIds.append(contact->fbFriendId());
+            accountIds.append(contact->accountId());
+            pictureUrls.append(contact->pictureUrl());
+            coverUrls.append(contact->coverUrl());
+            pictureFiles.append(contact->pictureFile());
+            coverFiles.append(contact->coverFile());
+        }
+
+        query = prepare(QStringLiteral(
+                    "INSERT OR REPLACE INTO friends ("
+                    " fbFriendId, accountId, pictureUrl, coverUrl, pictureFile, coverUrl) "
+                    "VALUES ("
+                    " :fbFriendId, :accountId, :pictureUrl, :coverUrl, :pictureFile, :coverUrl)"));
+        query.bindValue(QStringLiteral(":fbFriendId"), friendIds);
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        query.bindValue(QStringLiteral(":pictureUrl"), pictureUrls);
+        query.bindValue(QStringLiteral(":coverUrl"), coverUrls);
+        query.bindValue(QStringLiteral(":pictureFile"), pictureFiles);
+        query.bindValue(QStringLiteral(":coverFile"), coverFiles);
+        executeBatchSocialCacheQuery(query);
     }
 
-    QMap<QString, QVariantList> entries;
-    d->createUpdatedEntries(d->queuedContactsWithUpdatedPicture, QLatin1String("fbFriendId"),
-                            entries);
+    if (!updatePictures.isEmpty()) {
+        QVariantList friendIds;
+        QVariantList pictureFiles;
 
-    if (!dbWrite(QLatin1String("friends"), QStringList(), entries, Update,
-                 QLatin1String("fbFriendId"))) {
-        dbRollbackTransaction();
-        return false;
+        for (QMap<QString, QString>::const_iterator it = updatePictures.begin();
+                it != updatePictures.end();
+                ++it) {
+            friendIds.append(it.key());
+            pictureFiles.append(it.value());
+        }
+
+        query = prepare(QStringLiteral(
+                    "UPDATE friends "
+                    "SET pictureFile = :pictureFile "
+                    "WHERE fbFriendId = :fbFriendId"));
+        query.bindValue(QStringLiteral(":pictureFile"), pictureFiles);
+        query.bindValue(QStringLiteral(":fbFriendId"), friendIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    d->createUpdatedEntries(d->queuedContactsWithUpdatedCover, QLatin1String("fbFriendId"),
-                            entries);
+    if (!updateCovers.isEmpty()) {
+        QVariantList friendIds;
+        QVariantList coverFiles;
 
-    if (!dbWrite(QLatin1String("friends"), QStringList(), entries, Update,
-                 QLatin1String("fbFriendId"))) {
-        dbRollbackTransaction();
-        return false;
+        for (QMap<QString, QString>::const_iterator it = updateCovers.begin();
+                it != updateCovers.end();
+                ++it) {
+            friendIds.append(it.key());
+            coverFiles.append(it.value());
+        }
+
+        query = prepare(QStringLiteral(
+                    "UPDATE friends "
+                    "SET coverFile = :coverFile "
+                    "WHERE fbFriendId = :fbFriendId"));
+        query.bindValue(QStringLiteral(":coverFile"), coverFiles);
+        query.bindValue(QStringLiteral(":fbFriendId"), friendIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    qWarning() << "Updated" << d->queuedContactsWithUpdatedPicture.count() << "pictures";
-    qWarning() << "Updated" << d->queuedContactsWithUpdatedCover.count() << "covers";
-    qWarning() << "Inserted" << d->queuedContacts.count() << "contacts";
-
-    d->queuedContactsWithUpdatedPicture.clear();
-    d->queuedContactsWithUpdatedCover.clear();
-    d->queuedContacts.clear();
-
-    return dbCommitTransaction();
+    return success;
 }
 
-bool FacebookContactsDatabase::dbCreateTables()
+bool FacebookContactsDatabase::createTables(QSqlDatabase database) const
 {
-    Q_D(FacebookContactsDatabase);
-    QSqlQuery query(d->db);
+    QSqlQuery query(database);
     query.prepare( "CREATE TABLE IF NOT EXISTS friends ("
                    "fbFriendId TEXT,"
                    "accountId INTEGER,"
@@ -472,16 +464,13 @@ bool FacebookContactsDatabase::dbCreateTables()
         return false;
     }
 
-    if (!dbCreatePragmaVersion(VERSION)) {
-        return false;
-    }
     return true;
 }
 
-bool FacebookContactsDatabase::dbDropTables()
+bool FacebookContactsDatabase::dropTables(QSqlDatabase database) const
 {
-    Q_D(FacebookContactsDatabase);
-    QSqlQuery query(d->db);
+    QSqlQuery query(database);
+
     query.prepare("DROP TABLE IF EXISTS friends");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to delete friends table:" << query.lastError().text();

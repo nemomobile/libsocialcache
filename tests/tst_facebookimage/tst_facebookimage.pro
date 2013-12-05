@@ -32,3 +32,5 @@ SOURCES +=  ../../src/lib/semaphore_p.cpp \
             ../../src/qml/facebook/facebookimagedownloader.cpp \
             main.cpp
 
+target.path = /opt/tests/libsocialcache
+INSTALLS += target

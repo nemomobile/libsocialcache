@@ -22,17 +22,28 @@
 
 #include <QtCore/QObject>
 
+#include "abstractimagedownloader.h"
+
 class FacebookImageDownloaderWorkerObject;
 class FacebookImageDownloaderPrivate;
-class FacebookImageDownloader : public QObject
+class FacebookImageDownloader : public AbstractImageDownloader
 {
     Q_OBJECT
 public:
+    enum ImageType {
+        ThumbnailImage,
+        FullImage
+    };
+
     explicit FacebookImageDownloader(QObject *parent = 0);
     virtual ~FacebookImageDownloader();
-    FacebookImageDownloaderWorkerObject * workerObject() const;
+
 protected:
-    QScopedPointer<FacebookImageDownloaderPrivate> d_ptr;
+    QString outputFile(const QString &url, const QVariantMap &data) const;
+
+    void dbQueueImage(const QString &url, const QVariantMap &data, const QString &file);
+    void dbWrite();
+
 private:
     Q_DECLARE_PRIVATE(FacebookImageDownloader)
 };

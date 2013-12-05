@@ -28,8 +28,6 @@ public:
     explicit TwitterPostsDatabase();
     ~TwitterPostsDatabase();
 
-    void initDatabase();
-
     void addTwitterPost(const QString &identifier, const QString &name, const QString &body,
                         const QDateTime &timestamp,
                         const QString &icon,
