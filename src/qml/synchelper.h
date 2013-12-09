@@ -31,7 +31,14 @@ class SyncHelper : public QObject, public QQmlParserStatus
                WRITE setSocialNetwork NOTIFY socialNetworkChanged)
     Q_PROPERTY(SocialSyncInterface::DataType dataType READ dataType
                WRITE setDataType NOTIFY dataTypeChanged)
-    Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
+    Q_PROPERTY(SyncHelper::Status status READ status NOTIFY statusChanged)
+    Q_ENUMS(Status)
+public:
+    enum Status {
+        Idle = 0,
+        Loading,
+        Error
+    };
 public:
     explicit SyncHelper(QObject *parent = 0);
 
@@ -42,14 +49,16 @@ public:
     void setSocialNetwork(SocialSyncInterface::SocialNetwork socialNetwork);
     SocialSyncInterface::DataType dataType() const;
     void setDataType(SocialSyncInterface::DataType dataType);
-    bool loading() const;
+    SyncHelper::Status status() const;
 public Q_SLOTS:
     void sync();
 Q_SIGNALS:
     void socialNetworkChanged();
     void dataTypeChanged();
-    void loadingChanged();
-    
+    void statusChanged();
+
+private:
+    void setStatus(SyncHelper::Status status);
 private slots:
     void slotSyncStatus(const QString &aProfileId, int aStatus, const QString &aMessage,
                         int aStatusDetails);
@@ -59,7 +68,7 @@ private:
     SocialSyncInterface::SocialNetwork m_socialNetwork;
     SocialSyncInterface::DataType m_dataType;
     bool m_complete;
-    bool m_loading;
+    SyncHelper::Status m_status;
 };
 
 #endif // SYNCHELPER_H

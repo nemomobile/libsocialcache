@@ -22,7 +22,7 @@
 
 SyncHelper::SyncHelper(QObject *parent) :
     QObject(parent), QQmlParserStatus(), m_socialNetwork(SocialSyncInterface::InvalidSocialNetwork)
-    , m_dataType(SocialSyncInterface::InvalidDataType), m_complete(false), m_loading(false)
+  , m_dataType(SocialSyncInterface::InvalidDataType), m_complete(false), m_status(Idle)
 {
     m_interface = new Buteo::SyncClientInterface();
     connect(m_interface, &Buteo::SyncClientInterface::syncStatus,
@@ -73,13 +73,22 @@ void SyncHelper::setDataType(SocialSyncInterface::DataType dataType)
     }
 }
 
-bool SyncHelper::loading() const
+SyncHelper::Status SyncHelper::status() const
 {
-    return m_loading;
+    return m_status;
+}
+
+void SyncHelper::setStatus(SyncHelper::Status status)
+{
+    if (m_status != status) {
+        m_status = status;
+        emit statusChanged();
+    }
 }
 
 void SyncHelper::sync()
 {
+    setStatus(Loading);
     m_interface->startSync(SocialSyncInterface::profileName(m_socialNetwork, m_dataType));
 }
 
@@ -94,14 +103,15 @@ void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
         return;
     }
 
-
-    bool newLoading = (aStatus == Sync::SYNC_QUEUED || aStatus == Sync::SYNC_STARTED
-                       || aStatus == Sync::SYNC_PROGRESS);
-
-    if (m_loading != newLoading) {
-        m_loading = newLoading;
-        emit loadingChanged();
+    if (aStatus == Sync::SYNC_ERROR) {
+        setStatus(Error);
+        return;
     }
+
+    bool newLoading = (aStatus == Sync::SYNC_QUEUED
+                       || aStatus == Sync::SYNC_STARTED
+                       || aStatus == Sync::SYNC_PROGRESS);
+    setStatus(newLoading ? Loading : Idle);
 }
 
 void SyncHelper::checkCurrentRun()
@@ -109,9 +119,5 @@ void SyncHelper::checkCurrentRun()
     // Get the current running syncs to see if we are running
     QString profileId = SocialSyncInterface::profileName(m_socialNetwork, m_dataType);
     bool loading = m_interface->getRunningSyncList().contains(profileId);
-
-    if (m_loading != loading) {
-        m_loading = loading;
-        emit loadingChanged();
-    }
+    setStatus(loading ? Loading : Idle);
 }
