@@ -165,7 +165,6 @@ void AbstractSocialCacheModel::updateData(const SocialCacheModelData &data)
     Q_D(AbstractSocialCacheModel);
 
     const int count = d->m_data.count();
-
     synchronizeList(d, d->m_data, data);
 
     if (d->m_data.count() != count) {

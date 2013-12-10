@@ -24,6 +24,7 @@
 
 #include "abstractimagedownloader.h"
 
+class FacebookImageCacheModel;
 class FacebookImageDownloaderWorkerObject;
 class FacebookImageDownloaderPrivate;
 class FacebookImageDownloader : public AbstractImageDownloader
@@ -38,11 +39,18 @@ public:
     explicit FacebookImageDownloader(QObject *parent = 0);
     virtual ~FacebookImageDownloader();
 
+    // tracking object lifetime of models connected to this downloader.
+    void addModelToHash(FacebookImageCacheModel *model);
+    void removeModelFromHash(FacebookImageCacheModel *model);
+
 protected:
     QString outputFile(const QString &url, const QVariantMap &data) const;
 
     void dbQueueImage(const QString &url, const QVariantMap &data, const QString &file);
     void dbWrite();
+
+private Q_SLOTS:
+    void invokeSpecificModelCallback(const QString &url, const QString &path, const QVariantMap &metadata);
 
 private:
     Q_DECLARE_PRIVATE(FacebookImageDownloader)

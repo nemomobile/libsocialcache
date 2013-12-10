@@ -21,10 +21,14 @@
 #include "facebookimagedownloader_p.h"
 #include "facebookimagedownloaderconstants_p.h"
 
+#include "facebookimagecachemodel.h"
+
 #include <QtCore/QStandardPaths>
 #include <QtGui/QGuiApplication>
 
 #include <QtDebug>
+
+static const char *MODEL_KEY = "model";
 
 FacebookImageDownloaderPrivate::FacebookImageDownloaderPrivate(FacebookImageDownloader *q)
     : AbstractImageDownloaderPrivate(q)
@@ -38,10 +42,43 @@ FacebookImageDownloaderPrivate::~FacebookImageDownloaderPrivate()
 FacebookImageDownloader::FacebookImageDownloader(QObject *parent) :
     AbstractImageDownloader(*new FacebookImageDownloaderPrivate(this), parent)
 {
+    connect(this, &AbstractImageDownloader::imageDownloaded,
+            this, &FacebookImageDownloader::invokeSpecificModelCallback);
 }
 
 FacebookImageDownloader::~FacebookImageDownloader()
 {
+}
+
+void FacebookImageDownloader::addModelToHash(FacebookImageCacheModel *model)
+{
+    Q_D(FacebookImageDownloader);
+    d->m_connectedModels.insert(model);
+}
+
+void FacebookImageDownloader::removeModelFromHash(FacebookImageCacheModel *model)
+{
+    Q_D(FacebookImageDownloader);
+    d->m_connectedModels.remove(model);
+}
+
+/*
+ * A FacebookImageDownloader can be connected to multiple models.
+ * Instead of connecting the imageDownloaded signal directly to the
+ * model, we connect it to this slot, which retrieves the target model
+ * from the metadata map and invokes its callback directly.
+ * This avoids a possibly large number of signal connections + invocations.
+ */
+void FacebookImageDownloader::invokeSpecificModelCallback(const QString &url, const QString &path, const QVariantMap &metadata)
+{
+    Q_D(FacebookImageDownloader);
+    FacebookImageCacheModel *model = static_cast<FacebookImageCacheModel*>(metadata.value(MODEL_KEY).value<void*>());
+
+    // check to see if the model was destroyed in the meantime.
+    // If not, we can directly invoke the callback.
+    if (d->m_connectedModels.contains(model)) {
+        model->imageDownloaded(url, path, metadata);
+    }
 }
 
 QString FacebookImageDownloader::outputFile(const QString &url,

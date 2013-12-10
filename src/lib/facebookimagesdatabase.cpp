@@ -963,6 +963,8 @@ bool FacebookImagesDatabase::write()
     qWarning() << "Queued users being saved:" << d->queue.insertUsers.count();
     qWarning() << "Queued albums being saved:" << d->queue.insertAlbums.count();
     qWarning() << "Queued images being saved:" << d->queue.insertImages.count();
+    qWarning() << "Queued thumbnail files being updated:" << d->queue.updateThumbnailFiles.count();
+    qWarning() << "Queued image files being updated:" << d->queue.updateImageFiles.count();
 
     const QList<int> purgeAccounts = d->queue.purgeAccounts;
 
