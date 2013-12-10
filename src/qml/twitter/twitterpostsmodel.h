@@ -26,6 +26,7 @@ class TwitterPostsModelPrivate;
 class TwitterPostsModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
+    Q_ENUMS(TwitterPostsRole)
 public:
     enum TwitterPostsRole {
         TwitterId = 0,
