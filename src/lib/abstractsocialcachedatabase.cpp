@@ -20,9 +20,12 @@
 #include "abstractsocialcachedatabase.h"
 #include "abstractsocialcachedatabase_p.h"
 
+#include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
+#include <QtCore/QEvent>
 #include <QtCore/QFile>
 #include <QtCore/QStandardPaths>
+#include <QtCore/QThreadPool>
 #include <QtCore/QUuid>
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlError>
@@ -40,166 +43,244 @@
 // are particularly handy, and can make write operations
 // into db very fast.
 
-AbstractSocialCacheDatabasePrivate::AbstractSocialCacheDatabasePrivate(AbstractSocialCacheDatabase *q):
-    q_ptr(q), mutex(0), valid(false)
+QThreadStorage<QHash<QString, AbstractSocialCacheDatabasePrivate::ThreadData> > AbstractSocialCacheDatabasePrivate::globalThreadData;
+
+namespace {
+class ProcessMutexCleanup
 {
+public:
+    ProcessMutexCleanup(AbstractSocialCacheDatabasePrivate::ThreadData *threadData)
+        : threadData(threadData)
+    {
+    }
+
+    ~ProcessMutexCleanup()
+    {
+        if (threadData) {
+            threadData->mutex->unlock();
+            delete threadData->mutex;
+            threadData->mutex = 0;
+        }
+    }
+
+    void finalize()
+    {
+        threadData->mutex->unlock();
+        threadData = 0;
+    }
+
+private:
+    AbstractSocialCacheDatabasePrivate::ThreadData *threadData;
+};
+}
+
+AbstractSocialCacheDatabasePrivate::AbstractSocialCacheDatabasePrivate(
+        AbstractSocialCacheDatabase *q,
+        const QString &serviceName,
+        const QString &dataType,
+        const QString &databaseFile,
+        int version)
+    : q_ptr(q)
+    , serviceName(serviceName)
+    , dataType(dataType)
+    , filePath(QString(QLatin1String("%1/%2/%3")).arg(PRIVILEGED_DATA_DIR, dataType, databaseFile))
+    , version(version)
+    , readStatus(AbstractSocialCacheDatabase::Null)
+    , writeStatus(AbstractSocialCacheDatabase::Null)
+    , asyncReadStatus(Null)
+    , asyncWriteStatus(Null)
+    , running(false)
+{
+    setAutoDelete(false);
 }
 
 AbstractSocialCacheDatabasePrivate::~AbstractSocialCacheDatabasePrivate()
 {
-    // We "shouldn't" close the database here.
-    // The reason is that sometimes the object was moved to and
-    // initialised the database in a different thread.
-    // In that situation, closing the db needs to be done prior
-    // to thread termination.
-    if (db.isOpen()) {
-        qWarning() << Q_FUNC_INFO << "Database is open - must be closed explicitly in derived type!";
-        db.close();
-    }
 }
 
-// Get the user_version of the currently opened database
-int AbstractSocialCacheDatabasePrivate::dbUserVersion(const QString &serviceName,
-                                                        const QString &dataType) const
+bool AbstractSocialCacheDatabasePrivate::initializeThreadData(ThreadData *threadData) const
 {
-    const QString queryStr = QString("PRAGMA user_version");
+    Q_Q(const AbstractSocialCacheDatabase);
 
-    QSqlQuery query(db);
-    if (!query.exec(queryStr)) {
+    const QUuid uuid = QUuid::createUuid();
+
+    threadData->threadId = uuid.toByteArray().toBase64();
+    const QString connectionName = QString(QLatin1String("socialcache/%1/%2/%3")).arg(
+                serviceName, dataType, uuid.toString());
+
+    threadData->mutex = new ProcessMutex(connectionName);
+    if (!threadData->mutex->lock()) {
+        qWarning() << Q_FUNC_INFO << "Error: unable to acquire mutex lock during database initialisation";
+        delete threadData->mutex;
+        threadData->mutex = 0;
+        return false;
+    }
+
+    ProcessMutexCleanup processMutexCleanup(threadData);
+
+    bool createTables = false;
+
+    QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists()) {
+        createTables = true;
+
+        QDir dir = fileInfo.dir();
+        if (!dir.exists()) {
+            dir.mkpath(".");
+        }
+        QFile dbfile(filePath);
+        if (!dbfile.open(QIODevice::ReadWrite)) {
+            qWarning() << Q_FUNC_INFO << "Unable to create database" << filePath << "Service"
+                       << serviceName << "with data type" << dataType << "will be inactive";
+            return false;
+        }
+        dbfile.close();
+    }
+
+    // open the database in which we store our synced image information
+    threadData->database = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+    threadData->database.setDatabaseName(filePath);
+
+    if (!threadData->database.open()) {
+        qWarning() << Q_FUNC_INFO << "Unable to open database" << filePath << "Service"
+                   << serviceName << "with data type" << dataType << "will be inactive";
+        return false;
+    }
+
+    QSqlQuery query(threadData->database);
+
+    query.exec(QStringLiteral("PRAGMA temp_store = MEMORY;"));
+    query.exec(QStringLiteral("PRAGMA journal_mode = WAL;"));
+
+    if (!query.exec(QLatin1String("PRAGMA user_version")) || !query.next()) {
         qWarning() << Q_FUNC_INFO << "Failed to query pragma_user version. Service"
                    << serviceName << "with data type" << dataType << "will be inactive. Error"
                    << query.lastError().text();
-        return -1;
-    }
-    QSqlRecord record = query.record();
-    if (query.isActive() && query.isSelect()) {
-        query.first();
-        QString value = query.value(record.indexOf("user_version")).toString();
-        if (value.isEmpty()) {
-            return -1;
-        }
-        return value.toInt();
+        threadData->database.close();
+        return false;
     }
 
-    return -1;
-}
+    const int databaseVersion = query.value(0).toInt();
 
-// Perform a batch insert
-bool AbstractSocialCacheDatabasePrivate::doInsert(const QString &table,
-                                                    const QStringList &keys,
-                                                    const QMap<QString, QVariantList> &entries,
-                                                    bool replace)
-{
-    QString queryString = QLatin1String("INSERT ");
-    if (replace) {
-        queryString.append(QLatin1String("OR REPLACE "));
-    }
+    if (databaseVersion < version) {
+        createTables = true;
+        qWarning() << Q_FUNC_INFO << "Version required is" << version
+                   << "while database is using" << databaseVersion;
 
-    queryString.append(QLatin1String("INTO "));
-    queryString.append(table);
-    queryString.append(QLatin1String(" ("));
-    foreach (const QString &key, keys) {
-        queryString.append(key);
-        queryString.append(QLatin1String(", "));
-    }
-    queryString.chop(2);
-    queryString.append(QLatin1String(") VALUES ("));
-    queryString.append(QString(QLatin1String("? ,")).repeated(entries.keys().count()));
-    queryString.chop(2);
-    queryString.append(QLatin1String(")"));
-
-    QSqlQuery query (db);
-    query.prepare(queryString);
-    foreach (const QString &key, keys) {
-        query.addBindValue(entries.value(key));
-    }
-
-    bool ok = query.execBatch();
-    if (!ok) {
-        qWarning() << Q_FUNC_INFO << "Failed to execute query. Request:" << queryString
-                   << "Error:" << query.lastError().text();
-    }
-    return ok;
-}
-
-// Perform a batch update
-bool AbstractSocialCacheDatabasePrivate::doUpdate(const QString &table,
-                                                    const QMap<QString, QVariantList> &entries,
-                                                    const QString &primary)
-{
-    QVariantList primaryEntries = entries.value(primary);
-    QMap<QString, QVariantList> otherEntries;
-    for (QMap<QString, QVariantList>::const_iterator i = entries.constBegin();
-         i != entries.constEnd(); ++i) {
-        if (i.key() != primary) {
-            otherEntries.insert(i.key(), i.value());
+        // DB needs to be recreated
+        if (!q->dropTables(threadData->database)) {
+            qWarning() << Q_FUNC_INFO << "Failed to update database" << filePath
+                       << "It is probably broken and need to be removed manually";
+            threadData->database.close();
+            return false;
         }
     }
 
-    if (otherEntries.isEmpty()) {
-        return true;
+    if (createTables) {
+        if (!q->createTables(threadData->database)) {
+            qWarning() << Q_FUNC_INFO << "Failed to update database" << filePath
+                       << "It is probably broken and need to be removed manually";
+            threadData->database.close();
+            return false;
+        } else if (!query.exec(QString(QLatin1String("PRAGMA user_version=%1")).arg(version))) {
+            qWarning()
+                    << Q_FUNC_INFO
+                    << "Failed to set database version"
+                    << filePath
+                    << query.lastError();
+        }
     }
 
-    QString queryString = QLatin1String("UPDATE ");
-    queryString.append(table);
-    queryString.append(QLatin1String(" SET "));
-    foreach (const QString &key, otherEntries.keys()) {
-        queryString.append(key);
-        queryString.append(QLatin1String("= ? , "));
-    }
-    queryString.chop(2);
-    queryString.append(QLatin1String("WHERE "));
-    queryString.append(primary);
-    queryString.append(QLatin1String(" = ?"));
+    processMutexCleanup.finalize();
 
-    QSqlQuery query (db);
-    query.prepare(queryString);
-    for (QMap<QString, QVariantList>::const_iterator i = otherEntries.constBegin();
-         i != otherEntries.constEnd(); ++i) {
-        query.addBindValue(i.value());
-    }
-    query.addBindValue(primaryEntries);
-
-    bool ok = query.execBatch();
-    if (!ok) {
-        qWarning() << Q_FUNC_INFO << "Failed to execute query. Request:" << queryString
-                   << "Error:" << query.lastError().text();
-    }
-    return ok;
+    return true;
 }
 
-// Perform deletions (cannot use execBatch() as QSqlQuery only supports batch Selects)
-bool AbstractSocialCacheDatabasePrivate::doDelete(const QString &table, const QString &key,
-                                                        const QVariantList &entries)
+void AbstractSocialCacheDatabasePrivate::run()
 {
-    QString queryString = QLatin1String("DELETE FROM ");
-    queryString.append(table);
-    queryString.append(QLatin1String(" WHERE "));
-    queryString.append(key);
-    queryString.append(QLatin1String(" = :val"));
+    Q_Q(AbstractSocialCacheDatabase);
 
-    bool allSucceeded = true;
-    QSqlQuery query (db);
-    if (!query.prepare(queryString)) {
-        qWarning() << Q_FUNC_INFO << "Failed to prepare delete query:" << queryString
-                   << "\nError:" << query.lastError().text();
-        allSucceeded = false;
-    } else {
-        foreach (const QVariant &value, entries) {
-            query.bindValue(":val", value);
-            if (!query.exec()) {
-                qWarning() << Q_FUNC_INFO << "Failed to exec delete query:" << queryString << " with :val =" << value
-                           << "\nError:" << query.lastError().text();
-                allSucceeded = false;
+    ThreadData &threadData = globalThreadData.localData()[filePath];
+
+    if (!threadData.mutex && !initializeThreadData(&threadData)) {
+        return;
+    }
+
+    QMutexLocker locker(&mutex);
+    for (;;) {
+        if (asyncWriteStatus == Queued) {
+            if (writeStatus == AbstractSocialCacheDatabase::Null) {
+                asyncWriteStatus = Null;
+                continue;
             }
+
+            asyncWriteStatus = Executing;
+
+            locker.unlock();
+
+            if (!threadData.mutex->lock()) {
+                // Warning
+                qWarning() << Q_FUNC_INFO << "Failed to acquire a lock on the database";
+                locker.relock();
+                break;
+            }
+
+            if (!threadData.database.transaction()) {
+                qWarning() << Q_FUNC_INFO << "Failed to start a database transaction";
+
+                threadData.mutex->unlock();
+                locker.relock();
+                break;
+            }
+
+            bool success = q->write();
+
+            if (!success) {
+                threadData.database.rollback();
+            } else if (!threadData.database.commit()) {
+                qWarning() << Q_FUNC_INFO << "Failed to commit a database transaction";
+                qWarning() << threadData.database.lastError();
+                success = false;
+            }
+
+            threadData.mutex->unlock();
+            locker.relock();
+
+            if (asyncWriteStatus == Executing) {
+                asyncWriteStatus = success ? Finished : Error;
+            }
+        } else if (asyncReadStatus == Queued) {
+            if (readStatus == AbstractSocialCacheDatabase::Null) {
+                asyncReadStatus = Null;
+                continue;
+            }
+            asyncReadStatus = Executing;
+
+            locker.unlock();
+
+            bool success = q->read();
+
+            locker.relock();
+
+            if (asyncReadStatus == Executing) {
+                asyncReadStatus = success ? Finished : Error;
+            }
+        } else {
+            running = false;
+            QCoreApplication::postEvent(q, new QEvent(QEvent::UpdateRequest));
+            condition.wakeOne();
+            return;
         }
     }
-
-    return allSucceeded;
 }
 
-AbstractSocialCacheDatabase::AbstractSocialCacheDatabase()
-    : d_ptr(new AbstractSocialCacheDatabasePrivate(this))
+AbstractSocialCacheDatabase::AbstractSocialCacheDatabase(
+        const QString &serviceName,
+        const QString &dataType,
+        const QString &databaseFile,
+        int version)
+    : d_ptr(new AbstractSocialCacheDatabasePrivate(
+                this, serviceName, dataType, databaseFile, version))
 {
 }
 
@@ -210,273 +291,205 @@ AbstractSocialCacheDatabase::AbstractSocialCacheDatabase(AbstractSocialCacheData
 
 AbstractSocialCacheDatabase::~AbstractSocialCacheDatabase()
 {
-    if (!closeDatabase()) {
-        qWarning() << Q_FUNC_INFO << "unable to close database";
-    }
-}
-
-bool AbstractSocialCacheDatabase::closeDatabase()
-{
-    return dbClose();
 }
 
 bool AbstractSocialCacheDatabase::isValid() const
 {
     Q_D(const AbstractSocialCacheDatabase);
-    return d->valid;
-}
 
-// Initialize the database in PRIVILEGED_DATA_DIR/dataType, with name dbFile
-// serviceName is used by debugging to indicate the service that is using this db.
-// Creates the dir structure if needed, then create the database if needed.
-// Compare the user_version stored in the database to userVersion, and recreate
-// the database if it is lower.
-//
-// This method uses dbCreateTables that should be used to create the structure
-// of the database and dbDropTables that should be used to drop the different tables.
-void AbstractSocialCacheDatabase::dbInit(const QString &serviceName, const QString &dataType,
-                                           const QString &dbFile, int userVersion)
-{
-    Q_D(AbstractSocialCacheDatabase);
+    QSqlQuery query = prepare(QStringLiteral("PRAGMA user_version"));
+    if (query.exec() && query.next()) {
+        int userVersion = query.value(0).toInt();
 
-    QString connectionName = QString(QLatin1String("socialcache/%1/%2/%3"))
-                             .arg(serviceName, dataType, QUuid::createUuid().toString());
+        query.finish();
 
-    d->mutex = new ProcessMutex(connectionName);
-    if (!d->mutex->lock()) {
-        qWarning() << Q_FUNC_INFO << "Error: unable to acquire mutex lock during database initialisation";
-        return;
+        return userVersion == d->version;
     }
-
-    if (!QFile::exists(QString(QLatin1String("%1/%2/%3")).arg(PRIVILEGED_DATA_DIR, dataType,
-                                                              dbFile))) {
-        QDir dir(QString(QLatin1String("%1/%2")).arg(PRIVILEGED_DATA_DIR, dataType));
-        if (!dir.exists()) {
-            dir.mkpath(".");
-        }
-        QString absolutePath = dir.absoluteFilePath(dbFile);
-        QFile dbfile(absolutePath);
-        if (!dbfile.open(QIODevice::ReadWrite)) {
-            qWarning() << Q_FUNC_INFO << "Unable to create database" << dbFile << "Service"
-                       << serviceName << "with data type" << dataType << "will be inactive";
-            d->mutex->unlock();
-            return;
-        }
-        dbfile.close();
-    }
-
-    // open the database in which we store our synced image information
-    d->db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
-    d->db.setDatabaseName(QString("%1/%2/%3").arg(PRIVILEGED_DATA_DIR, dataType, dbFile));
-
-    if (!d->db.open()) {
-        qWarning() << Q_FUNC_INFO << "Unable to open database" << dbFile << "Service"
-                   << serviceName << "with data type" << dataType << "will be inactive";
-        d->mutex->unlock();
-        return;
-    }
-
-    int dbUserVersion = d->dbUserVersion(serviceName, dataType);
-    if (dbUserVersion < userVersion) {
-        qWarning() << Q_FUNC_INFO << "Version required is" << userVersion
-                   << "while database is using" << dbUserVersion;
-
-        // DB needs to be recreated
-        if (!dbDropTables()) {
-            qWarning() << Q_FUNC_INFO << "Failed to update database" << dbFile
-                       << "It is probably broken and need to be removed manually";
-            d->db.close();
-            d->mutex->unlock();
-            return;
-        }
-    }
-
-    if (!dbCreateTables()) {
-        qWarning() << Q_FUNC_INFO << "Failed to update database" << dbFile
-                   << "It is probably broken and need to be removed manually";
-        d->db.close();
-        d->mutex->unlock();
-        return;
-    }
-
-    d->valid = true;
-    d->mutex->unlock();
-}
-
-bool AbstractSocialCacheDatabase::dbClose()
-{
-    Q_D(AbstractSocialCacheDatabase);
-
-    if (!d->valid) {
-        // already closed.
-        return true;
-    }
-
-    if (!d->mutex->lock()) {
-        qWarning() << Q_FUNC_INFO << "unable to acquire lock!";
-        return false;
-    }
-
-    d->valid = false;
-    d->db.close();
-    d->mutex->unlock();
-    delete d->mutex;
-    d->mutex = NULL;
-
-    return true;
-}
-
-// Set a user_version to the currently opened database
-// Usually used when implementing dbCreateTable.
-bool AbstractSocialCacheDatabase::dbCreatePragmaVersion(int version)
-{
-    Q_D(AbstractSocialCacheDatabase);
-    QSqlQuery query (d->db);
-    query.prepare(QString(QLatin1String("PRAGMA user_version=%1")).arg(version));
-    if (!query.exec()) {
-        qWarning() << Q_FUNC_INFO << "Failed to create pragma_user version. Error:"
-                   << query.lastError().text();
-        return false;
-    }
-    return true;
-}
-
-// Begin a transaction
-//
-// Begin a transaction, so that insertion
-// queries can be executed quickly.
-// Transactions uses a process mutex and
-// use IMMEDIATE TRANSACTION.
-bool AbstractSocialCacheDatabase::dbBeginTransaction()
-{
-    Q_D(AbstractSocialCacheDatabase);
-
-    // Acquire lock
-    if (!d->mutex->lock()) {
-        return false;
-    }
-
-    QSqlQuery query(d->db);
-    query.prepare(QLatin1String("BEGIN IMMEDIATE TRANSACTION"));
-    if (!query.exec()) {
-        qWarning() << Q_FUNC_INFO << "Failed to begin immediate transaction. Error:"
-                   << query.lastError().text();
-
-        d->mutex->unlock();
-        return false;
-    }
-
-    return true;
-}
-
-// Perform a batch query
-//
-// This method is used to perform a batch query, that is usually an insertion
-// an update or a deletion.
-// Batch query might speeds these operations drastically, and should be done when
-// possible. Used with exclusive transactions (dbBeginWrite, dbEndWrite), they help
-// inserting or updating a lot of entries.
-//
-// Entries are a hash of list. In case of insertion, the keys of the hash are
-// the orderedlist of keys of the table, and each list contains the value for
-// a column to be inserted. In update, we use the optionnal argument primary to
-// get the key that will be used as the id for update, and use the other keys
-// as new values to be inserted. In case of deletion, the entries should only
-// contain one key and list, that is the list of keys that are used to perform
-// the deletion.
-bool AbstractSocialCacheDatabase::dbWrite(const QString &table, const QStringList &keys,
-                                          const QMap<QString, QVariantList> &entries,
-                                          QueryMode mode, const QString &primary)
-{
-    Q_D(AbstractSocialCacheDatabase);
-    // When we have empty entries, we simply return true
-    // since there is no need to do any db write to
-    // write nothing
-    if (entries.isEmpty()) {
-        return true;
-    }
-
-    if (mode == Delete && entries.count() != 1) {
-        qWarning() << Q_FUNC_INFO << "Error: When deleting, entries should only contain one key.";
-        return false;
-    }
-
-    if (mode == Update && !entries.contains(primary)) {
-        qWarning() << Q_FUNC_INFO << "Error: When updating, primary should be in the entries.";
-        return false;
-    }
-
-
-    foreach (const QString &key, keys) {
-        if (!entries.contains(key)) {
-            qWarning() << Q_FUNC_INFO << "Entries should contain the keys.";
-            return false;
-        }
-    }
-
-    int count = entries.constBegin().value().count();
-    for (QMap<QString, QVariantList>::const_iterator i = entries.constBegin();
-         i != entries.constEnd(); ++i) {
-        if (i.value().count() != count) {
-            qWarning() << Q_FUNC_INFO << "Entries should be of the same size.";
-            return false;
-        }
-    }
-
-    switch (mode) {
-        case Insert:
-            return d->doInsert(table, keys, entries);
-        break;
-        case InsertOrReplace:
-            return d->doInsert(table, keys, entries, true);
-        break;
-        case Update:
-            return d->doUpdate(table, entries, primary);
-        break;
-        case Delete:
-            return d->doDelete(table, entries.begin().key(), entries.begin().value());
-        break;
-        default: break;
-    }
-
     return false;
 }
 
-// Commit the changes
-//
-// End a transaction, by commiting the changes.
-bool AbstractSocialCacheDatabase::dbCommitTransaction()
+AbstractSocialCacheDatabase::Status AbstractSocialCacheDatabase::readStatus() const
+{
+    return d_func()->readStatus;
+}
+
+AbstractSocialCacheDatabase::Status AbstractSocialCacheDatabase::writeStatus() const
+{
+    return d_func()->writeStatus;
+}
+
+bool AbstractSocialCacheDatabase::event(QEvent *event)
+{
+    if (event->type() == QEvent::UpdateRequest) {
+        Q_D(AbstractSocialCacheDatabase);
+
+        bool readDone = false;
+        bool writeDone = false;
+
+        QMutexLocker locker(&d->mutex);
+
+        if (d->asyncReadStatus >= AbstractSocialCacheDatabasePrivate::Finished) {
+            if (d->readStatus != Null) {
+                d->readStatus = d->asyncReadStatus == AbstractSocialCacheDatabasePrivate::Finished
+                        ? Finished
+                        : Error;
+                d->asyncReadStatus = AbstractSocialCacheDatabasePrivate::Null;
+                readDone = true;
+            } else {
+                d->asyncReadStatus = AbstractSocialCacheDatabasePrivate::Null;
+            }
+        }
+        if (d->asyncWriteStatus >= AbstractSocialCacheDatabasePrivate::Finished) {
+            if (d->writeStatus != Null) {
+                d->writeStatus = d->asyncWriteStatus == AbstractSocialCacheDatabasePrivate::Finished
+                        ? Finished
+                        : Error;
+                d->asyncWriteStatus = AbstractSocialCacheDatabasePrivate::Null;
+                writeDone = true;
+            } else {
+                d->asyncWriteStatus = AbstractSocialCacheDatabasePrivate::Null;
+            }
+        }
+
+        locker.unlock();
+
+        if (readDone) {
+            readFinished();
+        }
+        if (writeDone) {
+            writeFinished();
+        }
+
+        return true;
+    } else {
+        return QObject::event(event);
+    }
+}
+
+void AbstractSocialCacheDatabase::executeRead()
+{
+    Q_D(AbstractSocialCacheDatabase);
+    QMutexLocker locker(&d->mutex);
+
+    d->readStatus = Executing;
+    d->asyncReadStatus = AbstractSocialCacheDatabasePrivate::Queued;
+
+    if (!d->running) {
+        d->running = true;
+        QThreadPool::globalInstance()->start(d);
+    }
+}
+
+void AbstractSocialCacheDatabase::cancelRead()
+{
+    Q_D(AbstractSocialCacheDatabase);
+    QMutexLocker locker(&d->mutex);
+
+    d->readStatus = Null;
+}
+
+void AbstractSocialCacheDatabase::executeWrite()
+{
+    Q_D(AbstractSocialCacheDatabase);
+    QMutexLocker locker(&d->mutex);
+
+    d->writeStatus = Executing;
+    d->asyncWriteStatus = AbstractSocialCacheDatabasePrivate::Queued;
+
+    if (!d->running) {
+        d->running = true;
+        QThreadPool::globalInstance()->start(d);
+    }
+}
+
+void AbstractSocialCacheDatabase::cancelWrite()
+{
+    Q_D(AbstractSocialCacheDatabase);
+    QMutexLocker locker(&d->mutex);
+
+    d->writeStatus = Null;
+}
+
+bool AbstractSocialCacheDatabase::read()
+{
+    return false;
+}
+
+bool AbstractSocialCacheDatabase::write()
+{
+    return false;
+}
+
+void AbstractSocialCacheDatabase::readFinished()
+{
+}
+
+void AbstractSocialCacheDatabase::writeFinished()
+{
+}
+
+void AbstractSocialCacheDatabase::wait()
 {
     Q_D(AbstractSocialCacheDatabase);
 
-    QSqlQuery query(d->db);
-    query.prepare(QLatin1String("COMMIT TRANSACTION"));
-    bool ok = query.exec();
-    if (!ok) {
-        qWarning() << Q_FUNC_INFO << "Failed to commit transaction. Error:"
-                   << query.lastError().text();
+    bool readDone = false;
+    bool writeDone = false;
+
+    QMutexLocker locker(&d->mutex);
+
+    while (d->running) {
+        d->condition.wait(&d->mutex);
     }
 
-    // must have been locked (by dbBeginTransaction())
-    d->mutex->unlock();
+    if (d->asyncReadStatus >= AbstractSocialCacheDatabasePrivate::Finished) {
+        d->readStatus = d->asyncReadStatus == AbstractSocialCacheDatabasePrivate::Finished
+                ? Finished
+                : Error;
+        d->asyncReadStatus = AbstractSocialCacheDatabasePrivate::Null;
+        readDone = true;
+    }
+    if (d->asyncWriteStatus >= AbstractSocialCacheDatabasePrivate::Finished) {
+        d->writeStatus = d->asyncWriteStatus == AbstractSocialCacheDatabasePrivate::Finished
+                ? Finished
+                : Error;
+        d->asyncWriteStatus = AbstractSocialCacheDatabasePrivate::Null;
+        writeDone = true;
+    }
 
-    return ok;
+    locker.unlock();
+
+    if (readDone) {
+        readFinished();
+    }
+    if (writeDone) {
+        writeFinished();
+    }
 }
 
-// Rollback a transaction
-bool AbstractSocialCacheDatabase::dbRollbackTransaction()
+QSqlQuery AbstractSocialCacheDatabase::prepare(const QString &query) const
 {
-    Q_D(AbstractSocialCacheDatabase);
-    QSqlQuery query(d->db);
-    query.prepare(QLatin1String("ROLLBACK TRANSACTION"));
-    bool ok = query.exec();
-    if (!ok) {
-        qWarning() << Q_FUNC_INFO << "Failed to rollback transaction. Error:"
-                   << query.lastError().text();
+    Q_D(const AbstractSocialCacheDatabase);
+
+    AbstractSocialCacheDatabasePrivate::ThreadData &threadData = AbstractSocialCacheDatabasePrivate::globalThreadData.localData()[d->filePath];
+
+    if (!threadData.mutex && ! d_func()->initializeThreadData(&threadData)) {
+        return QSqlQuery();
     }
 
-    // must have been locked (by dbBeginTransaction())
-    d->mutex->unlock();
+    QHash<QString, QSqlQuery>::const_iterator it = threadData.preparedQueries.constFind(query);
+    if (it != threadData.preparedQueries.constEnd()) {
+        return *it;
+    }
 
-    return ok;
+    QSqlQuery preparedQuery(threadData.database);
+    if (!preparedQuery.prepare(query)) {
+        qWarning() << Q_FUNC_INFO << "Failed to prepare query";
+        qWarning() << query;
+        qWarning() << preparedQuery.lastError();
+        return QSqlQuery();
+    } else {
+        threadData.preparedQueries.insert(query, preparedQuery);
+        return preparedQuery;
+    }
 }
+

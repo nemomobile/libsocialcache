@@ -24,81 +24,24 @@
 #include <QtCore/QThread>
 #include <QtCore/QMutex>
 #include <QtCore/QWaitCondition>
+#include <QtCore/QSet>
 
-#include "abstractimagedownloader.h"
+#include "abstractimagedownloader_p.h"
+#include "facebookimagedownloader.h"
 #include "facebookimagesdatabase.h"
 
-class FacebookImageDownloaderWorkerObject;
-class AbstractSocialCacheModel;
-class FacebookImageDownloader;
-class FacebookImageDownloaderPrivate: public QObject
+class FacebookImageCacheModel;
+class FacebookImageDownloaderPrivate: public AbstractImageDownloaderPrivate
 {
-    Q_OBJECT
-
 public:
     explicit FacebookImageDownloaderPrivate(FacebookImageDownloader *q);
     virtual ~FacebookImageDownloaderPrivate();
 
-protected:
-    FacebookImageDownloader * const q_ptr;
+    FacebookImagesDatabase database;
+    QSet<FacebookImageCacheModel*> m_connectedModels;
 
 private:
-    QThread m_workerThread;
-    FacebookImageDownloaderWorkerObject *m_workerObject;
     Q_DECLARE_PUBLIC(FacebookImageDownloader)
-};
-
-
-// We try to minimize the use of signals and slots exposed to QML,
-// so we FacebookImageDownloader only expose one method in C++.
-// This method exposes the FacebookImageDownloaderWorkerObject.
-//
-// FacebookImageDownloaderWorkerObject is a subclass of AbstractImagesDownloader,
-// and is an image downloader object. It lives in it's own low priority thread.
-//
-// The call path that is being done is
-// FacebookImageWorkerObject::refresh calls FacebookImageWorkerObject::queue.
-// This triggers an emission of requestQueue. This signal is connected to
-// FacebookImageDownloaderWorkerObject::queue, so FacebookImageDownloaderWorkerObject
-// starts downloading data. When data is downloaded,
-// FacebookImageDownloaderWorkerObject::imageDownloaded is sent, and triggers
-// FacebookImageCacheModelPrivate::slotDataUpdated that changes the model.
-//
-// Basically we communicates between internal objects, and never touch the
-// QML API.
-
-class FacebookImageDownloaderWorkerObject: public AbstractImageDownloader
-{
-    Q_OBJECT
-public:
-    enum ImageType {
-        InvalidImage,
-        ThumbnailImage,
-        FullImage
-    };
-
-    explicit FacebookImageDownloaderWorkerObject();
-
-public Q_SLOTS:
-    void quitGracefully();
-
-protected:
-    QString outputFile(const QString &url, const QVariantMap &data) const;
-    bool dbInit();
-    void dbQueueImage(const QString &url, const QVariantMap &data, const QString &file);
-    void dbWrite();
-    bool dbClose();
-
-private:
-    bool m_initialized;
-    FacebookImagesDatabase m_db;
-
-    bool m_killed;
-
-private:
-    friend class FacebookImageDownloaderPrivate;
-    QMutex m_quitMutex;
-    QWaitCondition m_quitWC;
 };
 
 #endif // FACEBOOKIMAGEDOWNLOADER_P_H

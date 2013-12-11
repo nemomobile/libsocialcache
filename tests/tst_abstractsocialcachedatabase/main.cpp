@@ -35,46 +35,67 @@
 #include <QtCore/QStandardPaths>
 #include <QtCore/QDebug>
 #include <QtCore/QDir>
+#include <QtSql/QSqlError>
 #include <QtSql/QSqlQuery>
 
 class DummyDatabase: public AbstractSocialCacheDatabase
 {
 public:
-    explicit DummyDatabase():
-        AbstractSocialCacheDatabase(*(new AbstractSocialCacheDatabasePrivate(this)))
+    enum Test {
+        None,
+        Insert,
+        Update,
+        Delete,
+        Clean,
+        BenchmarkInsertBatch,
+        BenchmarkInsertNaive,
+        BenchmarkPrepareDeletion,
+        BenchmarkDeleteAlbum,
+        BenchmarkDeletePhotos
+    };
+
+
+    explicit DummyDatabase()
+        : AbstractSocialCacheDatabase(*(new AbstractSocialCacheDatabasePrivate(
+                this, QLatin1String("Test"), QLatin1String("Test"), QLatin1String("test.db"), 1)))
+        , currentTest(None)
     {
-        dbInit(QLatin1String("Test"),
-                     QLatin1String("Test"),
-                     QLatin1String("test.db"), 1);
     }
 
-    void initDatabase() {}
+    using AbstractSocialCacheDatabase::executeRead;
+    using AbstractSocialCacheDatabase::executeWrite;
+
+    Test currentTest;
+
+private:
 
     bool testInsert() {
-        QMap<QString, QVariantList> entries;
-
-        QStringList keys;
-        keys << "id" << "value";
 
         QVariantList ids;
-        ids.append(QVariant());
-        ids.append(QVariant());
-        ids.append(QVariant());
+        ids.append(QVariant(1));
+        ids.append(QVariant(2));
+        ids.append(QVariant(3));
 
         QVariantList values;
         values.append(QLatin1String("a"));
         values.append(QLatin1String("b"));
         values.append(QLatin1String("c"));
 
-        entries.insert(QLatin1String("id"), ids);
-        entries.insert(QLatin1String("value"), values);
+        bool success = true;
 
-        return dbWrite(QLatin1String("tests"), keys, entries);
+        QSqlQuery query = prepare(QStringLiteral(
+                    "INSERT INTO tests ("
+                    " id, value) "
+                    "VALUES ("
+                    " :id, :value)"));
+        query.bindValue(QStringLiteral(":id"), ids);
+        query.bindValue(QStringLiteral(":value"), values);
+        executeBatchSocialCacheQuery(query);
+
+        return success;
     }
     bool checkInsert() {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
-        query.prepare("SELECT id, value FROM tests");
+        QSqlQuery query = prepare(QStringLiteral("SELECT id, value FROM tests"));
         if (!query.exec()) {
             return false;
         }
@@ -86,6 +107,9 @@ public:
 
         int i = 0;
         while (query.next()) {
+            if (i == expectedValues.count()) {
+                return false;
+            }
             if (query.value(0) != expectedIds.at(i) || query.value(1) != expectedValues.at(i))  {
                 return false;
             }
@@ -94,11 +118,6 @@ public:
         return true;
     }
     bool testUpdate() {
-        QMap<QString, QVariantList> entries;
-
-        QStringList keys;
-        keys << "id" << "value";
-
         QVariantList ids;
         ids.append(QVariant(1));
         ids.append(QVariant(2));
@@ -107,15 +126,19 @@ public:
         values.append(QLatin1String("aa"));
         values.append(QLatin1String("bb"));
 
-        entries.insert(QLatin1String("id"), ids);
-        entries.insert(QLatin1String("value"), values);
+        bool success = true;
+        QSqlQuery query = prepare(QStringLiteral(
+                    "UPDATE tests "
+                    "SET value = :value "
+                    "WHERE id = :id"));
+        query.bindValue(QStringLiteral(":value"), values);
+        query.bindValue(QStringLiteral(":id"), ids);
+        executeBatchSocialCacheQuery(query);
 
-        return dbWrite(QLatin1String("tests"), keys, entries, Update, QLatin1String("id"));
+        return success;
     }
     bool checkUpdate() {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
-        query.prepare("SELECT id, value FROM tests");
+        QSqlQuery query = prepare(QStringLiteral("SELECT id, value FROM tests"));
         if (!query.exec()) {
             return false;
         }
@@ -135,22 +158,20 @@ public:
         return true;
     }
     bool testDelete() {
-        QMap<QString, QVariantList> entries;
-
-        QStringList keys;
-        keys << "id";
-
         QVariantList ids;
         ids.append(QVariant(3));
 
-        entries.insert(QLatin1String("id"), ids);
+        bool success = true;
+        QSqlQuery query = prepare(QStringLiteral(
+                    "DELETE FROM tests "
+                    "WHERE id = :id"));
+        query.bindValue(QStringLiteral(":id"), ids);
+        executeBatchSocialCacheQuery(query);
 
-        return dbWrite(QLatin1String("tests"), keys, entries, Delete);
+        return success;
     }
     bool checkDelete() {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
-        query.prepare("SELECT id, value FROM tests");
+        QSqlQuery query = prepare(QStringLiteral("SELECT id, value FROM tests"));
         if (!query.exec()) {
             return false;
         }
@@ -171,18 +192,11 @@ public:
     }
 
     void clean() {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
-        query.prepare("DELETE FROM tests");
+        QSqlQuery query = prepare(QStringLiteral("DELETE FROM tests"));
         query.exec();
     }
 
     void benchmarkInsertBatch() {
-        QMap<QString, QVariantList> entries;
-
-        QStringList keys;
-        keys << "id" << "value";
-
         QVariantList ids;
         QVariantList values;
 
@@ -191,138 +205,138 @@ public:
             values.append(QLatin1String("a"));
         }
 
-        entries.insert(QLatin1String("id"), ids);
-        entries.insert(QLatin1String("value"), values);
-
-        dbWrite(QLatin1String("tests"), keys, entries, Insert);
+        QSqlQuery query = prepare("INSERT INTO tests(value) VALUES(:value)");
+        query.bindValue(QLatin1String(":id"), ids);
+        query.bindValue(QLatin1String(":value"), values);
+        query.execBatch();
     }
 
     void benchmarkInsertNaive() {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
+        QSqlQuery query = prepare("INSERT INTO tests(value) VALUES(:value)");
         for (int i = 0; i < 100; i ++) {
-            query.prepare("INSERT INTO tests VALUES(:id, :value)");
-            query.bindValue(QLatin1String(":id"), QVariant());
             query.bindValue(QLatin1String(":value"), QVariant(QLatin1String("a")));
             query.exec();
         }
     }
 
-    void benchmarkInsertBatchWithTransaction() {
-        dbBeginTransaction();
-
-        QMap<QString, QVariantList> entries;
-
-        QStringList keys;
-        keys << "id" << "value";
-
-        QVariantList ids;
-        QVariantList values;
-
-        for (int i = 0; i < 100; i ++) {
-            ids.append(QVariant());
-            values.append(QLatin1String("a"));
-        }
-
-        entries.insert(QLatin1String("id"), ids);
-        entries.insert(QLatin1String("value"), values);
-
-        dbWrite(QLatin1String("tests"), keys, entries, Insert);
-
-        dbCommitTransaction();
-    }
-
     void benchmarkPrepareDeletion() {
-        Q_D(AbstractSocialCacheDatabase);
-        dbBeginTransaction();
-
         // We will fill the data with 500 albums
         // And 500 photos per album
-        QSqlQuery query(d->db);
-        query.prepare("DELETE FROM albums");
+        QSqlQuery query = prepare(QStringLiteral("DELETE FROM albums"));
         query.exec();
-        query.prepare("DELETE FROM SQLITE_SEQUENCE WHERE NAME = :name");
+        query = prepare(QStringLiteral("DELETE FROM SQLITE_SEQUENCE WHERE NAME = :name"));
         query.bindValue(":name", QLatin1String("albums"));
         query.exec();
-        query.prepare("DELETE FROM photos");
+        query = prepare(QStringLiteral("DELETE FROM photos"));
         query.exec();
-        query.prepare("DELETE FROM SQLITE_SEQUENCE WHERE NAME = :name");
+        query = prepare(QStringLiteral("DELETE FROM SQLITE_SEQUENCE WHERE NAME = :name"));
         query.bindValue(":name", QLatin1String("photos"));
         query.exec();
 
-        QMap<QString, QVariantList> entries;
-
-        QStringList keys;
-        keys << "id" << "value";
-
-        QVariantList ids;
-        QVariantList albumIds;
-        QVariantList values;
+        query = prepare(QStringLiteral(
+                    "INSERT INTO albums (value) "
+                    "VALUES(:value)"));
 
         for (int i = 0; i < 500; i ++) {
-            ids.append(QVariant());
-            values.append(QString(QLatin1String("Album %1")).arg(i + 1));
+            query.bindValue(QStringLiteral(":value"), QString(QStringLiteral("Album %1")).arg(i + 1));
+            query.exec();
         }
-
-        entries.insert(QLatin1String("id"), ids);
-        entries.insert(QLatin1String("value"), values);
-
-        dbWrite(QLatin1String("albums"), keys, entries, Insert);
-
-        entries.clear();
-        keys.clear();
-        ids.clear();
-        values.clear();
-
-        keys << "id" << "albumId" << "value";
 
         for (int i = 0; i < 500; i ++) {
             for (int j = 0; j < 500; j++) {
-                ids.append(QVariant());
-                albumIds.append(QVariant(i + 1));
-                values.append(QString(QLatin1String("Photo %1 in album %2")).arg(j + 1).arg(i + 1));
+
+                query = prepare(QStringLiteral(
+                            "INSERT INTO photos (albumId, value) "
+                            "VALUES (:albumId, :value)"));
+
+                query.bindValue(QStringLiteral(":albumId"), QVariant(i + 1));
+                query.bindValue(QStringLiteral(":value"), QString(QStringLiteral("Photo %1 in album %2")).arg(j + 1).arg(i + 1));
+                query.exec();
             }
         }
-
-        entries.insert(QLatin1String("id"), ids);
-        entries.insert(QLatin1String("albumId"), albumIds);
-        entries.insert(QLatin1String("value"), values);
-
-        dbWrite(QLatin1String("photos"), keys, entries, Insert);
-
-
-        dbCommitTransaction();
     }
 
     void benchmarkDeleteAlbum() {
-        Q_D(AbstractSocialCacheDatabase);
-        dbBeginTransaction();
-
-        QSqlQuery query(d->db);
-        query.prepare("DELETE FROM albums WHERE id = :id");
+        QSqlQuery query = prepare(QStringLiteral("DELETE FROM albums WHERE id = :id"));
         query.bindValue(":id", QVariant(1));
         query.exec();
-
-        dbCommitTransaction();
     }
 
     void benchmarkDeletePhotos() {
-        Q_D(AbstractSocialCacheDatabase);
-        dbBeginTransaction();
-
-        QSqlQuery query(d->db);
-        query.prepare("DELETE FROM photos WHERE albumId = :id");
+        QSqlQuery query = prepare(QStringLiteral("DELETE FROM photos WHERE albumId = :id"));
         query.bindValue(":id", QVariant(1));
         query.exec();
-
-        dbCommitTransaction();
     }
 
 protected:
-    bool dbCreateTables()
+    bool read()
     {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
+        switch (currentTest) {
+        case Insert:
+            return checkInsert();
+        case Update:
+            return checkUpdate();
+        case Delete:
+            return checkDelete();
+        case Clean:
+            clean();
+            return true;
+        case BenchmarkInsertBatch:
+            benchmarkInsertBatch();
+            return true;
+        case BenchmarkInsertNaive:
+            benchmarkInsertNaive();
+            return true;
+        case BenchmarkPrepareDeletion:
+            benchmarkPrepareDeletion();
+            return true;
+        case BenchmarkDeleteAlbum:
+            benchmarkDeleteAlbum();
+            return true;
+        case BenchmarkDeletePhotos:
+            benchmarkDeletePhotos();
+            return true;
+        default:
+            return false;
+        }
+    }
+
+    bool write()
+    {
+        switch (currentTest) {
+        case Insert:
+            return testInsert();
+        case Update:
+            return testUpdate();
+        case Delete:
+            return testDelete();
+        case Clean:
+            clean();
+            return true;
+        case BenchmarkInsertBatch:
+            benchmarkInsertBatch();
+            return true;
+        case BenchmarkInsertNaive:
+            benchmarkInsertNaive();
+            return true;
+        case BenchmarkPrepareDeletion:
+            benchmarkPrepareDeletion();
+            return true;
+        case BenchmarkDeleteAlbum:
+            benchmarkDeleteAlbum();
+            return true;
+        case BenchmarkDeletePhotos:
+            benchmarkDeletePhotos();
+            return true;
+        default:
+            return false;
+        }
+    }
+
+
+    bool createTables(QSqlDatabase database) const
+    {
+        QSqlQuery query(database);
         query.prepare( "CREATE TABLE IF NOT EXISTS tests ("
                        "id INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,"
                        "value TEXT)");
@@ -345,17 +359,12 @@ protected:
             return false;
         }
 
-        if (!dbCreatePragmaVersion(1)) {
-            return false;
-        }
-
         return true;
     }
 
-    bool dbDropTables()
+    bool dropTables(QSqlDatabase database) const
     {
-        Q_D(AbstractSocialCacheDatabase);
-        QSqlQuery query(d->db);
+        QSqlQuery query(database);
         query.prepare("DROP TABLE IF EXISTS tests");
         if (!query.exec()) {
             return false;
@@ -383,6 +392,7 @@ class AbstractSocialCacheDatabaseTest: public QObject
     Q_OBJECT
 private:
     DummyDatabase *db;
+
 private slots:
     // Perform some cleanups
     // we basically remove the whole ~/.local/share/system/privileged. While it is
@@ -393,66 +403,151 @@ private slots:
         QStandardPaths::enableTestMode(true);
         QDir dir (PRIVILEGED_DATA_DIR);
         dir.removeRecursively();
+
+        db = new DummyDatabase;
     }
 
     void testCommits()
     {
-        db = new DummyDatabase();
-        QVERIFY(db->isValid());
-        QVERIFY(db->testInsert());
-        QVERIFY(db->checkInsert());
-        QVERIFY(db->testUpdate());
-        QVERIFY(db->checkUpdate());
-        QVERIFY(db->testDelete());
-        QVERIFY(db->checkDelete());
+        db->currentTest = DummyDatabase::Insert;
+        db->executeWrite();
+        db->wait();
+        QCOMPARE(db->writeStatus(), AbstractSocialCacheDatabase::Finished);
+        db->executeRead();
+        db->wait();
+        QCOMPARE(db->readStatus(), AbstractSocialCacheDatabase::Finished);
+
+        db->currentTest = DummyDatabase::Update;
+        db->executeWrite();
+        db->wait();
+        QCOMPARE(db->writeStatus(), AbstractSocialCacheDatabase::Finished);
+        db->executeRead();
+        db->wait();
+        QCOMPARE(db->readStatus(), AbstractSocialCacheDatabase::Finished);
+
+        db->currentTest = DummyDatabase::Delete;
+        db->executeWrite();
+        db->wait();
+        QCOMPARE(db->writeStatus(), AbstractSocialCacheDatabase::Finished);
+        db->executeRead();
+        db->wait();
+        QCOMPARE(db->readStatus(), AbstractSocialCacheDatabase::Finished);
     }
+
+//private:
 
     void insertionBenchmarkBatch()
     {
-        db->clean();
+        clean();
         // Beware this takes time
-//        QBENCHMARK(db->benchmarkInsertBatch());
+        QBENCHMARK(benchmarkInsertBatch());
     }
 
     void insertionBenchmarkNaive()
     {
-        db->clean();
+        clean();
         // Beware this takes time
-//        QBENCHMARK(db->benchmarkInsertNaive());
+        QBENCHMARK(benchmarkInsertNaive());
     }
 
-    void insertionBenchmarkTransaction()
+    void insertionBenchmarkNaiveTransaction()
     {
-        db->clean();
-        QBENCHMARK(db->benchmarkInsertBatchWithTransaction());
+        clean();
+        QBENCHMARK(benchmarkInsertNaiveWithTransaction());
+    }
+
+    void insertionBenchmarkBatchTransaction()
+    {
+        clean();
+        QBENCHMARK(benchmarkInsertBatchWithTransaction());
     }
 
     void heavyInsertionBenchmark()
     {
-        QBENCHMARK(db->benchmarkPrepareDeletion());
+        QBENCHMARK(benchmarkPrepareDeletion());
     }
 
     void primaryKeyDeletion()
     {
-        db->benchmarkPrepareDeletion();
-        QBENCHMARK_ONCE(db->benchmarkDeleteAlbum());
+        benchmarkPrepareDeletion();
+        QBENCHMARK_ONCE(benchmarkDeleteAlbum());
     }
 
     void nonPrimaryKeyDeletion()
     {
-        db->benchmarkPrepareDeletion();
-        QBENCHMARK_ONCE(db->benchmarkDeletePhotos());
+        benchmarkPrepareDeletion();
+        QBENCHMARK_ONCE(benchmarkDeletePhotos());
     }
 
     void cleanupTestCase()
     {
         delete db;
+
         // Do the same cleanups
         QDir dir (PRIVILEGED_DATA_DIR);
         dir.removeRecursively();
     }
+
+private:
+    void clean()
+    {
+        db->currentTest = DummyDatabase::Clean;
+        db->executeWrite();
+        db->wait();
+    }
+
+    void benchmarkInsertBatch()
+    {
+        db->currentTest = DummyDatabase::BenchmarkInsertBatch;
+        db->executeRead();
+        db->wait();
+    }
+
+    void benchmarkInsertNaive()
+    {
+        db->currentTest = DummyDatabase::BenchmarkInsertNaive;
+        db->executeRead();
+        db->wait();
+    }
+
+    void benchmarkInsertBatchWithTransaction()
+    {
+        db->currentTest = DummyDatabase::BenchmarkInsertBatch;
+        db->executeWrite();
+        db->wait();
+    }
+
+    void benchmarkInsertNaiveWithTransaction()
+    {
+        db->currentTest = DummyDatabase::BenchmarkInsertNaive;
+        db->executeWrite();
+        db->wait();
+    }
+
+    void benchmarkPrepareDeletion()
+    {
+        db->currentTest = DummyDatabase::BenchmarkPrepareDeletion;
+        db->executeWrite();
+        db->wait();
+    }
+
+    void benchmarkDeleteAlbum()
+    {
+        db->currentTest = DummyDatabase::BenchmarkDeleteAlbum;
+        db->executeWrite();
+        db->wait();
+    }
+
+    void benchmarkDeletePhotos()
+    {
+        db->currentTest = DummyDatabase::BenchmarkDeletePhotos;
+        db->executeWrite();
+        db->wait();
+    }
+
 };
 
 QTEST_MAIN(AbstractSocialCacheDatabaseTest)
 
 #include "main.moc"
+

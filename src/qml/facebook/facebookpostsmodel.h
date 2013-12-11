@@ -45,6 +45,12 @@ public:
     };
     explicit FacebookPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
+
+    void refresh();
+
+private Q_SLOTS:
+    void postsChanged();
+
 private:
     Q_DECLARE_PRIVATE(FacebookPostsModel)
 };

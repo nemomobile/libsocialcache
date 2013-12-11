@@ -41,289 +41,64 @@ static const char *PHOTO_ALBUM_PREFIX = "album-";
 
 static const char *URL_KEY = "url";
 static const char *ROW_KEY = "row";
+static const char *MODEL_KEY = "model";
 
 #define SOCIALCACHE_FACEBOOK_IMAGE_DIR   PRIVILEGED_DATA_DIR + QLatin1String("/Images/")
 
-struct FacebookImageWorkerImageData;
-class FacebookImageWorkerObject: public AbstractWorkerObject, private FacebookImagesDatabase
+class FacebookImageCacheModelPrivate : public AbstractSocialCacheModelPrivate
 {
-    Q_OBJECT
-
 public:
-    explicit FacebookImageWorkerObject();
-    ~FacebookImageWorkerObject();
+    FacebookImageCacheModelPrivate(FacebookImageCacheModel *q);
 
-    void refresh();
-    void finalCleanup();
+    void queue(
+            int row,
+            FacebookImageDownloader::ImageType imageType,
+            const QString &identifier,
+            const QString &url);
 
-public Q_SLOTS:
-    void setType(int typeToSet);
-    void queueImages();
-    void queueImageThumbnail(int row, const FacebookImage::ConstPtr &image);
-    void queueImageFull(int row, const FacebookImage::ConstPtr &image);
-
-Q_SIGNALS:
-    void requestQueue(const QString &url, const QVariantMap &metadata);
-
-protected:
-    FacebookImageCacheModel::ModelDataType type;
-
-private:
-    void queue(int row,
-               FacebookImageDownloaderWorkerObject::ImageType imageType, const QString &identifier,
-               const QString &url);
-
-    bool m_enabled;
-    QList<QPair<FacebookImage::ConstPtr, int> > m_fullImages;
-};
-
-class FacebookImageCacheModelPrivate: public AbstractSocialCacheModelPrivate
-{
-    Q_OBJECT
-
-public:
-    explicit FacebookImageCacheModelPrivate(FacebookImageCacheModel *q);
-    FacebookImageCacheModel::ModelDataType type;
     FacebookImageDownloader *downloader;
-
-public Q_SLOTS:
-    void queue(const QString &url, const QVariantMap &metadata);
-    void slotDataUpdated(const QString &url, const QString &path);
-
-Q_SIGNALS:
-    void typeChanged(int type);
-    void queueImages();
-
-protected:
-    void initWorkerObject(AbstractWorkerObject *workerObject);
-
-private:
-    QHash<QString, QVariantMap> m_queuedImages;
-    Q_DECLARE_PUBLIC(FacebookImageCacheModel)
+    FacebookImagesDatabase database;
+    FacebookImageCacheModel::ModelDataType type;
 };
-
-FacebookImageWorkerObject::FacebookImageWorkerObject()
-    : AbstractWorkerObject(), FacebookImagesDatabase()
-    , type(FacebookImageCacheModel::None)
-    , m_enabled(false)
-{
-}
-
-FacebookImageWorkerObject::~FacebookImageWorkerObject()
-{
-}
-
-void FacebookImageWorkerObject::finalCleanup()
-{
-    closeDatabase();
-}
-
-void FacebookImageWorkerObject::refresh()
-{
-    // We initialize the database when refresh is called
-    // When it is called, we are sure that the object is already in a different thread
-    if (!m_enabled) {
-        initDatabase();
-        m_enabled = true;
-    }
-
-    SocialCacheModelData data;
-    switch (type) {
-        case FacebookImageCacheModel::Users: {
-            QList<FacebookUser::ConstPtr> usersData = users();
-            for (int i = 0; i < usersData.count(); i++) {
-                const FacebookUser::ConstPtr & userData = usersData.at(i);
-                QMap<int, QVariant> userMap;
-                userMap.insert(FacebookImageCacheModel::FacebookId, userData->fbUserId());
-                userMap.insert(FacebookImageCacheModel::Title, userData->userName());
-                userMap.insert(FacebookImageCacheModel::Count, userData->count());
-                data.append(userMap);
-            }
-
-            if (data.count() > 1) {
-                QMap<int, QVariant> userMap;
-                int count = 0;
-                foreach (const FacebookUser::ConstPtr &userData, usersData) {
-                    count += userData->count();
-                }
-
-                userMap.insert(FacebookImageCacheModel::FacebookId, QString());
-                userMap.insert(FacebookImageCacheModel::Thumbnail, QString());
-                //: Label for the "show all users from all Facebook accounts" option
-                //% "All"
-                userMap.insert(FacebookImageCacheModel::Title, qtTrId("nemo_socialcache_facebook_images_model-all-users"));
-                userMap.insert(FacebookImageCacheModel::Count, count);
-                data.prepend(userMap);
-            }
-        }
-        break;
-        case FacebookImageCacheModel::Albums: {
-            QList<FacebookAlbum::ConstPtr> albumsData = albums(nodeIdentifier);
-            foreach (const FacebookAlbum::ConstPtr & albumData, albumsData) {
-                QMap<int, QVariant> albumMap;
-                albumMap.insert(FacebookImageCacheModel::FacebookId, albumData->fbAlbumId());
-                albumMap.insert(FacebookImageCacheModel::Title, albumData->albumName());
-                albumMap.insert(FacebookImageCacheModel::Count, albumData->imageCount());
-                albumMap.insert(FacebookImageCacheModel::UserId, albumData->fbUserId());
-                data.append(albumMap);
-            }
-
-            if (data.count() > 1) {
-                QMap<int, QVariant> albumMap;
-                int count = 0;
-                foreach (const FacebookAlbum::ConstPtr &albumData, albumsData) {
-                    count += albumData->imageCount();
-                }
-
-                albumMap.insert(FacebookImageCacheModel::FacebookId, QString());
-                // albumMap.insert(FacebookImageCacheModel::Icon, QString());
-                //:  Label for the "show all photos from all albums (by this user or by all users, depending...)" option
-                //% "All"
-                albumMap.insert(FacebookImageCacheModel::Title, qtTrId("nemo_socialcache_facebook_images_model-all-albums"));
-                albumMap.insert(FacebookImageCacheModel::Count, count);
-                albumMap.insert(FacebookImageCacheModel::UserId, nodeIdentifier);
-                data.prepend(albumMap);
-            }
-        }
-        break;
-        case FacebookImageCacheModel::Images: {
-            QList<FacebookImage::ConstPtr> imagesData;
-            QString userPrefix = QLatin1String(PHOTO_USER_PREFIX);
-            QString albumPrefix = QLatin1String(PHOTO_ALBUM_PREFIX);
-            if (nodeIdentifier.startsWith(userPrefix)) {
-                QString userIdentifier = nodeIdentifier.mid(userPrefix.size());
-                imagesData = userImages(userIdentifier);
-            } else if (nodeIdentifier.startsWith(albumPrefix)) {
-                QString albumIdentifier = nodeIdentifier.mid(albumPrefix.size());
-                imagesData = albumImages(albumIdentifier);
-            } else {
-                imagesData = userImages();
-            }
-
-            for (int i = 0; i < imagesData.count(); i ++) {
-                const FacebookImage::ConstPtr & imageData = imagesData.at(i);
-                QMap<int, QVariant> imageMap;
-                imageMap.insert(FacebookImageCacheModel::FacebookId, imageData->fbImageId());
-                if (imageData->thumbnailFile().isEmpty()) {
-                    queueImageThumbnail(i, imageData);
-                }
-                imageMap.insert(FacebookImageCacheModel::Thumbnail, imageData->thumbnailFile());
-                if (imageData->imageFile().isEmpty()) {
-                    m_fullImages.append(qMakePair<FacebookImage::ConstPtr, int>(imageData, i));
-                }
-                imageMap.insert(FacebookImageCacheModel::Image, imageData->imageFile());
-                imageMap.insert(FacebookImageCacheModel::Title, imageData->imageName());
-                imageMap.insert(FacebookImageCacheModel::DateTaken, imageData->createdTime());
-                imageMap.insert(FacebookImageCacheModel::Width, imageData->width());
-                imageMap.insert(FacebookImageCacheModel::Height, imageData->height());
-                imageMap.insert(FacebookImageCacheModel::MimeType, QLatin1String("JPG"));
-                imageMap.insert(FacebookImageCacheModel::AccountId, imageData->account());
-                imageMap.insert(FacebookImageCacheModel::UserId, imageData->fbUserId());
-                data.append(imageMap);
-            }
-        }
-        break;
-        default: return; break;
-    }
-
-    emit dataUpdated(data);
-}
-
-void FacebookImageWorkerObject::setType(int typeToSet)
-{
-    type = static_cast<FacebookImageCacheModel::ModelDataType>(typeToSet);
-}
-
-void FacebookImageWorkerObject::queueImages()
-{
-    for (QList<QPair<FacebookImage::ConstPtr, int> >::const_iterator i = m_fullImages.begin();
-         i != m_fullImages.end(); i++) {
-        queueImageFull((*i).second, (*i).first);
-    }
-}
-
-void FacebookImageWorkerObject::queueImageThumbnail(int row, const FacebookImage::ConstPtr &image)
-{
-    queue(row, FacebookImageDownloaderWorkerObject::ThumbnailImage, image->fbImageId(),
-          image->thumbnailUrl());
-}
-
-void FacebookImageWorkerObject::queueImageFull(int row, const FacebookImage::ConstPtr &image)
-{
-    queue(row, FacebookImageDownloaderWorkerObject::FullImage, image->fbImageId(),
-          image->imageUrl());
-}
-
-void FacebookImageWorkerObject::queue(int row,
-                                      FacebookImageDownloaderWorkerObject::ImageType imageType,
-                                      const QString &identifier, const QString &url)
-{
-    QVariantMap metadata;
-    metadata.insert(QLatin1String(TYPE_KEY), imageType);
-    metadata.insert(QLatin1String(IDENTIFIER_KEY), identifier);
-    metadata.insert(QLatin1String(URL_KEY), url);
-    metadata.insert(QLatin1String(ROW_KEY), row);
-    emit requestQueue(url, metadata);
-}
 
 FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCacheModel *q)
-    : AbstractSocialCacheModelPrivate(q), downloader(0)
+    : AbstractSocialCacheModelPrivate(q), downloader(0), type(FacebookImageCacheModel::Images)
 {
 }
 
-void FacebookImageCacheModelPrivate::queue(const QString &url, const QVariantMap &metadata)
+void FacebookImageCacheModelPrivate::queue(
+        int row,
+        FacebookImageDownloader::ImageType imageType,
+        const QString &identifier,
+        const QString &url)
 {
-    m_queuedImages.insert(url, metadata);
-}
+    FacebookImageCacheModel *modelPtr = qobject_cast<FacebookImageCacheModel*>(q_ptr);
+    if (downloader) {
+        QVariantMap metadata;
+        metadata.insert(QLatin1String(TYPE_KEY), imageType);
+        metadata.insert(QLatin1String(IDENTIFIER_KEY), identifier);
+        metadata.insert(QLatin1String(URL_KEY), url);
+        metadata.insert(QLatin1String(ROW_KEY), row);
+        metadata.insert(QLatin1String(MODEL_KEY), QVariant::fromValue<void*>((void*)modelPtr));
 
-void FacebookImageCacheModelPrivate::slotDataUpdated(const QString &url, const QString &path)
-{
-    Q_Q(FacebookImageCacheModel);
-    if (m_queuedImages.contains(url)) {
-        QVariantMap imageData = m_queuedImages.value(url);
-        int row = imageData.value(ROW_KEY).toInt();
-        if (row < 0 || row >= m_data.count()) {
-            qWarning() << Q_FUNC_INFO << "Incorrect number of rows" << imageData.count();
-            return;
-        }
-
-        int type = imageData.value(TYPE_KEY).toInt();
-        switch (type) {
-        case FacebookImageDownloaderWorkerObject::ThumbnailImage:
-            m_data[row].insert(FacebookImageCacheModel::Thumbnail, path);
-            break;
-        case FacebookImageDownloaderWorkerObject::FullImage:
-            m_data[row].insert(FacebookImageCacheModel::Image, path);
-            break;
-        }
-
-        emit q->dataChanged(q->index(row), q->index(row));
+        downloader->queue(url, metadata);
     }
-}
-
-void FacebookImageCacheModelPrivate::initWorkerObject(AbstractWorkerObject *workerObject)
-{
-    FacebookImageWorkerObject *facebookImageWorkerObject
-            = qobject_cast<FacebookImageWorkerObject *>(workerObject);
-    if (!facebookImageWorkerObject) {
-        return;
-    }
-
-    connect(facebookImageWorkerObject, &FacebookImageWorkerObject::requestQueue,
-            this, &FacebookImageCacheModelPrivate::queue);
-    connect(this, &FacebookImageCacheModelPrivate::queueImages,
-            facebookImageWorkerObject, &FacebookImageWorkerObject::queueImages);
-    connect(this, &FacebookImageCacheModelPrivate::typeChanged,
-            facebookImageWorkerObject, &FacebookImageWorkerObject::setType);
-
-    AbstractSocialCacheModelPrivate::initWorkerObject(workerObject);
 }
 
 FacebookImageCacheModel::FacebookImageCacheModel(QObject *parent)
     : AbstractSocialCacheModel(*(new FacebookImageCacheModelPrivate(this)), parent)
 {
+    Q_D(const FacebookImageCacheModel);
+    connect(&d->database, &FacebookImagesDatabase::queryFinished,
+            this, &FacebookImageCacheModel::queryFinished);
+}
+
+FacebookImageCacheModel::~FacebookImageCacheModel()
+{
     Q_D(FacebookImageCacheModel);
-    d->initWorkerObject(new FacebookImageWorkerObject());
+    if (d->downloader) {
+        d->downloader->removeModelFromHash(this);
+    }
 }
 
 QHash<int, QByteArray> FacebookImageCacheModel::roleNames() const
@@ -355,7 +130,6 @@ void FacebookImageCacheModel::setType(FacebookImageCacheModel::ModelDataType typ
     if (d->type != type) {
         d->type = type;
         emit typeChanged();
-        emit d->typeChanged(type);
     }
 }
 
@@ -371,33 +145,206 @@ void FacebookImageCacheModel::setDownloader(FacebookImageDownloader *downloader)
     if (d->downloader != downloader) {
         if (d->downloader) {
             // Disconnect worker object
-            d->m_workerObject->disconnect(d->downloader->workerObject());
-            d->downloader->workerObject()->disconnect(d);
+            disconnect(d->downloader);
+            d->downloader->removeModelFromHash(this);
         }
 
         d->downloader = downloader;
-
-        // Needed for the new Qt connection system
-        FacebookImageWorkerObject *imageWorkerObject
-                = qobject_cast<FacebookImageWorkerObject *>(d->m_workerObject);
-        connect(imageWorkerObject, &FacebookImageWorkerObject::requestQueue,
-                d->downloader->workerObject(), &AbstractImageDownloader::queue);
-        connect(d->downloader->workerObject(), &AbstractImageDownloader::imageDownloaded,
-                d, &FacebookImageCacheModelPrivate::slotDataUpdated);
-
+        d->downloader->addModelToHash(this);
         emit downloaderChanged();
     }
 }
 
-// Used to queue high-res photos to be loaded
+QVariant FacebookImageCacheModel::data(const QModelIndex &index, int role) const
+{
+    Q_D(const FacebookImageCacheModel);
+    int row = index.row();
+    if (row < 0 || row >= d->m_data.count()) {
+        return QVariant();
+    }
+
+    if (role == FacebookImageCacheModel::Image) {
+        if (d->m_data.at(row).value(role).toString().isEmpty()) {
+            // haven't downloaded the image yet.  Download it.
+            if (d->database.images().size() > row) {
+                FacebookImage::ConstPtr imageData = d->database.images().at(row);
+                FacebookImageCacheModelPrivate *nonconstD = const_cast<FacebookImageCacheModelPrivate*>(d);
+                nonconstD->queue(row, FacebookImageDownloader::FullImage,
+                                 imageData->fbImageId(),
+                                 imageData->imageUrl());
+            }
+        }
+    }
+
+    return d->m_data.at(row).value(role);
+}
+
 void FacebookImageCacheModel::loadImages()
 {
+    refresh();
+}
+
+void FacebookImageCacheModel::refresh()
+{
     Q_D(FacebookImageCacheModel);
-    if (d->type != Images) {
+
+    const QString userPrefix = QLatin1String(PHOTO_USER_PREFIX);
+    const QString albumPrefix = QLatin1String(PHOTO_ALBUM_PREFIX);
+
+    switch (d->type) {
+    case FacebookImageCacheModel::Users:
+        d->database.queryUsers();
+        break;
+    case FacebookImageCacheModel::Albums:
+        d->database.queryAlbums(d->nodeIdentifier);
+        break;
+    case FacebookImageCacheModel::Images:
+        if (d->nodeIdentifier.startsWith(userPrefix)) {
+            d->database.queryUserImages(d->nodeIdentifier.mid(userPrefix.size()));
+        } else if (d->nodeIdentifier.startsWith(albumPrefix)) {
+            d->database.queryAlbumImages(d->nodeIdentifier.mid(albumPrefix.size()));
+        } else {
+            d->database.queryUserImages();
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+// NOTE: this is now called directly by FacebookImageDownloader
+// rather than connected to the imageDownloaded signal, for
+// performance reasons.
+void FacebookImageCacheModel::imageDownloaded(
+        const QString &, const QString &path, const QVariantMap &imageData)
+{
+    Q_D(FacebookImageCacheModel);
+
+    int row = imageData.value(ROW_KEY).toInt();
+    if (row < 0 || row >= d->m_data.count()) {
+        qWarning() << Q_FUNC_INFO
+                   << "Invalid row:" << row
+                   << "max row:" << d->m_data.count();
         return;
     }
 
-    emit d->queueImages();
+    int type = imageData.value(TYPE_KEY).toInt();
+    switch (type) {
+    case FacebookImageDownloader::ThumbnailImage:
+        d->m_data[row].insert(FacebookImageCacheModel::Thumbnail, path);
+        break;
+    case FacebookImageDownloader::FullImage:
+        d->m_data[row].insert(FacebookImageCacheModel::Image, path);
+        break;
+    }
+
+    emit dataChanged(index(row), index(row));
 }
 
-#include "facebookimagecachemodel.moc"
+void FacebookImageCacheModel::queryFinished()
+{
+    Q_D(FacebookImageCacheModel);
+
+    QList<QVariantMap> thumbQueue;
+    SocialCacheModelData data;
+    switch (d->type) {
+    case Users: {
+        QList<FacebookUser::ConstPtr> usersData = d->database.users();
+        for (int i = 0; i < usersData.count(); i++) {
+            const FacebookUser::ConstPtr & userData = usersData.at(i);
+            QMap<int, QVariant> userMap;
+            userMap.insert(FacebookImageCacheModel::FacebookId, userData->fbUserId());
+            userMap.insert(FacebookImageCacheModel::Title, userData->userName());
+            userMap.insert(FacebookImageCacheModel::Count, userData->count());
+            data.append(userMap);
+        }
+
+        if (data.count() > 1) {
+            QMap<int, QVariant> userMap;
+            int count = 0;
+            Q_FOREACH (const FacebookUser::ConstPtr &userData, usersData) {
+                count += userData->count();
+            }
+
+            userMap.insert(FacebookImageCacheModel::FacebookId, QString());
+            userMap.insert(FacebookImageCacheModel::Thumbnail, QString());
+            //: Label for the "show all users from all Facebook accounts" option
+            //% "All"
+            userMap.insert(FacebookImageCacheModel::Title, qtTrId("nemo_socialcache_facebook_images_model-all-users"));
+            userMap.insert(FacebookImageCacheModel::Count, count);
+            data.prepend(userMap);
+        }
+        break;
+    }
+    case Albums: {
+        QList<FacebookAlbum::ConstPtr> albumsData = d->database.albums();
+        Q_FOREACH (const FacebookAlbum::ConstPtr & albumData, albumsData) {
+            QMap<int, QVariant> albumMap;
+            albumMap.insert(FacebookImageCacheModel::FacebookId, albumData->fbAlbumId());
+            albumMap.insert(FacebookImageCacheModel::Title, albumData->albumName());
+            albumMap.insert(FacebookImageCacheModel::Count, albumData->imageCount());
+            albumMap.insert(FacebookImageCacheModel::UserId, albumData->fbUserId());
+            data.append(albumMap);
+        }
+
+        if (data.count() > 1) {
+            QMap<int, QVariant> albumMap;
+            int count = 0;
+            Q_FOREACH (const FacebookAlbum::ConstPtr &albumData, albumsData) {
+                count += albumData->imageCount();
+            }
+
+            albumMap.insert(FacebookImageCacheModel::FacebookId, QString());
+            // albumMap.insert(FacebookImageCacheModel::Icon, QString());
+            //:  Label for the "show all photos from all albums (by this user or by all users, depending...)" option
+            //% "All"
+            albumMap.insert(FacebookImageCacheModel::Title, qtTrId("nemo_socialcache_facebook_images_model-all-albums"));
+            albumMap.insert(FacebookImageCacheModel::Count, count);
+            albumMap.insert(FacebookImageCacheModel::UserId, QString());
+            data.prepend(albumMap);
+        }
+        break;
+    }
+    case Images: {
+        QList<FacebookImage::ConstPtr> imagesData = d->database.images();
+
+        for (int i = 0; i < imagesData.count(); i ++) {
+            const FacebookImage::ConstPtr & imageData = imagesData.at(i);
+            QMap<int, QVariant> imageMap;
+            imageMap.insert(FacebookImageCacheModel::FacebookId, imageData->fbImageId());
+            if (imageData->thumbnailFile().isEmpty()) {
+                QVariantMap thumbQueueData;
+                thumbQueueData.insert("row", QVariant::fromValue<int>(i));
+                thumbQueueData.insert("imageType", QVariant::fromValue<int>(FacebookImageDownloader::ThumbnailImage));
+                thumbQueueData.insert("identifier", imageData->fbImageId());
+                thumbQueueData.insert("url", imageData->thumbnailUrl());
+                thumbQueue.append(thumbQueueData);
+            }
+            // note: we don't queue the image file until the user explicitly opens that in fullscreen.
+            imageMap.insert(FacebookImageCacheModel::Thumbnail, imageData->thumbnailFile());
+            imageMap.insert(FacebookImageCacheModel::Image, imageData->imageFile());
+            imageMap.insert(FacebookImageCacheModel::Title, imageData->imageName());
+            imageMap.insert(FacebookImageCacheModel::DateTaken, imageData->createdTime());
+            imageMap.insert(FacebookImageCacheModel::Width, imageData->width());
+            imageMap.insert(FacebookImageCacheModel::Height, imageData->height());
+            imageMap.insert(FacebookImageCacheModel::MimeType, QLatin1String("image/jpeg"));
+            imageMap.insert(FacebookImageCacheModel::AccountId, imageData->account());
+            imageMap.insert(FacebookImageCacheModel::UserId, imageData->fbUserId());
+            data.append(imageMap);
+        }
+        break;
+    }
+    default:
+        return;
+    }
+
+    updateData(data);
+
+    // now download the queued thumbnails.
+    foreach (const QVariantMap &thumbQueueData, thumbQueue) {
+        d->queue(thumbQueueData["row"].toInt(),
+                 static_cast<FacebookImageDownloader::ImageType>(thumbQueueData["imageType"].toInt()),
+                 thumbQueueData["identifier"].toString(),
+                 thumbQueueData["url"].toString());
+    }
+}

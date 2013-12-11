@@ -49,7 +49,12 @@ public:
 };
 
 SocialNetworkSyncDatabasePrivate::SocialNetworkSyncDatabasePrivate(SocialNetworkSyncDatabase *q)
-    : AbstractSocialCacheDatabasePrivate(q)
+    : AbstractSocialCacheDatabasePrivate(
+            q,
+            QLatin1String(SERVICE_NAME),
+            QLatin1String(DATA_TYPE),
+            QLatin1String(DB_NAME),
+            VERSION)
 {
 }
 
@@ -64,20 +69,18 @@ SocialNetworkSyncDatabase::SocialNetworkSyncDatabase()
 {
 }
 
-void SocialNetworkSyncDatabase::initDatabase()
+SocialNetworkSyncDatabase::~SocialNetworkSyncDatabase()
 {
-    dbInit(QLatin1String(SERVICE_NAME), QLatin1String(DATA_TYPE),
-           QLatin1String(DB_NAME), VERSION);
+    wait();
 }
 
 QList<int> SocialNetworkSyncDatabase::syncedAccounts(const QString &serviceName,
                                                      const QString &dataType) const
 {
-    Q_D(const SocialNetworkSyncDatabase);
-    QSqlQuery query (d->db);
-    query.prepare("SELECT DISTINCT accountId FROM syncTimestamps "\
+    QSqlQuery query = prepare(QStringLiteral(
+                  "SELECT DISTINCT accountId FROM syncTimestamps "\
                   "WHERE serviceName = :serviceName "\
-                  "AND dataType = :dataType");
+                  "AND dataType = :dataType"));
     query.bindValue(":serviceName", serviceName);
     query.bindValue(":dataType", dataType);
     bool success = query.exec();
@@ -98,12 +101,11 @@ QDateTime SocialNetworkSyncDatabase::lastSyncTimestamp(const QString &serviceNam
                                                        const QString &dataType,
                                                        int accountId) const
 {
-    Q_D(const SocialNetworkSyncDatabase);
-    QSqlQuery query (d->db);
-    query.prepare("SELECT syncTimestamp FROM syncTimestamps "\
+    QSqlQuery query = prepare(QStringLiteral(
+                  "SELECT syncTimestamp FROM syncTimestamps "\
                   "WHERE serviceName = :serviceName "\
                   "AND accountId = :accountId "\
-                  "AND dataType = :dataType ORDER BY syncTimestamp DESC LIMIT 1");
+                  "AND dataType = :dataType ORDER BY syncTimestamp DESC LIMIT 1"));
     query.bindValue(":serviceName", serviceName);
     query.bindValue(":accountId", accountId);
     query.bindValue(":dataType", dataType);
@@ -131,51 +133,64 @@ void SocialNetworkSyncDatabase::addSyncTimestamp(const QString &serviceName,
     data->dataType = dataType;
     data->accountId = accountId;
     data->timestamp = timestamp;
+
+    QMutexLocker locker(&d->mutex);
+
     d->queuedData.append(data);
+}
+
+void SocialNetworkSyncDatabase::commit()
+{
+    executeWrite();
 }
 
 bool SocialNetworkSyncDatabase::write()
 {
     Q_D(SocialNetworkSyncDatabase);
-    QMap<QString, QVariantList> entries;
-    QStringList keys;
 
-    keys << QLatin1String("accountId") << QLatin1String("serviceName") << QLatin1String("dataType")
-         << QLatin1String("syncTimestamp");
+    QMutexLocker locker(&d->mutex);
 
-    entries.insert(QLatin1String("accountId"), QVariantList());
-    entries.insert(QLatin1String("serviceName"), QVariantList());
-    entries.insert(QLatin1String("dataType"), QVariantList());
-    entries.insert(QLatin1String("syncTimestamp"), QVariantList());
+    const QList<SocialNetworkSyncData *> insertData = d->queuedData;
 
-    foreach (SocialNetworkSyncData *data, d->queuedData) {
-        entries[QLatin1String("accountId")].append(data->accountId);
-        entries[QLatin1String("serviceName")].append(data->serviceName);
-        entries[QLatin1String("dataType")].append(data->dataType);
-        entries[QLatin1String("syncTimestamp")].append(data->timestamp.toTime_t());
-    }
-
-    if (!dbBeginTransaction()) {
-        return false;
-    }
-
-    bool ok = dbWrite(QLatin1String("syncTimestamps"), keys, entries, InsertOrReplace);
-
-    if (!dbCommitTransaction()) {
-        dbRollbackTransaction();
-        return false;
-    }
-
-    qDeleteAll(d->queuedData);
     d->queuedData.clear();
 
-    return ok;
+    locker.unlock();
+
+    bool success = true;
+    QSqlQuery query;
+
+    if (!insertData.isEmpty()) {
+        QVariantList serviceNames;
+        QVariantList dataTypes;
+        QVariantList accountIds;
+        QVariantList timestamps;
+
+        Q_FOREACH (SocialNetworkSyncData *data, insertData) {
+            serviceNames.append(data->serviceName);
+            dataTypes.append(data->dataType);
+            accountIds.append(data->accountId);
+            timestamps.append(data->timestamp.toTime_t());
+
+            delete data;
+        }
+
+        query = prepare(QStringLiteral(
+                    "INSERT OR REPLACE INTO syncTimestamps ("
+                    " accountId, serviceName, dataType, syncTimestamp) "
+                    "VALUES ("
+                    " :accountId, :serviceName, :dataType, :syncTimestamp)"));
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        query.bindValue(QStringLiteral(":serviceName"), serviceNames);
+        query.bindValue(QStringLiteral(":dataType"), dataTypes);
+        query.bindValue(QStringLiteral(":syncTimestamp"), timestamps);
+        executeBatchSocialCacheQuery(query);
+    }
+    return success;
 }
 
-bool SocialNetworkSyncDatabase::dbCreateTables()
+bool SocialNetworkSyncDatabase::createTables(QSqlDatabase database) const
 {
-    Q_D(SocialNetworkSyncDatabase);
-    QSqlQuery query (d->db);
+    QSqlQuery query (database);
 
     // Create the sociald db tables
     // syncTimestamps = id, accountId, service, dataType, syncTimestamp
@@ -190,17 +205,12 @@ bool SocialNetworkSyncDatabase::dbCreateTables()
         return false;
     }
 
-    if (!dbCreatePragmaVersion(VERSION)) {
-        return false;
-    }
-
     return true;
 }
 
-bool SocialNetworkSyncDatabase::dbDropTables()
+bool SocialNetworkSyncDatabase::dropTables(QSqlDatabase database) const
 {
-    Q_D(SocialNetworkSyncDatabase);
-    QSqlQuery query(d->db);
+    QSqlQuery query(database);
     query.prepare("DROP TABLE IF EXISTS syncTimestamps");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to delete syncTimestamps table"
@@ -210,5 +220,3 @@ bool SocialNetworkSyncDatabase::dbDropTables()
 
     return true;
 }
-
-

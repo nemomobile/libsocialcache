@@ -14,3 +14,5 @@ SOURCES +=  ../../src/lib/abstractsocialcachedatabase.cpp \
             ../../src/lib/semaphore_p.cpp \
             main.cpp
 
+target.path = /opt/tests/libsocialcache
+INSTALLS += target

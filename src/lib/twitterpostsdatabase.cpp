@@ -29,19 +29,14 @@ static const char *CONSUMER_KEY_KEY = "consumer_key";
 static const char *CONSUMER_SECRET_KEY = "consumer_secret";
 
 TwitterPostsDatabase::TwitterPostsDatabase()
-    : AbstractSocialPostCacheDatabase()
+    : AbstractSocialPostCacheDatabase(
+          SocialSyncInterface::socialNetwork(SocialSyncInterface::Twitter),
+          QLatin1String(DB_NAME))
 {
 }
 
 TwitterPostsDatabase::~TwitterPostsDatabase()
 {
-}
-
-void TwitterPostsDatabase::initDatabase()
-{
-    dbInit(SocialSyncInterface::socialNetwork(SocialSyncInterface::Twitter),
-           SocialSyncInterface::dataType(SocialSyncInterface::Posts),
-           QLatin1String(DB_NAME), POST_DB_VERSION);
 }
 
 void TwitterPostsDatabase::addTwitterPost(const QString &identifier, const QString &name,

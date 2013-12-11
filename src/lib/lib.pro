@@ -3,7 +3,7 @@ include(../../common.pri)
 TEMPLATE = lib
 CONFIG += qt create_prl no_install_prl create_pc
 QT += sql
-VERSION = 0.0.12
+VERSION = 0.0.15
 
 isEmpty(PREFIX) {
     PREFIX=/usr

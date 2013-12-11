@@ -1,6 +1,6 @@
 Name:       libsocialcache
 Summary:    A library that manages data from social networks
-Version:    0.0.13
+Version:    0.0.15
 Release:    1
 Group:      Applications/Multimedia
 License:    LGPLv2.1
@@ -49,6 +49,15 @@ Group:     Applications/Multimedia
 %description qml-plugin
 This package contains the qml plugin for socialcache
 
+%package tests
+Summary:    Unit tests for libsocialcache
+Group:      System/Libraries
+BuildRequires:  pkgconfig(Qt5Test)
+Requires:   %{name} = %{version}-%{release}
+
+%description tests
+This package contains unit tests for the libsocialcache library.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -81,3 +90,7 @@ rm -rf %{buildroot}
 %{_libdir}/qt5/qml/org/nemomobile/socialcache/qmldir
 %{_libdir}/qt5/qml/org/nemomobile/socialcache/libsocialcacheqml.so
 %{_datadir}/translations/socialcache_eng_en.qm
+
+%files tests
+%defattr(-,root,root,-)
+/opt/tests/libsocialcache/*
