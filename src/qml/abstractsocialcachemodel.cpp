@@ -44,69 +44,13 @@ int updateRange<AbstractSocialCacheModelPrivate, SocialCacheModelData>(
     return count;
 }
 
-AbstractWorkerObject::AbstractWorkerObject():
-    m_loading(false)
-{
-}
-
-AbstractWorkerObject::~AbstractWorkerObject()
-{
-}
-
-bool AbstractWorkerObject::isLoading() const
-{
-    return m_loading;
-}
-
-void AbstractWorkerObject::triggerRefresh()
-{
-    if (!isLoading()) {
-        refresh();
-    }
-}
-
-void AbstractWorkerObject::setNodeIdentifier(const QString &nodeIdentifierToSet)
-{
-    nodeIdentifier = nodeIdentifierToSet;
-}
-
-void AbstractWorkerObject::setLoading(bool loading)
-{
-    QMutexLocker locker(&m_mutex);
-    Q_UNUSED(locker)
-    m_loading = loading;
-}
-
-void AbstractWorkerObject::quitGracefully()
-{
-    m_quitMutex.lock();
-    finalCleanup();
-    m_quitWC.wakeAll();
-    m_quitMutex.unlock();
-}
-
-AbstractSocialCacheModelPrivate::AbstractSocialCacheModelPrivate(AbstractSocialCacheModel *q,
-                                                                 QObject *parent)
-    :  QObject(parent), m_workerObject(0), q_ptr(q)
+AbstractSocialCacheModelPrivate::AbstractSocialCacheModelPrivate(AbstractSocialCacheModel *q)
+    : q_ptr(q)
 {
 }
 
 AbstractSocialCacheModelPrivate::~AbstractSocialCacheModelPrivate()
 {
-    if (m_workerThread.isRunning()) {
-        // tell worker object to quit gracefully.
-        m_workerObject->m_quitMutex.lock();
-        QMetaObject::invokeMethod(m_workerObject, "quitGracefully", Qt::QueuedConnection);
-        m_workerObject->m_quitWC.wait(&m_workerObject->m_quitMutex);
-        m_workerObject->m_quitMutex.unlock();
-
-        // now terminate the thread
-        m_workerThread.quit();
-        m_workerThread.wait();
-    }
-
-    // and delete the worker object - this will ensure the database gets closed.
-    delete m_workerObject;
 }
 
 void AbstractSocialCacheModelPrivate::clearData()
@@ -129,24 +73,6 @@ void AbstractSocialCacheModelPrivate::updateRow(int row, const SocialCacheModelR
 {
     Q_Q(AbstractSocialCacheModel);
     q->updateRow(row, data);
-}
-
-void AbstractSocialCacheModelPrivate::initWorkerObject(AbstractWorkerObject *workerObjectToSet)
-{
-    if (workerObjectToSet) {
-        m_workerThread.start(QThread::IdlePriority);
-        m_workerObject = workerObjectToSet;
-        m_workerObject->moveToThread(&m_workerThread);
-        connect(this, &AbstractSocialCacheModelPrivate::nodeIdentifierChanged,
-                m_workerObject, &AbstractWorkerObject::setNodeIdentifier);
-        connect(this, &AbstractSocialCacheModelPrivate::refreshRequested,
-                m_workerObject, &AbstractWorkerObject::triggerRefresh);
-        connect(m_workerObject, &AbstractWorkerObject::dataUpdated,
-                this, &AbstractSocialCacheModelPrivate::updateData);
-        connect(m_workerObject, &AbstractWorkerObject::rowUpdated,
-                this, &AbstractSocialCacheModelPrivate::updateRow);
-    }
-
 }
 
 void AbstractSocialCacheModelPrivate::insertRange(
@@ -225,7 +151,7 @@ void AbstractSocialCacheModel::setNodeIdentifier(const QString &nodeIdentifier)
     if (d->nodeIdentifier != nodeIdentifier) {
         d->nodeIdentifier = nodeIdentifier;
         emit nodeIdentifierChanged();
-        emit d->nodeIdentifierChanged(nodeIdentifier);
+        d->nodeIdentifierChanged();
     }
 }
 
@@ -239,7 +165,6 @@ void AbstractSocialCacheModel::updateData(const SocialCacheModelData &data)
     Q_D(AbstractSocialCacheModel);
 
     const int count = d->m_data.count();
-
     synchronizeList(d, d->m_data, data);
 
     if (d->m_data.count() != count) {
@@ -255,10 +180,4 @@ void AbstractSocialCacheModel::updateRow(int row, const SocialCacheModelRow &dat
         d->m_data[row].insert(key, data.value(key));
     }
     emit dataChanged(index(row), index(row));
-}
-
-void AbstractSocialCacheModel::refresh()
-{
-    Q_D(AbstractSocialCacheModel);
-    emit d->refreshRequested();
 }

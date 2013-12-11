@@ -54,7 +54,6 @@ class FacebookContactsDatabase: public AbstractSocialCacheDatabase
 public:
     explicit FacebookContactsDatabase();
     ~FacebookContactsDatabase();
-    void initDatabase();
 
     bool removeContacts(int accountId);
     bool removeContacts(const QStringList &fbFriendIds);
@@ -66,10 +65,14 @@ public:
                           const QString &coverUrl);
     void updatePictureFile(const QString &fbFriendId, const QString &pictureFile);
     void updateCoverFile(const QString &fbFriendId, const QString &coverFile);
-    bool write();
+
+    void commit();
+
 protected:
-    bool dbCreateTables();
-    bool dbDropTables();
+    bool write();
+    bool createTables(QSqlDatabase database) const;
+    bool dropTables(QSqlDatabase database) const;
+
 private:
     Q_DECLARE_PRIVATE(FacebookContactsDatabase)
 };

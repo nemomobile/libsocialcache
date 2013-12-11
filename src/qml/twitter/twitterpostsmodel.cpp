@@ -23,81 +23,13 @@
 #include <QtCore/QDebug>
 #include "postimagehelper_p.h"
 
-class TwitterPostsWorkerObject: public AbstractWorkerObject
-{
-    Q_OBJECT
-
-public:
-    explicit TwitterPostsWorkerObject();
-    ~TwitterPostsWorkerObject();
-
-    void refresh();
-    void finalCleanup();
-
-private:
-    TwitterPostsDatabase m_db;
-    bool m_enabled;
-};
-
-TwitterPostsWorkerObject::TwitterPostsWorkerObject()
-    : AbstractWorkerObject(), m_enabled(false)
-{
-}
-
-TwitterPostsWorkerObject::~TwitterPostsWorkerObject()
-{
-}
-
-void TwitterPostsWorkerObject::finalCleanup()
-{
-    m_db.closeDatabase();
-}
-
-void TwitterPostsWorkerObject::refresh()
-{
-    // We initialize the database when refresh is called
-    // When it is called, we are sure that the object is already in a different thread
-    if (!m_enabled) {
-        m_db.initDatabase();
-        m_enabled = true;
-    }
-
-    SocialCacheModelData data;
-    QList<SocialPost::ConstPtr> postsData = m_db.posts();
-    foreach (const SocialPost::ConstPtr &post, postsData) {
-        QMap<int, QVariant> eventMap;
-        eventMap.insert(TwitterPostsModel::TwitterId, post->identifier());
-        eventMap.insert(TwitterPostsModel::Name, post->name());
-        eventMap.insert(TwitterPostsModel::Body, post->body());
-        eventMap.insert(TwitterPostsModel::Timestamp, post->timestamp());
-        eventMap.insert(TwitterPostsModel::Icon, post->icon());
-
-        QVariantList images;
-        foreach (const SocialPostImage::ConstPtr &image, post->images()) {
-            images.append(createImageData(image));
-        }
-        eventMap.insert(TwitterPostsModel::Images, images);
-
-        eventMap.insert(TwitterPostsModel::ScreenName, m_db.screenName(post));
-        eventMap.insert(TwitterPostsModel::Retweeter, m_db.retweeter(post));
-        eventMap.insert(TwitterPostsModel::ConsumerKey, m_db.consumerKey(post));
-        eventMap.insert(TwitterPostsModel::ConsumerSecret, m_db.consumerSecret(post));
-
-        QVariantList accountsVariant;
-        foreach (int account, post->accounts()) {
-            accountsVariant.append(account);
-        }
-        eventMap.insert(TwitterPostsModel::Accounts, accountsVariant);
-        data.append(eventMap);
-    }
-
-    emit dataUpdated(data);
-}
-
 class TwitterPostsModelPrivate: public AbstractSocialCacheModelPrivate
 {
 public:
     explicit TwitterPostsModelPrivate(TwitterPostsModel *q);
+
+    TwitterPostsDatabase database;
+
 private:
     Q_DECLARE_PUBLIC(TwitterPostsModel)
 };
@@ -111,7 +43,9 @@ TwitterPostsModel::TwitterPostsModel(QObject *parent)
     : AbstractSocialCacheModel(*(new TwitterPostsModelPrivate(this)), parent)
 {
     Q_D(TwitterPostsModel);
-    d->initWorkerObject(new TwitterPostsWorkerObject());
+
+     connect(&d->database, &AbstractSocialPostCacheDatabase::postsChanged,
+             this, &TwitterPostsModel::postsChanged);
 }
 
 QHash<int, QByteArray> TwitterPostsModel::roleNames() const
@@ -131,4 +65,45 @@ QHash<int, QByteArray> TwitterPostsModel::roleNames() const
     return roleNames;
 }
 
-#include "twitterpostsmodel.moc"
+void TwitterPostsModel::refresh()
+{
+    Q_D(TwitterPostsModel);
+
+    d->database.refresh();
+}
+
+void TwitterPostsModel::postsChanged()
+{
+    Q_D(TwitterPostsModel);
+
+    SocialCacheModelData data;
+    QList<SocialPost::ConstPtr> postsData = d->database.posts();
+    Q_FOREACH (const SocialPost::ConstPtr &post, postsData) {
+        QMap<int, QVariant> eventMap;
+        eventMap.insert(TwitterPostsModel::TwitterId, post->identifier());
+        eventMap.insert(TwitterPostsModel::Name, post->name());
+        eventMap.insert(TwitterPostsModel::Body, post->body());
+        eventMap.insert(TwitterPostsModel::Timestamp, post->timestamp());
+        eventMap.insert(TwitterPostsModel::Icon, post->icon());
+
+        QVariantList images;
+        Q_FOREACH (const SocialPostImage::ConstPtr &image, post->images()) {
+            images.append(createImageData(image));
+        }
+        eventMap.insert(TwitterPostsModel::Images, images);
+
+        eventMap.insert(TwitterPostsModel::ScreenName, d->database.screenName(post));
+        eventMap.insert(TwitterPostsModel::Retweeter, d->database.retweeter(post));
+        eventMap.insert(TwitterPostsModel::ConsumerKey, d->database.consumerKey(post));
+        eventMap.insert(TwitterPostsModel::ConsumerSecret, d->database.consumerSecret(post));
+
+        QVariantList accountsVariant;
+        Q_FOREACH (int account, post->accounts()) {
+            accountsVariant.append(account);
+        }
+        eventMap.insert(TwitterPostsModel::Accounts, accountsVariant);
+        data.append(eventMap);
+    }
+
+    updateData(data);
+}

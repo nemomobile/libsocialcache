@@ -82,11 +82,21 @@ class FacebookCalendarDatabasePrivate: public AbstractSocialCacheDatabasePrivate
 {
 public:
     explicit FacebookCalendarDatabasePrivate(FacebookCalendarDatabase *q);
-    QList<FacebookEvent::ConstPtr> queuedEvents;
+
+    QMap<int, QList<FacebookEvent::ConstPtr> > syncedEvents;
+    struct {
+        QList<int> removeEvents;
+        QMap<int, QList<FacebookEvent::ConstPtr> > insertEvents;
+    } queue;
 };
 
 FacebookCalendarDatabasePrivate::FacebookCalendarDatabasePrivate(FacebookCalendarDatabase *q)
-    : AbstractSocialCacheDatabasePrivate(q)
+    : AbstractSocialCacheDatabasePrivate(
+            q,
+            SocialSyncInterface::socialNetwork(SocialSyncInterface::Facebook),
+            SocialSyncInterface::dataType(SocialSyncInterface::Calendars),
+            QLatin1String(DB_NAME),
+            VERSION)
 {
 }
 
@@ -97,38 +107,28 @@ FacebookCalendarDatabase::FacebookCalendarDatabase()
 
 FacebookCalendarDatabase::~FacebookCalendarDatabase()
 {
+    wait();
 }
 
-bool FacebookCalendarDatabase::removeEvents(int accountId)
+void FacebookCalendarDatabase::removeEvents(int accountId)
 {
     Q_D(FacebookCalendarDatabase);
-    if (!dbBeginTransaction()) {
-        return false;
-    }
 
-    QSqlQuery query (d->db);
-    query.prepare(QLatin1String("DELETE FROM events WHERE accountId = :accountId"));
-    query.bindValue(":accountId", accountId);
+    d->syncedEvents.remove(accountId);
 
-    if (!query.exec()) {
-        qWarning() << Q_FUNC_INFO << "Failed to delete events" << query.lastError().text();
-        dbRollbackTransaction();
-        return false;
-    }
+    QMutexLocker locker(&d->mutex);
 
-    d->queuedEvents.clear();
-
-    return dbCommitTransaction();
+    d->queue.removeEvents.append(accountId);
+    d->queue.insertEvents.remove(accountId);
 }
 
 QList<FacebookEvent::ConstPtr> FacebookCalendarDatabase::events(int accountId)
 {
-    Q_D(FacebookCalendarDatabase);
     QList<FacebookEvent::ConstPtr> data;
 
-    QSqlQuery query (d->db);
-    query.prepare(QLatin1String("SELECT fbEventId, accountId, incidenceId FROM events "\
-                                "WHERE accountId = :accountId"));
+    QSqlQuery query = prepare(QStringLiteral(
+                "SELECT fbEventId, accountId, incidenceId FROM events "\
+                "WHERE accountId = :accountId"));
     query.bindValue(":accountId", accountId);
 
     if (!query.exec()) {
@@ -152,63 +152,87 @@ void FacebookCalendarDatabase::addSyncedEvent(const QString &fbEventId, int acco
                                               const QString &incidenceId)
 {
     Q_D(FacebookCalendarDatabase);
-    d->queuedEvents.append(FacebookEvent::create(fbEventId, accountId, incidenceId));
+
+    d->syncedEvents[accountId].append(FacebookEvent::create(fbEventId, accountId, incidenceId));
 }
 
-bool FacebookCalendarDatabase::sync(int accountId)
+void FacebookCalendarDatabase::sync(int accountId)
 {
     Q_D(FacebookCalendarDatabase);
 
-    // We sync for one given account. We should have all the interesting
-    // events queued. So we will wipe all events from the account id
-    // and only add the events that are queued, and match the account id.
-    if (!dbBeginTransaction()) {
-        return false;
+    {
+        QMutexLocker locker(&d->mutex);
+
+        d->queue.insertEvents.insert(accountId, d->syncedEvents.take(accountId));
     }
 
-    QSqlQuery query (d->db);
-    query.prepare("DELETE FROM events WHERE accountId = :accountId");
-    query.bindValue(":accountId", accountId);
-    if (!query.exec()) {
-        qWarning() << Q_FUNC_INFO << "Failed to purge events for account" << accountId
-                   << query.lastError().text();
-        dbRollbackTransaction();
-        return false;
-    }
+    executeWrite();
+}
 
-    QStringList keys;
-    keys << QLatin1String("fbEventId") << QLatin1String("accountId")
-         << QLatin1String("incidenceId");
-    QMap<QString, QVariantList> data;
-    foreach (const FacebookEvent::ConstPtr &event,d->queuedEvents) {
-        if (event->accountId() == accountId) {
-            data[QLatin1String("fbEventId")].append(event->fbEventId());
-            data[QLatin1String("accountId")].append(accountId);
-            data[QLatin1String("incidenceId")].append(event->incidenceId());
+bool FacebookCalendarDatabase::write()
+{
+    Q_D(FacebookCalendarDatabase);
+
+    QMutexLocker locker(&d->mutex);
+
+    const QList<int> removeEvents = d->queue.removeEvents + d->queue.insertEvents.keys();
+    const QMap<int, QList<FacebookEvent::ConstPtr> > insertEvents = d->queue.insertEvents;
+
+    d->queue.removeEvents.clear();
+    d->queue.insertEvents.clear();
+
+    locker.unlock();
+
+    bool success = true;
+    QSqlQuery query;
+
+    if (!removeEvents.isEmpty()) {
+        QVariantList accountIds;
+
+        Q_FOREACH (int accountId, removeEvents) {
+            accountIds.append(accountId);
         }
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM events "
+                    "WHERE accountId = :accountId"));
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    if (!dbWrite(QLatin1String("events"), keys, data, InsertOrReplace)) {
-        dbRollbackTransaction();
-        return false;
+    if (!insertEvents.isEmpty()) {
+        QVariantList eventIds;
+        QVariantList accountIds;
+        QVariantList incidenceIds;
+
+        Q_FOREACH (const QList<FacebookEvent::ConstPtr> &events, insertEvents) {
+            Q_FOREACH (const FacebookEvent::ConstPtr &event, events) {
+                eventIds.append(event->fbEventId());
+                accountIds.append(event->accountId());
+                incidenceIds.append(event->incidenceId());
+            }
+        }
+
+        query = prepare(QStringLiteral(
+                    "INSERT OR REPLACE INTO events ("
+                    " fbEventId, accountId, incidenceId) "
+                    "VALUES("
+                    " :fbEventId, :accountId, :incidenceId)"));
+        query.bindValue(QStringLiteral(":fbEventId"), eventIds);
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        query.bindValue(QStringLiteral(":incidenceId"), incidenceIds);
+        executeBatchSocialCacheQuery(query);
     }
 
-    return dbCommitTransaction();
+    return success;
 }
 
-void FacebookCalendarDatabase::initDatabase()
+bool FacebookCalendarDatabase::createTables(QSqlDatabase database) const
 {
-    dbInit(SocialSyncInterface::socialNetwork(SocialSyncInterface::Facebook),
-           SocialSyncInterface::dataType(SocialSyncInterface::Calendars),
-           QLatin1String(DB_NAME), VERSION);
-}
+    QSqlQuery query(database);
 
-bool FacebookCalendarDatabase::dbCreateTables()
-{
-    Q_D(FacebookCalendarDatabase);
     // create the facebook event db tables
     // events = fbEventId, fbUserId, incidenceId
-    QSqlQuery query(d->db);
     query.prepare( "CREATE TABLE IF NOT EXISTS events ("
                    "fbEventId TEXT,"
                    "accountId INTEGER,"
@@ -219,18 +243,14 @@ bool FacebookCalendarDatabase::dbCreateTables()
         return false;
     }
 
-    if (!dbCreatePragmaVersion(VERSION)) {
-        return false;
-    }
     return true;
 }
 
-bool FacebookCalendarDatabase::dbDropTables()
+bool FacebookCalendarDatabase::dropTables(QSqlDatabase database) const
 {
-    Q_D(FacebookCalendarDatabase);
-    QSqlQuery query(d->db);
-    query.prepare("DROP TABLE IF EXISTS events");
-    if (!query.exec()) {
+    QSqlQuery query(database);
+
+    if (!query.exec(QStringLiteral("DROP TABLE IF EXISTS events"))) {
         qWarning() << Q_FUNC_INFO << "Unable to delete events table:" << query.lastError().text();
         return false;
     }

@@ -42,6 +42,12 @@ public:
     };
     explicit TwitterPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
+
+    void refresh();
+
+private slots:
+    void postsChanged();
+
 private:
     Q_DECLARE_PRIVATE(TwitterPostsModel)
 };

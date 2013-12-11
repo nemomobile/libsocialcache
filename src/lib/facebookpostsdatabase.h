@@ -28,8 +28,6 @@ public:
     explicit FacebookPostsDatabase();
     ~FacebookPostsDatabase();
 
-    void initDatabase();
-
     void addFacebookPost(const QString &identifier, const QString &name, const QString &body,
                          const QDateTime &timestamp,
                          const QString &icon,

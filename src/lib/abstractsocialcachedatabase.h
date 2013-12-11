@@ -23,41 +23,63 @@
 #include <QtCore/QMap>
 #include <QtCore/QVariantList>
 
+QT_BEGIN_NAMESPACE
+class QSqlDatabase;
+class QSqlQuery;
+QT_END_NAMESPACE
+
 class AbstractSocialCacheDatabasePrivate;
-class AbstractSocialCacheDatabase
+class AbstractSocialCacheDatabase : public QObject
 {
+    Q_OBJECT
 public:
-    explicit AbstractSocialCacheDatabase();
-    virtual ~AbstractSocialCacheDatabase();
-
-    // Whoever calls initDatabase() must also call closeDatabase().
-    virtual void initDatabase() = 0;
-    bool closeDatabase();
-    bool isValid() const;
-
-protected:
-    enum QueryMode {
-        Insert,
-        InsertOrReplace,
-        Update,
-        Delete
+    enum Status
+    {
+        Null,
+        Executing,
+        Finished,
+        Error
     };
 
+    explicit AbstractSocialCacheDatabase(
+            const QString &serviceName,
+            const QString &dataType,
+            const QString &databaseFile,
+            int version);
+    virtual ~AbstractSocialCacheDatabase();
+
+    bool isValid() const;
+
+    Status readStatus() const;
+    Status writeStatus() const;
+
+    bool event(QEvent *event);
+
+    void wait();
+
+Q_SIGNALS:
+    void readStatusChanged();
+    void writeStatusChanged();
+
+protected:
+    void executeRead();
+    void cancelRead();
+
+    void executeWrite();
+    void cancelWrite();
+
+    virtual bool read();
+    virtual bool write();
+    virtual bool createTables(QSqlDatabase database) const = 0;
+    virtual bool dropTables(QSqlDatabase database) const = 0;
+
+    virtual void readFinished();
+    virtual void writeFinished();
+
+
+    QSqlQuery prepare(const QString &query) const;
+
     explicit AbstractSocialCacheDatabase(AbstractSocialCacheDatabasePrivate &dd);
-    void dbInit(const QString &serviceName, const QString &dataType,
-                const QString &dbFile, int userVersion);
-    bool dbClose();
-
-    virtual bool dbCreateTables() = 0;
-    virtual bool dbDropTables() = 0;
-    bool dbCreatePragmaVersion(int version);
-
-    bool dbBeginTransaction();
-    bool dbWrite(const QString &table, const QStringList &keys,
-                 const QMap<QString, QVariantList> &entries,
-                 QueryMode mode = Insert, const QString &primary = QString());
-    bool dbCommitTransaction();
-    bool dbRollbackTransaction();
 
     QScopedPointer<AbstractSocialCacheDatabasePrivate> d_ptr;
 
