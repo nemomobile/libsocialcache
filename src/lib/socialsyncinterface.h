@@ -31,7 +31,10 @@ public:
     enum SocialNetwork {
         InvalidSocialNetwork,
         Facebook,
-        Twitter
+        Twitter,
+        Google,
+        VK,
+        Diaspora
     };
 
     enum DataType {
