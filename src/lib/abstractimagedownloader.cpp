@@ -221,14 +221,65 @@ QString AbstractImageDownloader::makeOutputFile(SocialSyncInterface::SocialNetwo
     }
 
     QCryptographicHash hash (QCryptographicHash::Md5);
-    hash.addData(identifier.toLocal8Bit());
+    hash.addData(identifier.toUtf8());
     QByteArray hashedIdentifier = hash.result().toHex();
-    QString firstLetter = QString::fromLatin1(hashedIdentifier.left(1));
 
-    QString path = QString("%1/%2/%3/%4/%5.jpg").arg(PRIVILEGED_DATA_DIR,
-                                                        SocialSyncInterface::dataType(dataType),
-                                                        SocialSyncInterface::socialNetwork(socialNetwork),
-                                                        firstLetter, identifier);
+    QString path;
+    if (dataType == SocialSyncInterface::Contacts) {
+        path = QStringLiteral("%1/%2/%3/%4/%5/%6.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 QStringLiteral("avatars"),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedIdentifier.at(0)),
+                                                 identifier);
+    } else {
+        path = QStringLiteral("%1/%2/%3/%4/%5.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedIdentifier.at(0)),
+                                                 identifier);
+    }
+
+    return path;
+}
+
+QString AbstractImageDownloader::makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
+                                                SocialSyncInterface::DataType dataType,
+                                                const QString &identifier,
+                                                const QString &remoteUrl)
+{
+    // this function hashes the remote URL in order to increase the
+    // chance that a changed remote url will result in resynchronisation
+    // of the image, due to output file path mismatch.
+
+    if (identifier.isEmpty() || remoteUrl.isEmpty()) {
+        return QString();
+    }
+
+    QCryptographicHash urlHash(QCryptographicHash::Md5);
+    urlHash.addData(remoteUrl.toUtf8());
+    QString hashedUrl = QString::fromUtf8(urlHash.result().toHex());
+
+    QCryptographicHash idHash(QCryptographicHash::Md5);
+    idHash.addData(identifier.toUtf8());
+    QByteArray hashedId = idHash.result().toHex();
+
+    QString path;
+    if (dataType == SocialSyncInterface::Contacts) {
+        path = QStringLiteral("%1/%2/%3/%4/%5/%6.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 QStringLiteral("avatars"),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedId.at(0)),
+                                                 hashedUrl);
+    } else {
+        path = QStringLiteral("%1/%2/%3/%4/%5.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedId.at(0)),
+                                                 hashedUrl);
+    }
+
     return path;
 }
 
