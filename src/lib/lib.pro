@@ -3,7 +3,7 @@ include(../../common.pri)
 TEMPLATE = lib
 CONFIG += qt create_prl no_install_prl create_pc
 QT += sql
-VERSION = 0.0.16
+VERSION = 0.0.17
 
 isEmpty(PREFIX) {
     PREFIX=/usr
@@ -21,6 +21,7 @@ HEADERS = \
     abstractsocialcachedatabase_p.h \
     abstractsocialpostcachedatabase.h \
     socialnetworksyncdatabase.h \
+    googlecalendardatabase.h \
     facebookimagesdatabase.h \
     facebookcalendardatabase.h \
     facebookcontactsdatabase.h \
@@ -34,6 +35,7 @@ SOURCES = \
     abstractsocialcachedatabase.cpp \
     abstractsocialpostcachedatabase.cpp \
     socialnetworksyncdatabase.cpp \
+    googlecalendardatabase.cpp \
     facebookimagesdatabase.cpp \
     facebookcalendardatabase.cpp \
     facebookcontactsdatabase.cpp \
