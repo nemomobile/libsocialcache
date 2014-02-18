@@ -63,57 +63,35 @@ void AbstractImageDownloaderPrivate::manageStack()
     while (runningReplies.count() < MAX_SIMULTANEOUS_DOWNLOAD && !stack.isEmpty()) {
         // Create a reply to download the image
         ImageInfo *info = stack.takeLast();
-
         info->file.setFileName(q->outputFile(info->url, info->data));
-
         QDir parentDir = QFileInfo(info->file.fileName()).dir();
         if (!parentDir.exists()) {
             parentDir.mkpath(".");
         }
 
-        if (!info->file.open(QIODevice::ReadWrite)) {
-        } else if (QNetworkReply *reply = q->createReply(info->url, info->data)) {
-            reply->setReadBufferSize(250000);
-
-            QObject::connect(reply, &QIODevice::readyRead,
-                    q, &AbstractImageDownloader::readyRead);
+        if (QNetworkReply *reply = q->createReply(info->url, info->data)) {
             QObject::connect(reply, &QNetworkReply::finished,
                     q, &AbstractImageDownloader::slotFinished);
-
             runningReplies.insert(reply, info);
-
             return;
         }
-        qWarning() << Q_FUNC_INFO << "Failed to open file for write" << info->file.errorString();
 
         // emit signal.  Empty file signifies error.
         emit q->imageDownloaded(info->url, QString(), info->data);
-
         delete info;
     }
 }
 
 static void readData(ImageInfo *info, QNetworkReply *reply)
 {
-    qint64 size = info->file.size();
     qint64 bytesAvailable = reply->bytesAvailable();
-    if (bytesAvailable == 0)
+    if (bytesAvailable == 0) {
+        qWarning() << Q_FUNC_INFO << "No image data available";
         return;
-
-    info->file.resize(size + bytesAvailable);
-    if (uchar *fileData = info->file.map(size, bytesAvailable)) {
-        char *buffer = reinterpret_cast<char *>(fileData);
-        while (bytesAvailable > 0) {
-            qint64 bytesRead = reply->read(buffer, bytesAvailable);
-            bytesAvailable -= bytesRead;
-            buffer += bytesRead;
-
-            if (bytesRead <= 0) {
-                break;
-            }
-        }
-        info->file.unmap(fileData);
     }
+
+    QByteArray buf = reply->readAll();
+    info->file.write(buf);
 }
 
 void AbstractImageDownloader::readyRead()
@@ -145,18 +123,19 @@ void AbstractImageDownloader::slotFinished()
         return;
     }
 
-    readData(info, reply);
+    if (!info->file.open(QIODevice::ReadWrite)) {
+        qWarning() << Q_FUNC_INFO << "Failed to open file for write" << info->file.errorString();
+        emit imageDownloaded(info->url, QString(), info->data);
+        return;
+    }
 
     const QString fileName = info->file.fileName();
-
-
+    readData(info, reply);
     info->file.close();
 
     QImageReader reader(fileName);
     if (reader.canRead()) {
         dbQueueImage(info->url, info->data, fileName);
-
-        // Emit signal
         emit imageDownloaded(info->url, fileName, info->data);
     } else {
         emit imageDownloaded(info->url, QString(), info->data);
@@ -242,14 +221,65 @@ QString AbstractImageDownloader::makeOutputFile(SocialSyncInterface::SocialNetwo
     }
 
     QCryptographicHash hash (QCryptographicHash::Md5);
-    hash.addData(identifier.toLocal8Bit());
+    hash.addData(identifier.toUtf8());
     QByteArray hashedIdentifier = hash.result().toHex();
-    QString firstLetter = QString::fromLatin1(hashedIdentifier.left(1));
 
-    QString path = QString("%1/%2/%3/%4/%5.jpg").arg(PRIVILEGED_DATA_DIR,
-                                                        SocialSyncInterface::dataType(dataType),
-                                                        SocialSyncInterface::socialNetwork(socialNetwork),
-                                                        firstLetter, identifier);
+    QString path;
+    if (dataType == SocialSyncInterface::Contacts) {
+        path = QStringLiteral("%1/%2/%3/%4/%5/%6.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 QStringLiteral("avatars"),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedIdentifier.at(0)),
+                                                 identifier);
+    } else {
+        path = QStringLiteral("%1/%2/%3/%4/%5.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedIdentifier.at(0)),
+                                                 identifier);
+    }
+
+    return path;
+}
+
+QString AbstractImageDownloader::makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
+                                                SocialSyncInterface::DataType dataType,
+                                                const QString &identifier,
+                                                const QString &remoteUrl)
+{
+    // this function hashes the remote URL in order to increase the
+    // chance that a changed remote url will result in resynchronisation
+    // of the image, due to output file path mismatch.
+
+    if (identifier.isEmpty() || remoteUrl.isEmpty()) {
+        return QString();
+    }
+
+    QCryptographicHash urlHash(QCryptographicHash::Md5);
+    urlHash.addData(remoteUrl.toUtf8());
+    QString hashedUrl = QString::fromUtf8(urlHash.result().toHex());
+
+    QCryptographicHash idHash(QCryptographicHash::Md5);
+    idHash.addData(identifier.toUtf8());
+    QByteArray hashedId = idHash.result().toHex();
+
+    QString path;
+    if (dataType == SocialSyncInterface::Contacts) {
+        path = QStringLiteral("%1/%2/%3/%4/%5/%6.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 QStringLiteral("avatars"),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedId.at(0)),
+                                                 hashedUrl);
+    } else {
+        path = QStringLiteral("%1/%2/%3/%4/%5.jpg").arg(PRIVILEGED_DATA_DIR,
+                                                 SocialSyncInterface::dataType(dataType),
+                                                 SocialSyncInterface::socialNetwork(socialNetwork),
+                                                 QChar(hashedId.at(0)),
+                                                 hashedUrl);
+    }
+
     return path;
 }
 

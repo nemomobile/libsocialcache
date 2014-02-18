@@ -24,12 +24,13 @@
 #include <QtCore/QThread>
 #include <QtCore/QMutex>
 #include <QtCore/QWaitCondition>
+#include <QtCore/QSet>
 
 #include "abstractimagedownloader_p.h"
 #include "facebookimagedownloader.h"
 #include "facebookimagesdatabase.h"
 
-
+class FacebookImageCacheModel;
 class FacebookImageDownloaderPrivate: public AbstractImageDownloaderPrivate
 {
 public:
@@ -37,6 +38,7 @@ public:
     virtual ~FacebookImageDownloaderPrivate();
 
     FacebookImagesDatabase database;
+    QSet<FacebookImageCacheModel*> m_connectedModels;
 
 private:
     Q_DECLARE_PUBLIC(FacebookImageDownloader)
