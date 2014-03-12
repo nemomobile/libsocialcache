@@ -6,4 +6,6 @@ SUBDIRS = \
         tst_facebookimage \
         tst_facebookpost \
         tst_socialnetworksync \
-        tst_twitterpost
+        tst_twitterpost \
+        tst_googlecalendar
+
