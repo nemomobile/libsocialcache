@@ -26,6 +26,7 @@ class FacebookPostsModelPrivate;
 class FacebookPostsModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
+    Q_ENUMS(FacebookPostsRole)
 public:
     enum FacebookPostsRole {
         FacebookId = 0,
