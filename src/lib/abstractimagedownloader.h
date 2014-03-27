@@ -45,6 +45,10 @@ protected:
     static QString makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
                                   SocialSyncInterface::DataType dataType,
                                   const QString &identifier);
+    static QString makeOutputFile(SocialSyncInterface::SocialNetwork socialNetwork,
+                                  SocialSyncInterface::DataType dataType,
+                                  const QString &identifier,
+                                  const QString &remoteUrl); // added to retain BC.
 
     virtual QNetworkReply * createReply(const QString &url, const QVariantMap &metadata);
 
