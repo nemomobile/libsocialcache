@@ -27,6 +27,7 @@
 
 #include "facebook/facebookimagecachemodel.h"
 #include "facebook/facebookpostsmodel.h"
+#include "facebook/facebooknotificationsmodel.h"
 #include "twitter/twitterpostsmodel.h"
 
 #ifndef NO_DEPS
@@ -86,6 +87,7 @@ public:
 
         qmlRegisterType<FacebookImageCacheModel>(uri, 1, 0, "FacebookImageCacheModel");
         qmlRegisterType<FacebookPostsModel>(uri, 1, 0, "FacebookPostsModel");
+        qmlRegisterType<FacebookNotificationsModel>(uri, 1, 0, "FacebookNotificationsModel");
 
         qmlRegisterSingletonType<FacebookImageDownloader>(uri, 1, 0, "FacebookImageDownloader",
                                                           &facebookImageDownloader_provider);

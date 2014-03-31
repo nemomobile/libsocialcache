@@ -25,6 +25,7 @@ HEADERS = \
     facebookimagesdatabase.h \
     facebookcalendardatabase.h \
     facebookcontactsdatabase.h \
+    facebooknotificationsdatabase.h \
     facebookpostsdatabase.h \
     twitterpostsdatabase.h
 
@@ -39,6 +40,7 @@ SOURCES = \
     facebookimagesdatabase.cpp \
     facebookcalendardatabase.cpp \
     facebookcontactsdatabase.cpp \
+    facebooknotificationsdatabase.cpp \
     facebookpostsdatabase.cpp \
     twitterpostsdatabase.cpp
 
