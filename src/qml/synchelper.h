@@ -55,9 +55,12 @@ private slots:
                         int aStatusDetails);
 private:
     void checkCurrentRun();
+    void setLoading(bool loading);
+
     Buteo::SyncClientInterface *m_interface;
     SocialSyncInterface::SocialNetwork m_socialNetwork;
     SocialSyncInterface::DataType m_dataType;
+    QStringList m_activeSyncs;
     bool m_complete;
     bool m_loading;
 };
