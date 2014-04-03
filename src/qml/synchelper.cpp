@@ -78,6 +78,14 @@ bool SyncHelper::loading() const
     return m_loading;
 }
 
+void SyncHelper::setLoading(bool loading)
+{
+    if (m_loading != loading) {
+        m_loading = loading;
+        emit loadingChanged();
+    }
+}
+
 void SyncHelper::sync()
 {
     m_interface->startSync(SocialSyncInterface::profileName(m_socialNetwork, m_dataType));
@@ -86,32 +94,33 @@ void SyncHelper::sync()
 void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
                                 const QString &aMessage, int aStatusDetails)
 {
-    Q_UNUSED(aProfileId)
     Q_UNUSED(aMessage)
     Q_UNUSED(aStatusDetails)
 
-    if (aProfileId != SocialSyncInterface::profileName(m_socialNetwork, m_dataType)) {
+    // Per-account profile names follow the convention 'socialnetworkName.DataType-<account index>'
+    // Generate a prefix and check if it matches to incoming profile name.
+    QString profileNamePrefix = SocialSyncInterface::profileName(m_socialNetwork, m_dataType) + "-";
+    if (!aProfileId.startsWith(profileNamePrefix)) {
         return;
     }
-
 
     bool newLoading = (aStatus == Sync::SYNC_QUEUED || aStatus == Sync::SYNC_STARTED
                        || aStatus == Sync::SYNC_PROGRESS);
 
-    if (m_loading != newLoading) {
-        m_loading = newLoading;
-        emit loadingChanged();
+    if (!newLoading) {
+        m_activeSyncs.removeAll(aProfileId);
+        setLoading(m_activeSyncs.count() > 0);
+    } else if (!m_activeSyncs.contains(aProfileId)) {
+        m_activeSyncs.append(aProfileId);
+        setLoading(true);
     }
 }
 
 void SyncHelper::checkCurrentRun()
 {
     // Get the current running syncs to see if we are running
-    QString profileId = SocialSyncInterface::profileName(m_socialNetwork, m_dataType);
-    bool loading = m_interface->getRunningSyncList().contains(profileId);
-
-    if (m_loading != loading) {
-        m_loading = loading;
-        emit loadingChanged();
+    QStringList runningSyncs = m_interface->getRunningSyncList();
+    foreach (const QString profile, runningSyncs) {
+        slotSyncStatus(profile, Sync::SYNC_PROGRESS, "", 0);
     }
 }
