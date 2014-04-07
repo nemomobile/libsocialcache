@@ -63,13 +63,13 @@ void AbstractImageDownloaderPrivate::manageStack()
     while (runningReplies.count() < MAX_SIMULTANEOUS_DOWNLOAD && !stack.isEmpty()) {
         // Create a reply to download the image
         ImageInfo *info = stack.takeLast();
-        info->file.setFileName(q->outputFile(info->url, info->data));
+        info->file.setFileName(q->outputFile(info->url, info->requestsData.first()));
         QDir parentDir = QFileInfo(info->file.fileName()).dir();
         if (!parentDir.exists()) {
             parentDir.mkpath(".");
         }
 
-        if (QNetworkReply *reply = q->createReply(info->url, info->data)) {
+        if (QNetworkReply *reply = q->createReply(info->url, info->requestsData.first())) {
             QObject::connect(reply, &QNetworkReply::finished,
                     q, &AbstractImageDownloader::slotFinished);
             runningReplies.insert(reply, info);
@@ -77,7 +77,9 @@ void AbstractImageDownloaderPrivate::manageStack()
         }
 
         // emit signal.  Empty file signifies error.
-        emit q->imageDownloaded(info->url, QString(), info->data);
+        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+            emit q->imageDownloaded(info->url, QString(), metadata);
+        }
         delete info;
     }
 }
@@ -125,7 +127,9 @@ void AbstractImageDownloader::slotFinished()
 
     if (!info->file.open(QIODevice::ReadWrite)) {
         qWarning() << Q_FUNC_INFO << "Failed to open file for write" << info->file.errorString();
-        emit imageDownloaded(info->url, QString(), info->data);
+        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+            emit imageDownloaded(info->url, QString(), metadata);
+        }
         return;
     }
 
@@ -135,10 +139,16 @@ void AbstractImageDownloader::slotFinished()
 
     QImageReader reader(fileName);
     if (reader.canRead()) {
-        dbQueueImage(info->url, info->data, fileName);
-        emit imageDownloaded(info->url, fileName, info->data);
+        dbQueueImage(info->url, info->requestsData.first(), fileName);
+        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+            emit imageDownloaded(info->url, fileName, metadata);
+        }
     } else {
-        emit imageDownloaded(info->url, QString(), info->data);
+        // the file is not in image format.
+        info->file.remove(fileName); // remove artifacts.
+        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+            emit imageDownloaded(info->url, QString(), metadata);
+        }
     }
 
     delete info;
@@ -184,6 +194,7 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
 
     Q_FOREACH (ImageInfo *info, d->runningReplies) {
         if (info->url == url) {
+            info->requestsData.append(metadata);
             return;
         }
     }
