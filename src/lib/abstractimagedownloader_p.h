@@ -41,11 +41,11 @@
 
 struct ImageInfo
 {
-    ImageInfo(const QString &url, const QVariantMap &data) : url(url), data(data) {}
+    ImageInfo(const QString &url, const QVariantMap &data) : url(url), requestsData(QList<QVariantMap>() << data) {}
 
     QString url;
-    QVariantMap data;
     QFile file;
+    QList<QVariantMap> requestsData;
 };
 
 
