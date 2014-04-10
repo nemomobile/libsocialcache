@@ -26,6 +26,7 @@
 class SocialNetworkSyncDatabasePrivate;
 class SocialNetworkSyncDatabase: public AbstractSocialCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit SocialNetworkSyncDatabase();
     ~SocialNetworkSyncDatabase();

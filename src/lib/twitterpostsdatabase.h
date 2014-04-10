@@ -24,6 +24,7 @@
 
 class TwitterPostsDatabase: public AbstractSocialPostCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit TwitterPostsDatabase();
     ~TwitterPostsDatabase();

@@ -51,6 +51,7 @@ private:
 class FacebookContactsDatabasePrivate;
 class FacebookContactsDatabase: public AbstractSocialCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit FacebookContactsDatabase();
     ~FacebookContactsDatabase();

@@ -24,6 +24,7 @@
 
 class FacebookPostsDatabase: public AbstractSocialPostCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit FacebookPostsDatabase();
     ~FacebookPostsDatabase();

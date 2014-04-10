@@ -44,6 +44,7 @@ private:
 class FacebookCalendarDatabasePrivate;
 class FacebookCalendarDatabase: public AbstractSocialCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit FacebookCalendarDatabase();
     ~FacebookCalendarDatabase();
