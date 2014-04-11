@@ -37,6 +37,7 @@
 #include <QtCore/QMap>
 #include <QtCore/QPair>
 #include <QtCore/QVariantMap>
+#include <QtCore/QTimer>
 #include <QtNetwork/QNetworkAccessManager>
 
 struct ImageInfo
@@ -62,6 +63,7 @@ protected:
 private:
     void manageStack();
     QMap<QNetworkReply *, ImageInfo *> runningReplies;
+    QMap<QTimer *, QNetworkReply *> replyTimeouts;
     QList<ImageInfo *> stack;
     int loadedCount;
     Q_DECLARE_PUBLIC(AbstractImageDownloader)

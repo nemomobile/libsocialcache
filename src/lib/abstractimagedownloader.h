@@ -71,6 +71,7 @@ protected:
 private Q_SLOTS:
     void readyRead();
     void slotFinished();
+    void timedOut();
 
 private:
     Q_DECLARE_PRIVATE(AbstractImageDownloader)

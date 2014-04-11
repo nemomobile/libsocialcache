@@ -70,17 +70,24 @@ void AbstractImageDownloaderPrivate::manageStack()
         }
 
         if (QNetworkReply *reply = q->createReply(info->url, info->requestsData.first())) {
+            QTimer *timer = new QTimer(q);
+            timer->setInterval(60000);
+            timer->setSingleShot(true);
+            QObject::connect(timer, &QTimer::timeout,
+                    q, &AbstractImageDownloader::timedOut);
+            timer->start();
+            replyTimeouts.insert(timer, reply);
+            reply->setProperty("timeoutTimer", QVariant::fromValue<QTimer*>(timer));
             QObject::connect(reply, &QNetworkReply::finished,
                     q, &AbstractImageDownloader::slotFinished);
             runningReplies.insert(reply, info);
-            return;
+        } else {
+            // emit signal.  Empty file signifies error.
+            Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+                emit q->imageDownloaded(info->url, QString(), metadata);
+            }
+            delete info;
         }
-
-        // emit signal.  Empty file signifies error.
-        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
-            emit q->imageDownloaded(info->url, QString(), metadata);
-        }
-        delete info;
     }
 }
 
@@ -121,6 +128,13 @@ void AbstractImageDownloader::slotFinished()
     }
 
     ImageInfo *info = d->runningReplies.take(reply);
+    QTimer *timer = reply->property("timeoutTimer").value<QTimer*>();
+    if (timer) {
+        d->replyTimeouts.remove(timer);
+        timer->stop();
+        timer->deleteLater();
+    }
+    reply->deleteLater();
     if (!info) {
         return;
     }
@@ -130,6 +144,7 @@ void AbstractImageDownloader::slotFinished()
         Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
             emit imageDownloaded(info->url, QString(), metadata);
         }
+        d->manageStack();
         return;
     }
 
@@ -161,6 +176,27 @@ void AbstractImageDownloader::slotFinished()
         dbWrite();
         d->loadedCount = 0;
     }
+}
+
+void AbstractImageDownloader::timedOut()
+{
+    Q_D(AbstractImageDownloader);
+
+    QTimer *timer = qobject_cast<QTimer*>(sender());
+    if (timer) {
+        QNetworkReply *reply = d->replyTimeouts.take(timer);
+        if (reply) {
+            reply->deleteLater();
+            timer->deleteLater();
+            ImageInfo *info = d->runningReplies.take(reply);
+            qWarning() << Q_FUNC_INFO << "Image download request timed out";
+            Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+                emit imageDownloaded(info->url, QString(), metadata);
+            }
+        }
+    }
+
+    d->manageStack();
 }
 
 AbstractImageDownloader::AbstractImageDownloader(QObject *parent)
