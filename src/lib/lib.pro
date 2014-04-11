@@ -3,7 +3,7 @@ include(../../common.pri)
 TEMPLATE = lib
 CONFIG += qt create_prl no_install_prl create_pc
 QT += sql
-VERSION = 0.0.19
+VERSION = 0.0.20
 
 isEmpty(PREFIX) {
     PREFIX=/usr
@@ -27,7 +27,8 @@ HEADERS = \
     facebookcontactsdatabase.h \
     facebooknotificationsdatabase.h \
     facebookpostsdatabase.h \
-    twitterpostsdatabase.h
+    twitterpostsdatabase.h \
+    caldavcalendardatabase.h
 
 SOURCES = \
     semaphore_p.cpp \
@@ -42,7 +43,8 @@ SOURCES = \
     facebookcontactsdatabase.cpp \
     facebooknotificationsdatabase.cpp \
     facebookpostsdatabase.cpp \
-    twitterpostsdatabase.cpp
+    twitterpostsdatabase.cpp \
+    caldavcalendardatabase.cpp
 
 headers.files = $$HEADERS
 headers.path = /usr/include/socialcache
