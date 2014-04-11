@@ -34,7 +34,8 @@ public:
         Twitter,
         Google,
         VK,
-        Diaspora
+        Diaspora,
+        CalDAV
     };
 
     enum DataType {
