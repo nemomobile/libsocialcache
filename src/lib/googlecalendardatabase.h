@@ -51,6 +51,7 @@ private:
 class GoogleCalendarDatabasePrivate;
 class GoogleCalendarDatabase: public AbstractSocialCacheDatabase
 {
+    Q_OBJECT
 public:
     explicit GoogleCalendarDatabase();
     ~GoogleCalendarDatabase();
