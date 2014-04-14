@@ -124,6 +124,8 @@ void AbstractImageDownloader::slotFinished()
 
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     if (!reply) {
+        qWarning() << Q_FUNC_INFO << "finished signal received with null reply";
+        d->manageStack();
         return;
     }
 
@@ -136,6 +138,8 @@ void AbstractImageDownloader::slotFinished()
     }
     reply->deleteLater();
     if (!info) {
+        qWarning() << Q_FUNC_INFO << "No image info associated with reply";
+        d->manageStack();
         return;
     }
 
@@ -222,7 +226,7 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
 {
     Q_D(AbstractImageDownloader);
     if (!dbInit()) {
-        qWarning() << "Cannot perform operation, database is not initialized";
+        qWarning() << Q_FUNC_INFO << "Cannot perform operation, database is not initialized";
         emit imageDownloaded(url, QString(), metadata); // empty file signifies error.
         return;
     }
@@ -230,6 +234,7 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
 
     Q_FOREACH (ImageInfo *info, d->runningReplies) {
         if (info->url == url) {
+            qWarning() << Q_FUNC_INFO << "duplicate running request, appending metadata.";
             info->requestsData.append(metadata);
             return;
         }
@@ -238,7 +243,9 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
     ImageInfo *info = 0;
     for (int i = 0; i < d->stack.count(); ++i) {
         if (d->stack.at(i)->url == url) {
+            qWarning() << Q_FUNC_INFO << "duplicate queued request, appending metadata.";
             info = d->stack.takeAt(i);
+            info->requestsData.append(metadata);
             break;
         }
     }
