@@ -90,6 +90,10 @@ private slots:
         const QString object2 = QLatin1String("object2");
         const QString object3 = QLatin1String("object3");
 
+        const bool unread1 = true;
+        const bool unread2 = false;
+        const bool unread3 = false;
+
         int account1 = 1; 
         int account2 = 2; 
 
@@ -98,13 +102,13 @@ private slots:
         FacebookNotificationsDatabase database;
 
         database.addFacebookNotification(id1, from1, to1, time1, time1,
-                                         title1, link1, app1, object1, account1, clientId);
+                                         title1, link1, app1, object1, unread1, account1, clientId);
 
         database.addFacebookNotification(id2, from2, to2, time2, time2,
-                                         title2, link2, app2, object2, account1, clientId);
+                                         title2, link2, app2, object2, unread2, account1, clientId);
 
         database.addFacebookNotification(id3, from3, to3, time3, time3,
-                                         title3, link3, app3, object3, account2, clientId);
+                                         title3, link3, app3, object3, unread3, account2, clientId);
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -128,6 +132,7 @@ private slots:
         QCOMPARE(notification->link(), link1);
         QCOMPARE(notification->application(), app1);
         QCOMPARE(notification->object(), object1);
+        QCOMPARE(notification->unread(), unread1);
         QCOMPARE(notification->accountId(), account1);
         QCOMPARE(notification->clientId(), clientId);
 
@@ -152,6 +157,7 @@ private slots:
         QCOMPARE(notification->link(), link3);
         QCOMPARE(notification->application(), app3);
         QCOMPARE(notification->object(), object3);
+        QCOMPARE(notification->unread(), unread3);
         QCOMPARE(notification->accountId(), account2);
         QCOMPARE(notification->clientId(), clientId);
 
@@ -164,13 +170,13 @@ private slots:
         QCOMPARE(notifications.count(), 0);
 
         database.addFacebookNotification(id1, from1, to1, time1, time1,
-                                         title1, link1, app1, object1, account1, clientId);
+                                         title1, link1, app1, object1, unread1, account1, clientId);
 
         database.addFacebookNotification(id2, from2, to2, time2, time2,
-                                         title2, link2, app2, object2, account1, clientId);
+                                         title2, link2, app2, object2, unread2, account1, clientId);
 
         database.addFacebookNotification(id3, from3, to3, time3, time3,
-                                         title3, link3, app3, object3, account2, clientId);
+                                         title3, link3, app3, object3, unread3, account2, clientId);
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -195,7 +201,7 @@ private slots:
         QCOMPARE(notifications.count(), 0);
           
         database.addFacebookNotification(id1, from1, to1, time1, time1,
-                                         title1, link1, app1, object1, account1, clientId);
+                                         title1, link1, app1, object1, unread1, account1, clientId);
         database.removeNotification(id1);
         database.sync();
         database.wait();
@@ -232,6 +238,9 @@ private slots:
         const QString object1 = QLatin1String("object1");
         const QString object2 = QLatin1String("object2");
 
+        const bool unread1 = true;
+        const bool unread2 = false;
+
         int account1 = 1;
 
         QString clientId = QLatin1String("clientId");
@@ -239,10 +248,10 @@ private slots:
         FacebookNotificationsDatabase database;
 
         database.addFacebookNotification(id1, from1, to1, time1, time1,
-                                         title1, link1, app1, object1, account1, clientId);
+                                         title1, link1, app1, object1, unread1, account1, clientId);
 
         database.addFacebookNotification(id2, from2, to2, time2, time2,
-                                         title2, link2, app2, object2, account1, clientId);
+                                         title2, link2, app2, object2, unread2, account1, clientId);
 
         database.sync();
         database.wait();

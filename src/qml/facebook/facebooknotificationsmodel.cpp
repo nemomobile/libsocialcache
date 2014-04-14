@@ -56,6 +56,7 @@ QHash<int, QByteArray> FacebookNotificationsModel::roleNames() const
     roleNames.insert(Link, "link");
     roleNames.insert(AppId, "appId");
     roleNames.insert(Object, "object");
+    roleNames.insert(Unread, "unread");
     roleNames.insert(Accounts, "accounts");
     roleNames.insert(ClientId, "clientId");
 
@@ -84,6 +85,7 @@ void FacebookNotificationsModel::notificationsChanged()
         eventMap.insert(FacebookNotificationsModel::Link, notification->link());
         eventMap.insert(FacebookNotificationsModel::AppId, notification->application());
         eventMap.insert(FacebookNotificationsModel::Object, notification->object());
+        eventMap.insert(FacebookNotificationsModel::Unread, notification->unread());
         eventMap.insert(FacebookNotificationsModel::Accounts, notification->accountId());
 
         QVariantList accountsVariant;
