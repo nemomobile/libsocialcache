@@ -37,7 +37,7 @@ public:
                                             const QDateTime &createdTime, const QDateTime &updatedTime,
                                             const QString &title, const QString &link,
                                             const QString &application, const QString &object,
-                                            int accountId, const QString &clientId);
+                                            bool unread, int accountId, const QString &clientId);
     QString facebookId() const;
     QString from() const;
     QString to() const;
@@ -47,6 +47,7 @@ public:
     QString link() const;
     QString application() const;
     QString object() const;
+    bool unread() const;
     int accountId() const;
     QString clientId() const;
 
@@ -58,7 +59,7 @@ private:
                                   const QDateTime &createdTime, const QDateTime &updatedTime,
                                   const QString &title, const QString &link,
                                   const QString &application, const QString &object,
-                                  int accountId, const QString &clientId);
+                                  bool unread, int accountId, const QString &clientId);
 };
 
 
@@ -75,7 +76,7 @@ public:
                                  const QDateTime &createdTime, const QDateTime &updatedTime,
                                  const QString &title, const QString &link,
                                  const QString &application, const QString &object,
-                                 int accountId, const QString &clientId);
+                                 bool unread, int accountId, const QString &clientId);
     void removeNotifications(int accountId);
     void removeNotification(const QString &notificationId);
     void removeNotifications(QStringList notificationIds);

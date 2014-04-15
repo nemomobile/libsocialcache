@@ -39,7 +39,8 @@ public:
         AppId,
         Object,
         Accounts,
-        ClientId
+        ClientId,
+        Unread
     };
     explicit FacebookNotificationsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;

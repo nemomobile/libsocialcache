@@ -33,7 +33,7 @@ struct FacebookNotificationPrivate
                                          const QDateTime &createdTime, const QDateTime &updatedTime,
                                          const QString &title, const QString &link,
                                          const QString &application, const QString &object,
-                                         int accountId, const QString &clientId);
+                                         bool unread, int accountId, const QString &clientId);
 
     QString m_facebookId;
     QString m_from;
@@ -44,6 +44,7 @@ struct FacebookNotificationPrivate
     QString m_link;
     QString m_application;
     QString m_object;
+    bool m_unread;
     int m_accountId;
     QString m_clientId;
 };
@@ -52,7 +53,7 @@ FacebookNotificationPrivate::FacebookNotificationPrivate(const QString &facebook
                                                          const QDateTime &createdTime, const QDateTime &updatedTime,
                                                          const QString &title, const QString &link,
                                                          const QString &application, const QString &object,
-                                                         int accountId, const QString &clientId)
+                                                         bool unread, int accountId, const QString &clientId)
     : m_facebookId(facebookId)
     , m_from(from)
     , m_to(to)
@@ -62,6 +63,7 @@ FacebookNotificationPrivate::FacebookNotificationPrivate(const QString &facebook
     , m_link(link)
     , m_application(application)
     , m_object(object)
+    , m_unread(unread)
     , m_accountId(accountId)
     , m_clientId(clientId)
 {
@@ -71,9 +73,9 @@ FacebookNotification::FacebookNotification(const QString &facebookId, const QStr
                                            const QDateTime &createdTime, const QDateTime &updatedTime,
                                            const QString &title, const QString &link,
                                            const QString &application, const QString &object,
-                                           int accountId, const QString &clientId)
+                                           bool unread, int accountId, const QString &clientId)
     : d_ptr(new FacebookNotificationPrivate(facebookId, from, to, createdTime, updatedTime, title, link,
-                                            application, object, accountId, clientId))
+                                            application, object, unread, accountId, clientId))
 {
 }
 
@@ -81,10 +83,10 @@ FacebookNotification::Ptr FacebookNotification::create(const QString &facebookId
                                                        const QDateTime &createdTime, const QDateTime &updatedTime,
                                                        const QString &title, const QString &link,
                                                        const QString &application, const QString &object,
-                                                       int accountId, const QString &clientId)
+                                                       bool unread, int accountId, const QString &clientId)
 {
     return FacebookNotification::Ptr(new FacebookNotification(facebookId, from, to, createdTime, updatedTime, title, link,
-                                                              application, object, accountId, clientId));
+                                                              application, object, unread, accountId, clientId));
 }
 
 FacebookNotification::~FacebookNotification()
@@ -145,6 +147,12 @@ QString FacebookNotification::object() const
     return d->m_object;
 }
 
+bool FacebookNotification::unread() const
+{
+    Q_D(const FacebookNotification);
+    return d->m_unread;
+}
+
 int FacebookNotification::accountId() const
 {
     Q_D(const FacebookNotification);
@@ -199,11 +207,11 @@ void FacebookNotificationsDatabase::addFacebookNotification(const QString &faceb
                                                             const QDateTime &createdTime, const QDateTime &updatedTime,
                                                             const QString &title, const QString &link,
                                                             const QString &application, const QString &object,
-                                                            int accountId, const QString &clientId)
+                                                            bool unread, int accountId, const QString &clientId)
 {
     Q_D(FacebookNotificationsDatabase);
     d->insertNotifications[accountId].append(FacebookNotification::create(facebookId, from, to, createdTime, updatedTime, title, link,
-                                                                          application, object, accountId, clientId));
+                                                                          application, object, unread, accountId, clientId));
 }
 
 void FacebookNotificationsDatabase::removeNotifications(int accountId)
@@ -285,7 +293,7 @@ QList<FacebookNotification::ConstPtr> FacebookNotificationsDatabase::notificatio
     QSqlQuery query;
     query = prepare(QStringLiteral(
                 "SELECT facebookId, accountId, fromStr, toStr, createdTime, updatedTime, title, link, application," \
-                "objectStr, clientId FROM notifications ORDER BY updatedTime DESC"));
+                "objectStr, unread, clientId FROM notifications ORDER BY updatedTime DESC"));
 
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to query events" << query.lastError().text();
@@ -302,8 +310,9 @@ QList<FacebookNotification::ConstPtr> FacebookNotificationsDatabase::notificatio
                                                  query.value(7).toString(),                      // link
                                                  query.value(8).toString(),                      // application
                                                  query.value(9).toString(),                      // object
+                                                 query.value(10).toBool(),                       // unread
                                                  query.value(1).toInt(),                         // accountId
-                                                 query.value(10).toString()));                   // clientId
+                                                 query.value(11).toString()));                   // clientId
     }
 
     return data;
@@ -367,6 +376,7 @@ bool FacebookNotificationsDatabase::write()
         QVariantList titles;
         QVariantList links;
         QVariantList applications;
+        QVariantList unreads;
         QVariantList objects;
         QVariantList clientIds;
 
@@ -382,15 +392,16 @@ bool FacebookNotificationsDatabase::write()
                 links.append(notification->link());
                 applications.append(notification->application());
                 objects.append(notification->object());
+                unreads.append((notification->unread()));
                 clientIds.append(notification->clientId());
             }
         }
 
         query = prepare(QStringLiteral(
                     "INSERT OR REPLACE INTO notifications ("
-                    " facebookId, accountId, fromStr, toStr, createdTime, updatedTime, title, link, application, objectStr, clientId) "
+                    " facebookId, accountId, fromStr, toStr, createdTime, updatedTime, title, link, application, objectStr, unread, clientId) "
                     "VALUES("
-                    " :facebookId, :accountId, :fromStr, :toStr, :createdTime, :updatedTime, :title, :link, :application, :objectStr, :clientId)"));
+                    " :facebookId, :accountId, :fromStr, :toStr, :createdTime, :updatedTime, :title, :link, :application, :objectStr, :unread, :clientId)"));
         query.bindValue(QStringLiteral(":facebookId"), facebookIds);
         query.bindValue(QStringLiteral(":accountId"), accountIds);
         query.bindValue(QStringLiteral(":fromStr"), fromStrings);
@@ -401,6 +412,7 @@ bool FacebookNotificationsDatabase::write()
         query.bindValue(QStringLiteral(":link"), links);
         query.bindValue(QStringLiteral(":application"), applications);
         query.bindValue(QStringLiteral(":objectStr"), objects);
+        query.bindValue(QStringLiteral(":unread"), unreads);
         query.bindValue(QStringLiteral(":clientId"), clientIds);
 
         executeBatchSocialCacheQuery(query);
@@ -425,7 +437,7 @@ bool FacebookNotificationsDatabase::createTables(QSqlDatabase database) const
     QSqlQuery query(database);
 
     // create the Facebook notification db tables
-    // notifications = facebookId, accountId, from, to, createdTime, updatedTime, title, link, application, objectStr, clientId
+    // notifications = facebookId, accountId, from, to, createdTime, updatedTime, title, link, application, objectStr, unread, clientId
     query.prepare("CREATE TABLE IF NOT EXISTS notifications ("
                   "facebookId TEXT UNIQUE PRIMARY KEY,"
                   "accountId INTEGER,"
@@ -437,6 +449,7 @@ bool FacebookNotificationsDatabase::createTables(QSqlDatabase database) const
                   "link TEXT,"
                   "application TEXT,"
                   "objectStr TEXT,"
+                  "unread INTEGER,"
                   "clientId TEXT)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create notifications table: " << query.lastError().text();
