@@ -38,8 +38,10 @@ HEADERS += \
     facebook/facebookpostsmodel.h \
     facebook/facebooknotificationsmodel.h \
     twitter/twitterpostsmodel.h \
+<<<<<<< HEAD
     generic/socialimagedownloader.h \
-    generic/socialimagedownloader_p.h
+    generic/socialimagedownloader_p.h \
+    vk/vkpostsmodel.h
 
 SOURCES += plugin.cpp \
     abstractsocialcachemodel.cpp \
@@ -48,7 +50,8 @@ SOURCES += plugin.cpp \
     facebook/facebookpostsmodel.cpp \
     facebook/facebooknotificationsmodel.cpp \
     twitter/twitterpostsmodel.cpp \
-    generic/socialimagedownloader.cpp
+    generic/socialimagedownloader.cpp \
+    vk/vkpostsmodel.cpp
 
 OTHER_FILES += qmldir
 import.files = qmldir
