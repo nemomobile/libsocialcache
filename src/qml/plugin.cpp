@@ -29,6 +29,7 @@
 #include "facebook/facebookpostsmodel.h"
 #include "facebook/facebooknotificationsmodel.h"
 #include "twitter/twitterpostsmodel.h"
+#include "vk/vkpostsmodel.h"
 
 #ifndef NO_DEPS
 #include "synchelper.h"
@@ -93,9 +94,7 @@ public:
                                                           &facebookImageDownloader_provider);
 
         qmlRegisterType<TwitterPostsModel>(uri, 1, 0, "TwitterPostsModel");
-
-
-
+        qmlRegisterType<VKPostsModel>(uri, 1, 0, "VKPostsModel");
 
 #ifndef NO_DEPS
         qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",
