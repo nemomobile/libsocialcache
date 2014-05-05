@@ -30,7 +30,8 @@
 #include "facebook/facebooknotificationsmodel.h"
 #include "twitter/twitterpostsmodel.h"
 #include "generic/socialimagedownloader.h"
-
+#include "vk/vkpostsmodel.h"
+#include "vk/vkimagecachemodel.h"
 
 #ifndef NO_DEPS
 #include "synchelper.h"
@@ -60,6 +61,15 @@ static QObject *facebookImageDownloader_provider(QQmlEngine *engine, QJSEngine *
     Q_UNUSED(scriptEngine)
 
     FacebookImageDownloader *downloader = new FacebookImageDownloader();
+    return downloader;
+}
+
+static QObject *vkImageDownloader_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
+{
+    Q_UNUSED(engine)
+    Q_UNUSED(scriptEngine)
+
+    VKImageDownloader *downloader = new VKImageDownloader();
     return downloader;
 }
 
@@ -97,6 +107,12 @@ public:
         qmlRegisterType<TwitterPostsModel>(uri, 1, 0, "TwitterPostsModel");
 
         qmlRegisterType<SocialImageDownloader>(uri, 1, 0, "SocialImageCache");
+
+        qmlRegisterType<VKPostsModel>(uri, 1, 0, "VKPostsModel");
+        qmlRegisterType<VKImageCacheModel>(uri, 1, 0, "VKImageCacheModel");
+
+        qmlRegisterSingletonType<VKImageDownloader>(uri, 1, 0, "VKImageDownloader",
+                                                          &vkImageDownloader_provider);
 
 #ifndef NO_DEPS
         qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",

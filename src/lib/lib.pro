@@ -27,7 +27,10 @@ HEADERS = \
     facebookpostsdatabase.h \
     twitterpostsdatabase.h \
     twitternotificationsdatabase.h \
-    socialimagesdatabase.h
+    socialimagesdatabase.h \
+    vkpostsdatabase.h \
+    vknotificationsdatabase.h \
+    vkimagesdatabase.h
 
 SOURCES = \
     semaphore_p.cpp \
@@ -42,7 +45,10 @@ SOURCES = \
     facebookpostsdatabase.cpp \
     twitterpostsdatabase.cpp \
     twitternotificationsdatabase.cpp \
-    socialimagesdatabase.cpp
+    socialimagesdatabase.cpp \
+    vkpostsdatabase.cpp \
+    vknotificationsdatabase.cpp \
+    vkimagesdatabase.cpp
 
 headers.files = $$HEADERS
 headers.path = /usr/include/socialcache
