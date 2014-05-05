@@ -151,8 +151,6 @@ public:
                    const QString &personName,
                    const QString &personIcon,
                    int accountId);
-
-    // TODO need to return a list of post objects from db
 };
 
 #endif // VKPOSTSDATABASE_H
