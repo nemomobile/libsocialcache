@@ -32,7 +32,7 @@
 #include "generic/socialimagedownloader.h"
 #include "onedrive/onedriveimagecachemodel.h"
 #include "dropbox/dropboximagecachemodel.h"
-
+#include "vk/vkpostsmodel.h"
 
 #ifndef NO_DEPS
 #include "synchelper.h"
@@ -123,6 +123,7 @@ public:
         qmlRegisterType<DropboxImageCacheModel>(uri, 1, 0, "DropboxImageCacheModel");
         qmlRegisterSingletonType<DropboxImageDownloader>(uri, 1, 0, "DropboxImageDownloader",
                                                           &dropboxImageDownloader_provider);
+        qmlRegisterType<VKPostsModel>(uri, 1, 0, "VKPostsModel");
 
 #ifndef NO_DEPS
         qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",

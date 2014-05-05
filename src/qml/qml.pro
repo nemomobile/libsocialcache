@@ -47,7 +47,8 @@ HEADERS += \
     dropbox/dropboximagecachemodel.h \
     dropbox/dropboximagedownloader.h \
     dropbox/dropboximagedownloader_p.h \
-    dropbox/dropboximagedownloaderconstants_p.h
+    dropbox/dropboximagedownloaderconstants_p.h \
+    vk/vkpostsmodel.h
 
 SOURCES += plugin.cpp \
     abstractsocialcachemodel.cpp \
@@ -60,7 +61,8 @@ SOURCES += plugin.cpp \
     onedrive/onedriveimagedownloader.cpp \
     onedrive/onedriveimagecachemodel.cpp \
     dropbox/dropboximagecachemodel.cpp \
-    dropbox/dropboximagedownloader.cpp
+    dropbox/dropboximagedownloader.cpp \
+    vk/vkpostsmodel.cpp
 
 OTHER_FILES += qmldir
 import.files = qmldir
