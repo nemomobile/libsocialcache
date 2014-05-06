@@ -65,14 +65,19 @@ public:
                                       int accountId,
                                       Type type,
                                       const QString &fromId,
+                                      const QString &fromName,
+                                      const QString &fromIcon,
                                       const QString &toId,
                                       const QDateTime &createdTime);
     QString identifier() const;
     Type type() const;
-    QString from() const;
-    QString to() const;
+    QString fromId() const;
+    QString fromName() const;
+    QString fromIcon() const;
+    QString toId() const;
     QDateTime createdTime() const;
     int accountId() const;
+
 
 protected:
     QScopedPointer<VKNotificationPrivate> d_ptr;
@@ -82,6 +87,8 @@ private:
                             int accountId,
                             Type type,
                             const QString &fromId,
+                            const QString &fromName,
+                            const QString &fromIcon,
                             const QString &toId,
                             const QDateTime &createdTime);
 };
@@ -99,6 +106,8 @@ public:
     void addVKNotification(int accountId,
                            VKNotification::Type type,
                            const QString &fromId,
+                           const QString &fromName,
+                           const QString &fromIcon,
                            const QString &toId,
                            const QDateTime &createdTime);
 
