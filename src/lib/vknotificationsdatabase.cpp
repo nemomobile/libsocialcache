@@ -33,6 +33,8 @@ struct VKNotificationPrivate
                                    int accountId,
                                    VKNotification::Type type,
                                    const QString &fromId,
+                                   const QString &fromName,
+                                   const QString &fromIcon,
                                    const QString &toId,
                                    const QDateTime &createdTime);
 
@@ -40,6 +42,8 @@ struct VKNotificationPrivate
     int m_accountId;
     VKNotification::Type m_type;
     QString m_fromId;
+    QString m_fromName;
+    QString m_fromIcon;
     QString m_toId;
     QDateTime m_createdTime;
 };
@@ -48,12 +52,16 @@ VKNotificationPrivate::VKNotificationPrivate(const QString &identifier,
                                              int accountId,
                                              VKNotification::Type type,
                                              const QString &fromId,
+                                             const QString &fromName,
+                                             const QString &fromIcon,
                                              const QString &toId,
                                              const QDateTime &createdTime)
     : m_id(identifier)
     , m_accountId(accountId)
     , m_type(type)
     , m_fromId(fromId)
+    , m_fromName(fromName)
+    , m_fromIcon(fromIcon)
     , m_toId(toId)
     , m_createdTime(createdTime)
 {
@@ -63,9 +71,11 @@ VKNotification::VKNotification(const QString &identifier,
                                int accountId,
                                Type type,
                                const QString &fromId,
+                               const QString &fromName,
+                               const QString &fromIcon,
                                const QString &toId,
                                const QDateTime &createdTime)
-    : d_ptr(new VKNotificationPrivate(identifier, accountId, type, fromId, toId, createdTime))
+    : d_ptr(new VKNotificationPrivate(identifier, accountId, type, fromId, fromName, fromIcon, toId, createdTime))
 {
 }
 
@@ -73,10 +83,12 @@ VKNotification::Ptr VKNotification::create(const QString &identifier,
                                            int accountId,
                                            Type type,
                                            const QString &fromId,
+                                           const QString &fromName,
+                                           const QString &fromIcon,
                                            const QString &toId,
                                            const QDateTime &createdTime)
 {
-    return VKNotification::Ptr(new VKNotification(identifier, accountId, type, fromId, toId, createdTime));
+    return VKNotification::Ptr(new VKNotification(identifier, accountId, type, fromId, fromName, fromIcon, toId, createdTime));
 }
 
 VKNotification::~VKNotification()
@@ -95,13 +107,25 @@ VKNotification::Type VKNotification::type() const
     return d->m_type;
 }
 
-QString VKNotification::from() const
+QString VKNotification::fromId() const
 {
     Q_D(const VKNotification);
     return d->m_fromId;
 }
 
-QString VKNotification::to() const
+QString VKNotification::fromName() const
+{
+    Q_D(const VKNotification);
+    return d->m_fromName;
+}
+
+QString VKNotification::fromIcon() const
+{
+    Q_D(const VKNotification);
+    return d->m_fromIcon;
+}
+
+QString VKNotification::toId() const
 {
     Q_D(const VKNotification);
     return d->m_toId;
@@ -159,11 +183,13 @@ VKNotificationsDatabase::~VKNotificationsDatabase()
 void VKNotificationsDatabase::addVKNotification(int accountId,
                                                 VKNotification::Type type,
                                                 const QString &fromId,
+                                                const QString &fromName,
+                                                const QString &fromIcon,
                                                 const QString &toId,
                                                 const QDateTime &createdTime)
 {
     Q_D(VKNotificationsDatabase);
-    d->insertNotifications[accountId].append(VKNotification::create(QString(), accountId, type, fromId, toId, createdTime));
+    d->insertNotifications[accountId].append(VKNotification::create(QString(), accountId, type, fromId, fromName, fromIcon, toId, createdTime));
 }
 
 void VKNotificationsDatabase::removeNotifications(int accountId)
@@ -223,7 +249,7 @@ QList<VKNotification::ConstPtr> VKNotificationsDatabase::notifications()
 
     QSqlQuery query;
     query = prepare(QStringLiteral(
-                "SELECT identifier, accountId, type, fromStr, toStr, createdTime " \
+                "SELECT identifier, accountId, type, fromId, fromName, fromIcon, toId, createdTime " \
                 "FROM notifications ORDER BY createdTime DESC"));
 
     if (!query.exec()) {
@@ -235,9 +261,11 @@ QList<VKNotification::ConstPtr> VKNotificationsDatabase::notifications()
         data.append(VKNotification::create(QString::number(query.value(0).toInt()),         // id
                                            query.value(1).toInt(),                          // accountId
                                            VKNotification::Type(query.value(2).toInt()),    // type
-                                           query.value(3).toString(),                       // from
-                                           query.value(4).toString(),                       // to
-                                           QDateTime::fromTime_t(query.value(5).toInt()))); // createdTime
+                                           query.value(3).toString(),                       // fromId
+                                           query.value(4).toString(),                       // fromName
+                                           query.value(5).toString(),                       // fromIcon
+                                           query.value(6).toString(),                       // toId
+                                           QDateTime::fromTime_t(query.value(7).toInt()))); // createdTime
     }
 
     return data;
@@ -293,16 +321,20 @@ bool VKNotificationsDatabase::write()
 
     if (!insertNotifications.isEmpty()) {
         QVariantList accountIds;
-        QVariantList fromStrings;
-        QVariantList toStrings;
-        QVariantList createdTimes;
         QVariantList types;
+        QVariantList fromIds;
+        QVariantList fromNames;
+        QVariantList fromIcons;
+        QVariantList toIds;
+        QVariantList createdTimes;
 
         Q_FOREACH (const QList<VKNotification::ConstPtr> &notifications, insertNotifications) {
             Q_FOREACH (const VKNotification::ConstPtr &notification, notifications) {
                 accountIds.append(notification->accountId());
-                fromStrings.append(notification->from());
-                toStrings.append(notification->to());
+                fromIds.append(notification->fromId());
+                fromNames.append(notification->fromName());
+                fromIcons.append(notification->fromIcon());
+                toIds.append(notification->toId());
                 createdTimes.append(notification->createdTime().toTime_t());
                 types.append(int(notification->type()));
             }
@@ -310,13 +342,15 @@ bool VKNotificationsDatabase::write()
 
         query = prepare(QStringLiteral(
                     "INSERT OR REPLACE INTO notifications ("
-                    " accountId, fromStr, toStr, createdTime) "
+                    " accountId, type, fromId, fromName, fromIcon, toId, createdTime) "
                     "VALUES("
-                    " :accountId, :type, :fromStr, :toStr, :createdTime)"));
+                    " :accountId, :type, :fromId, :fromName, :fromIcon, :toId, :createdTime)"));
         query.bindValue(QStringLiteral(":accountId"), accountIds);
         query.bindValue(QStringLiteral(":type"), types);
-        query.bindValue(QStringLiteral(":fromStr"), fromStrings);
-        query.bindValue(QStringLiteral(":toStr"), toStrings);
+        query.bindValue(QStringLiteral(":fromId"), fromIds);
+        query.bindValue(QStringLiteral(":fromName"), fromNames);
+        query.bindValue(QStringLiteral(":fromIcon"), fromIcons);
+        query.bindValue(QStringLiteral(":toId"), toIds);
         query.bindValue(QStringLiteral(":createdTime"), createdTimes);
 
         executeBatchSocialCacheQuery(query);
@@ -329,15 +363,15 @@ bool VKNotificationsDatabase::createTables(QSqlDatabase database) const
 {
     QSqlQuery query(database);
 
-    // create the VK notification db tables
-    // notifications = identifier, accountId, from, to, createdTime
-    query.prepare("CREATE TABLE IF NOT EXISTS notifications ("
-                  "identifier INTEGER NOT NULL AUTO_INCREMENT,"
-                  "accountId INTEGER,"
-                  "fromStr TEXT,"
-                  "toStr TEXT,"
-                  "createdTime INTEGER,"
-                  "type INTEGER");
+    query.prepare("CREATE TABLE IF NOT EXISTS notifications ("\
+                  "identifier INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,"\
+                  "accountId INTEGER,"\
+                  "type INTEGER,"\
+                  "fromId TEXT,"\
+                  "fromName TEXT,"\
+                  "fromIcon TEXT,"\
+                  "toId TEXT,"\
+                  "createdTime INTEGER)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create notifications table: " << query.lastError().text();
         return false;
