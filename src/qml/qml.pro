@@ -39,7 +39,8 @@ HEADERS += \
     facebook/facebooknotificationsmodel.h \
     twitter/twitterpostsmodel.h \
     vk/vkpostsmodel.h \
-    vk/vknotificationsmodel.h
+    vk/vknotificationsmodel.h \
+    vk/vkfeedmodel.h \
 
 SOURCES += plugin.cpp \
     abstractsocialcachemodel.cpp \
@@ -49,7 +50,8 @@ SOURCES += plugin.cpp \
     facebook/facebooknotificationsmodel.cpp \
     twitter/twitterpostsmodel.cpp \
     vk/vkpostsmodel.cpp \
-    vk/vknotificationsmodel.cpp
+    vk/vknotificationsmodel.cpp \
+    vk/vkfeedmodel.cpp
 
 OTHER_FILES += qmldir
 import.files = qmldir
