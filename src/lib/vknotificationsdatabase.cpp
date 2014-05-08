@@ -31,7 +31,7 @@ struct VKNotificationPrivate
 {
     explicit VKNotificationPrivate(const QString &identifier,
                                    int accountId,
-                                   VKNotification::Type type,
+                                   const QString &type,
                                    const QString &fromId,
                                    const QString &fromName,
                                    const QString &fromIcon,
@@ -40,7 +40,7 @@ struct VKNotificationPrivate
 
     QString m_id;
     int m_accountId;
-    VKNotification::Type m_type;
+    QString m_type;
     QString m_fromId;
     QString m_fromName;
     QString m_fromIcon;
@@ -50,7 +50,7 @@ struct VKNotificationPrivate
 
 VKNotificationPrivate::VKNotificationPrivate(const QString &identifier,
                                              int accountId,
-                                             VKNotification::Type type,
+                                             const QString &type,
                                              const QString &fromId,
                                              const QString &fromName,
                                              const QString &fromIcon,
@@ -69,7 +69,7 @@ VKNotificationPrivate::VKNotificationPrivate(const QString &identifier,
 
 VKNotification::VKNotification(const QString &identifier,
                                int accountId,
-                               Type type,
+                               const QString &type,
                                const QString &fromId,
                                const QString &fromName,
                                const QString &fromIcon,
@@ -81,7 +81,7 @@ VKNotification::VKNotification(const QString &identifier,
 
 VKNotification::Ptr VKNotification::create(const QString &identifier,
                                            int accountId,
-                                           Type type,
+                                           const QString &type,
                                            const QString &fromId,
                                            const QString &fromName,
                                            const QString &fromIcon,
@@ -101,7 +101,7 @@ QString VKNotification::identifier() const
     return d->m_id;
 }
 
-VKNotification::Type VKNotification::type() const
+QString VKNotification::type() const
 {
     Q_D(const VKNotification);
     return d->m_type;
@@ -181,7 +181,7 @@ VKNotificationsDatabase::~VKNotificationsDatabase()
 }
 
 void VKNotificationsDatabase::addVKNotification(int accountId,
-                                                VKNotification::Type type,
+                                                const QString &type,
                                                 const QString &fromId,
                                                 const QString &fromName,
                                                 const QString &fromIcon,
@@ -260,7 +260,7 @@ QList<VKNotification::ConstPtr> VKNotificationsDatabase::notifications()
     while (query.next()) {
         data.append(VKNotification::create(QString::number(query.value(0).toInt()),         // id
                                            query.value(1).toInt(),                          // accountId
-                                           VKNotification::Type(query.value(2).toInt()),    // type
+                                           query.value(2).toString(),                       // type
                                            query.value(3).toString(),                       // fromId
                                            query.value(4).toString(),                       // fromName
                                            query.value(5).toString(),                       // fromIcon
@@ -336,7 +336,7 @@ bool VKNotificationsDatabase::write()
                 fromIcons.append(notification->fromIcon());
                 toIds.append(notification->toId());
                 createdTimes.append(notification->createdTime().toTime_t());
-                types.append(int(notification->type()));
+                types.append(notification->type());
             }
         }
 
@@ -366,7 +366,7 @@ bool VKNotificationsDatabase::createTables(QSqlDatabase database) const
     query.prepare("CREATE TABLE IF NOT EXISTS notifications ("\
                   "identifier INTEGER UNIQUE PRIMARY KEY AUTOINCREMENT,"\
                   "accountId INTEGER,"\
-                  "type INTEGER,"\
+                  "type TEXT,"\
                   "fromId TEXT,"\
                   "fromName TEXT,"\
                   "fromIcon TEXT,"\
