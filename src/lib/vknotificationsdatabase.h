@@ -33,44 +33,18 @@ public:
     typedef QSharedPointer<VKNotification> Ptr;
     typedef QSharedPointer<const VKNotification> ConstPtr;
 
-    enum Type {
-        Follow,
-        FriendRequestAccepted,
-        Mention,
-        MentionComments,
-        WallPost,
-        CommentPost,
-        CommentPhoto,
-        CommentVideo,
-        ReplyComment,
-        ReplyCommentPhoto,
-        ReplyCommentVideo,
-        ReplyTopic,
-        LikePost,
-        LikeComment,
-        LikePhoto,
-        LikeVideo,
-        LikeCommentPhoto,
-        LikeCommentVideo,
-        LikeCommentTopic,
-        CopyPost,
-        CopyPhoto,
-        CopyVideo
-    };
-
-
     virtual ~VKNotification();
 
     static VKNotification::Ptr create(const QString &identifier,
                                       int accountId,
-                                      Type type,
+                                      const QString &type,
                                       const QString &fromId,
                                       const QString &fromName,
                                       const QString &fromIcon,
                                       const QString &toId,
                                       const QDateTime &createdTime);
     QString identifier() const;
-    Type type() const;
+    QString type() const;
     QString fromId() const;
     QString fromName() const;
     QString fromIcon() const;
@@ -85,7 +59,7 @@ private:
     Q_DECLARE_PRIVATE(VKNotification)
     explicit VKNotification(const QString &identifier,
                             int accountId,
-                            Type type,
+                            const QString &type,
                             const QString &fromId,
                             const QString &fromName,
                             const QString &fromIcon,
@@ -104,7 +78,7 @@ public:
     ~VKNotificationsDatabase();
 
     void addVKNotification(int accountId,
-                           VKNotification::Type type,
+                           const QString &type,
                            const QString &fromId,
                            const QString &fromName,
                            const QString &fromIcon,
