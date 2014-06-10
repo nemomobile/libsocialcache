@@ -78,8 +78,7 @@ void AbstractImageDownloaderPrivate::manageStack()
             timer->start();
             replyTimeouts.insert(timer, reply);
             reply->setProperty("timeoutTimer", QVariant::fromValue<QTimer*>(timer));
-            QObject::connect(reply, &QNetworkReply::finished,
-                    q, &AbstractImageDownloader::slotFinished);
+            QObject::connect(reply, SIGNAL(finished()), q, SLOT(slotFinished())); // For some reason, this fixes an issue with oopp sync plugins
             runningReplies.insert(reply, info);
         } else {
             // emit signal.  Empty file signifies error.
