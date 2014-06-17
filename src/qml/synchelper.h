@@ -45,6 +45,7 @@ public:
     bool loading() const;
 public Q_SLOTS:
     void sync();
+    void sync(QStringList accounts);
 Q_SIGNALS:
     void socialNetworkChanged();
     void dataTypeChanged();

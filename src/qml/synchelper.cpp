@@ -91,6 +91,15 @@ void SyncHelper::sync()
     m_interface->startSync(SocialSyncInterface::profileName(m_socialNetwork, m_dataType));
 }
 
+void SyncHelper::sync(QStringList accounts)
+{
+    QString profileName = SocialSyncInterface::profileName(m_socialNetwork, m_dataType);
+    foreach (const QString account, accounts) {
+        QString perAccountProfileName = profileName + "-" + account;
+        m_interface->startSync(perAccountProfileName);
+    }
+}
+
 void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
                                 const QString &aMessage, int aStatusDetails)
 {
