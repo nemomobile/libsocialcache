@@ -19,6 +19,9 @@
 
 #include "synchelper.h"
 #include <buteosyncfw5/SyncCommonDefs.h>
+#include <Accounts/Manager>
+#include <Accounts/Account>
+#include <Accounts/Service>
 
 SyncHelper::SyncHelper(QObject *parent) :
     QObject(parent), QQmlParserStatus(), m_socialNetwork(SocialSyncInterface::InvalidSocialNetwork)
@@ -88,7 +91,21 @@ void SyncHelper::setLoading(bool loading)
 
 void SyncHelper::sync()
 {
-    m_interface->startSync(SocialSyncInterface::profileName(m_socialNetwork, m_dataType));
+    Accounts::Manager am;
+    Accounts::AccountIdList accountIds = am.accountList();
+    QList<Buteo::SyncProfile*> allProfiles = m_profileManager.allSyncProfiles();
+    QString profileNamePrefix = SocialSyncInterface::profileName(m_socialNetwork, m_dataType) + "-";
+
+    foreach (Buteo::SyncProfile *profile, allProfiles) {
+        if (profile->name().startsWith(profileNamePrefix)) {
+            int accountId = profile->name().split("-").last().toInt();
+            if (accountIds.indexOf(accountId) != -1) {
+                m_interface->startSync(profile->name());
+            }
+        }
+    }
+
+    qDeleteAll(allProfiles);
 }
 
 void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,

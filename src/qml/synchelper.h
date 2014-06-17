@@ -23,6 +23,9 @@
 #include <QtQml/QQmlParserStatus>
 #include "socialsyncinterface.h"
 #include <buteosyncfw5/SyncClientInterface.h>
+#include <buteosyncfw5/ProfileManager.h>
+
+class AccountManager;
 
 class SyncHelper : public QObject, public QQmlParserStatus
 {
@@ -63,6 +66,8 @@ private:
     QStringList m_activeSyncs;
     bool m_complete;
     bool m_loading;
+    AccountManager *m_accountManager;
+    Buteo::ProfileManager m_profileManager;
 };
 
 #endif // SYNCHELPER_H
