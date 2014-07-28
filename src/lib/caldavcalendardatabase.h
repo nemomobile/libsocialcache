@@ -40,6 +40,11 @@ public:
     void insertAdditions(const QString &notebookUid, const QStringList &incidenceUids);
     void insertModifications(const QString &notebookUid, const QHash<QString, QString> &incidenceDetails);
     void insertDeletions(const QString &notebookUid, const QStringList &incidenceUids);
+    void removeIncidenceChangeEntriesOnly(const QString &notebookUid);
+
+    QHash<QString, QString> eTags(const QString &notebookUid, bool *ok);
+    void insertETags(const QString &notebookUid, QHash<QString, QString> &eTags);
+
     void removeEntries(const QString &notebookUid);
 
     bool hasChanges();
