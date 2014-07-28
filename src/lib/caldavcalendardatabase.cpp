@@ -40,6 +40,11 @@ public:
 private:
     Q_DECLARE_PUBLIC(CalDavCalendarDatabase);
 
+    enum EntryRemovalMode {
+        RemoveAllEntries,
+        RemoveIncidenceChangeEntriesOnly
+    };
+
     typedef QHash<QString, QString> IncidenceUpdate;
     typedef QHash<QString, QString> IncidenceETag;
 
@@ -166,7 +171,7 @@ void CalDavCalendarDatabase::removeIncidenceChangeEntriesOnly(const QString &not
     Q_D(CalDavCalendarDatabase);
 
     QMutexLocker locker(&d->mutex);
-    d->queue.notebookUidsToDelete.insert(notebookUid, false);
+    d->queue.notebookUidsToDelete.insert(notebookUid, CalDavCalendarDatabasePrivate::RemoveIncidenceChangeEntriesOnly);
 }
 
 // Removes all types of entries for this notebook
@@ -175,7 +180,7 @@ void CalDavCalendarDatabase::removeEntries(const QString &notebookUid)
     Q_D(CalDavCalendarDatabase);
 
     QMutexLocker locker(&d->mutex);
-    d->queue.notebookUidsToDelete.insert(notebookUid, true);
+    d->queue.notebookUidsToDelete.insert(notebookUid, CalDavCalendarDatabasePrivate::RemoveAllEntries);
 }
 
 QHash<QString, QString> CalDavCalendarDatabase::eTags(const QString &notebookUid, bool *ok)
@@ -253,8 +258,7 @@ bool CalDavCalendarDatabase::write()
         }
         QStringList removeETagsWithNotebookUids;
         Q_FOREACH (const QString &notebookUid, notebookUids) {
-            bool removeAllNotebookEntries = notebookUidsToDelete[notebookUid];
-            if (removeAllNotebookEntries) {
+            if (notebookUidsToDelete[notebookUid] == CalDavCalendarDatabasePrivate::RemoveAllEntries) {
                 removeETagsWithNotebookUids.append(notebookUid);
             }
         }
@@ -393,12 +397,9 @@ bool CalDavCalendarDatabasePrivate::writeETags(const QHash<QString, IncidenceETa
     QVariantList incidenceUidsVariants;
     QVariantList notebookUidsVariants;
     QVariantList incidenceETagVariants;
-    qWarning() << "write etags" << eTags.uniqueKeys();
     Q_FOREACH (const QString &notebookUid, eTags.uniqueKeys()) {
         const IncidenceETag &incidencesAndETags = eTags[notebookUid];
-        qWarning() << "write" << incidencesAndETags.keys();
         Q_FOREACH (const QString &incidenceUid, incidencesAndETags.uniqueKeys()) {
-            qWarning() << "write incidenceUid" << incidenceUid;
             incidenceUidsVariants << incidenceUid;
             notebookUidsVariants << notebookUid;
             incidenceETagVariants << incidencesAndETags[incidenceUid];
