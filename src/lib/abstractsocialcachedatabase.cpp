@@ -161,6 +161,7 @@ bool AbstractSocialCacheDatabasePrivate::initializeThreadData(ThreadData *thread
     }
 
     const int databaseVersion = query.value(0).toInt();
+    query.finish();
 
     if (databaseVersion < version) {
         createTables = true;
