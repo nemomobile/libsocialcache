@@ -278,8 +278,11 @@ void FacebookImageCacheModel::queryFinished()
     }
     case Albums: {
         QList<FacebookAlbum::ConstPtr> albumsData = d->database.albums();
+
+        QString fbUserId;
         Q_FOREACH (const FacebookAlbum::ConstPtr & albumData, albumsData) {
             QMap<int, QVariant> albumMap;
+            fbUserId = albumData->fbUserId();  // remember user id for 'All' album
             albumMap.insert(FacebookImageCacheModel::FacebookId, albumData->fbAlbumId());
             albumMap.insert(FacebookImageCacheModel::Title, albumData->albumName());
             albumMap.insert(FacebookImageCacheModel::Count, albumData->imageCount());
@@ -296,11 +299,11 @@ void FacebookImageCacheModel::queryFinished()
 
             albumMap.insert(FacebookImageCacheModel::FacebookId, QString());
             // albumMap.insert(FacebookImageCacheModel::Icon, QString());
-            //:  Label for the "show all photos from all albums (by this user or by all users, depending...)" option
+            //:  Label for the "show all photos from all albums by this user" option
             //% "All"
             albumMap.insert(FacebookImageCacheModel::Title, qtTrId("nemo_socialcache_facebook_images_model-all-albums"));
             albumMap.insert(FacebookImageCacheModel::Count, count);
-            albumMap.insert(FacebookImageCacheModel::UserId, QString());
+            albumMap.insert(FacebookImageCacheModel::UserId, fbUserId);
             data.prepend(albumMap);
         }
         break;
