@@ -138,6 +138,7 @@ public:
     // Account manipulation
     bool syncAccount(int accountId, const QString &fbUserId);
     void purgeAccount(int accountId);
+    QMap<int,QString> accounts(bool *ok = 0) const;
 
     // User cache manipulation
     FacebookUser::ConstPtr user(const QString &fbUserId) const;

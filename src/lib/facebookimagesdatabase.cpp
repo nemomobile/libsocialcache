@@ -613,6 +613,34 @@ QStringList FacebookImagesDatabase::allAlbumIds(bool *ok) const
     return ids;
 }
 
+
+QMap<int,QString> FacebookImagesDatabase::accounts(bool *ok) const
+{
+    if (ok) {
+        *ok = false;
+    }
+
+    QMap<int,QString> result;
+    QSqlQuery query = prepare(QStringLiteral(
+                "SELECT accountId, fbUserId "
+                "FROM accounts "));
+    if (!query.exec()) {
+        qWarning() << Q_FUNC_INFO << "Unable to fetch account mappings" << query.lastError().text();
+        return result;
+    }
+
+    while (query.next()) {
+        result[query.value(0).toInt()] = query.value(1).toString();
+    }
+
+    if (ok) {
+        *ok = true;
+    }
+
+    return result;
+}
+
+
 FacebookAlbum::ConstPtr FacebookImagesDatabase::album(const QString &fbAlbumId) const
 {
     QSqlQuery query = prepare(QStringLiteral(

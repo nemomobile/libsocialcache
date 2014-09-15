@@ -491,6 +491,13 @@ private slots:
         images = database.images();
         QCOMPARE(images.count(), 0);
 
+        ok = false;
+        QMap<int, QString> accounts = database.accounts(&ok);
+        QCOMPARE(ok, true);
+        QCOMPARE(accounts.count(), 2);
+        QCOMPARE(accounts.value(1), user1);
+        QCOMPARE(accounts.value(2), user2);
+
         database.removeUser(user2);
         database.commit();
 
