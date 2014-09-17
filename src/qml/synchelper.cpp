@@ -19,6 +19,7 @@
 
 #include "synchelper.h"
 #include <buteosyncfw5/SyncCommonDefs.h>
+#include <buteosyncfw5/ProfileManager.h>
 
 SyncHelper::SyncHelper(QObject *parent) :
     QObject(parent), QQmlParserStatus(), m_socialNetwork(SocialSyncInterface::InvalidSocialNetwork)
@@ -27,6 +28,8 @@ SyncHelper::SyncHelper(QObject *parent) :
     m_interface = new Buteo::SyncClientInterface();
     connect(m_interface, &Buteo::SyncClientInterface::syncStatus,
             this, &SyncHelper::slotSyncStatus);
+    connect(m_interface, &Buteo::SyncClientInterface::profileChanged,
+            this, &SyncHelper::slotProfileChanged);
 }
 
 void SyncHelper::classBegin()
@@ -113,6 +116,18 @@ void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
     } else if (!m_activeSyncs.contains(aProfileId)) {
         m_activeSyncs.append(aProfileId);
         setLoading(true);
+    }
+}
+
+void SyncHelper::slotProfileChanged(QString aProfileId, int aChangeType, QString aChangedProfile)
+{
+    Q_UNUSED(aChangedProfile);
+
+    if (aChangeType == Buteo::ProfileManager::PROFILE_REMOVED) {
+        QString profileNamePrefix = SocialSyncInterface::profileName(m_socialNetwork, m_dataType) + "-";
+        if (aProfileId.startsWith(profileNamePrefix)) {
+            emit profileDeleted();
+        }
     }
 }
 

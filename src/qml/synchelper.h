@@ -49,10 +49,13 @@ Q_SIGNALS:
     void socialNetworkChanged();
     void dataTypeChanged();
     void loadingChanged();
-    
+    void profileDeleted();
+
 private slots:
     void slotSyncStatus(const QString &aProfileId, int aStatus, const QString &aMessage,
                         int aStatusDetails);
+    void slotProfileChanged(QString aProfileId,int aChangeType, QString aChangedProfile);
+
 private:
     void checkCurrentRun();
     void setLoading(bool loading);
