@@ -64,6 +64,10 @@ public:
     void removeEvent(int accountId, const QString &gcalEventId, const QString &localCalendarId = QString(), const QString &localEventId = QString());
     void removeEvents(int accountId, const QString &localCalendarId = QString());
 
+    QString lastUpdateTime(const QString &calendarId, int accountId) const;
+    void setLastUpdateTime(const QString &calendarId, int accountId, const QString &previousSyncTime);
+    void removeLastUpdateTimes(int accountId);
+
     void sync();
 
 protected:

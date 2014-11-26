@@ -28,7 +28,7 @@
 #include <QtDebug>
 
 static const char *DB_NAME = "google.db";
-static const int VERSION = 1;
+static const int VERSION = 2;
 
 struct GoogleEventPrivate
 {
@@ -104,11 +104,15 @@ public:
 
     QMap<int, QList<GoogleEvent::ConstPtr> > insertEvents;
     QMap<int, QList<GoogleEvent::ConstPtr> > removeEvents;
+    QMap<QString, QPair<QString, int> > insertLastUpdateTimes;
+    QList<int> removeLastUpdateTimes;
 
     // Mutex protect the following queue!
     struct {
         QMap<int, QList<GoogleEvent::ConstPtr> > insertEvents;
         QMap<int, QList<GoogleEvent::ConstPtr> > removeEvents;
+        QMap<QString, QPair<QString, int > > insertLastUpdateTimes;
+        QList<int> removeLastUpdateTimes;
     } queue;
 };
 
@@ -256,6 +260,42 @@ void GoogleCalendarDatabase::removeEvents(int accountId, const QString &localCal
     }
 }
 
+QString GoogleCalendarDatabase::lastUpdateTime(const QString &calendarId, int accountId) const
+{
+    QSqlQuery query = prepare(QStringLiteral(
+                "SELECT calendarId, lastUpdateTime, accountId "
+                "FROM updateTimes WHERE calendarId = :calendarId AND accountId = :accountId"));
+    query.bindValue(":calendarId", calendarId);
+    query.bindValue(":accountId", accountId);
+    if (!query.exec()) {
+        qWarning() << Q_FUNC_INFO << "Error reading from updateTimes table:" << query.lastError();
+        return QString();
+    }
+
+    if (!query.next()) {
+        return QString();
+    }
+
+    return query.value(1).toString();
+}
+
+void GoogleCalendarDatabase::setLastUpdateTime(const QString &calendarId, int accountId, const QString &lastUpdateTime)
+{
+    Q_D(GoogleCalendarDatabase);
+
+    d->insertLastUpdateTimes.remove(calendarId);
+    d->insertLastUpdateTimes.insert(calendarId, qMakePair(lastUpdateTime, accountId));
+}
+
+void GoogleCalendarDatabase::removeLastUpdateTimes(int accountId)
+{
+    Q_D(GoogleCalendarDatabase);
+
+    if (!d->removeLastUpdateTimes.contains(accountId)) {
+        d->removeLastUpdateTimes.append(accountId);
+    }
+}
+
 void GoogleCalendarDatabase::sync()
 {
     Q_D(GoogleCalendarDatabase);
@@ -268,6 +308,13 @@ void GoogleCalendarDatabase::sync()
         Q_FOREACH(int accountId, d->removeEvents.keys()) {
             d->queue.removeEvents.insert(accountId, d->removeEvents.take(accountId));
         }
+        Q_FOREACH(const QString calendarId, d->insertLastUpdateTimes.keys()) {
+            d->queue.insertLastUpdateTimes.insert(calendarId, d->insertLastUpdateTimes.take(calendarId));
+        }
+        Q_FOREACH(int accountId, d->removeLastUpdateTimes) {
+            d->queue.removeLastUpdateTimes.append(accountId);
+        }
+        d->removeLastUpdateTimes.clear();
     }
 
     executeWrite();
@@ -281,9 +328,13 @@ bool GoogleCalendarDatabase::write()
 
     const QMap<int, QList<GoogleEvent::ConstPtr> > insertEvents = d->queue.insertEvents;
     const QMap<int, QList<GoogleEvent::ConstPtr> > removeEvents = d->queue.removeEvents;
+    const QMap<QString, QPair<QString, int> > insertLastUpdateTimes = d->queue.insertLastUpdateTimes;
+    const QList<int> removeLastUpdateTimes = d->queue.removeLastUpdateTimes;
 
     d->queue.insertEvents.clear();
     d->queue.removeEvents.clear();
+    d->queue.insertLastUpdateTimes.clear();
+    d->queue.removeLastUpdateTimes.clear();
 
     locker.unlock();
 
@@ -336,11 +387,50 @@ bool GoogleCalendarDatabase::write()
         executeBatchSocialCacheQuery(query);
     }
 
+    if (!insertLastUpdateTimes.isEmpty()) {
+        QVariantList calendarIds;
+        QVariantList lastUpdateTimes;
+        QVariantList accountIds;
+
+        QStringList calendars = insertLastUpdateTimes.keys();
+        Q_FOREACH (const QString calendar, calendars) {
+            QPair<QString, int> item = insertLastUpdateTimes.value(calendar);
+            calendarIds.append(calendar);
+            lastUpdateTimes.append(item.first);
+            accountIds.append(item.second);
+        }
+
+        query = prepare(QStringLiteral(
+                    "INSERT OR REPLACE INTO updateTimes ("
+                    " calendarId, lastUpdateTime, accountId) "
+                    "VALUES("
+                    " :calendarId, :lastUpdateTime, :accountId)"));
+        query.bindValue(QStringLiteral(":calendarId"), calendarIds);
+        query.bindValue(QStringLiteral(":lastUpdateTime"), lastUpdateTimes);
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        executeBatchSocialCacheQuery(query);
+    }
+
+    if (!removeLastUpdateTimes.isEmpty()) {
+        QVariantList accountIds;
+
+        Q_FOREACH (int accountId, removeLastUpdateTimes) {
+            accountIds.append(accountId);
+        }
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM updateTimes "
+                    "WHERE accountId = :accountId"));
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        executeBatchSocialCacheQuery(query);
+    }
+
     return success;
 }
 
 bool GoogleCalendarDatabase::createTables(QSqlDatabase database) const
 {
+
     QSqlQuery query(database);
 
     // create the Google event db tables
@@ -356,6 +446,16 @@ bool GoogleCalendarDatabase::createTables(QSqlDatabase database) const
         return false;
     }
 
+    // lastUpdateTimes = calendarId, accountId, lastUpdateTime
+    query.prepare("CREATE TABLE IF NOT EXISTS updateTimes ("
+                  "calendarId TEXT UNIQUE PRIMARY KEY,"
+                  "accountId INTEGER,"
+                  "lastUpdateTime TEXT)");
+    if (!query.exec()) {
+        qWarning() << Q_FUNC_INFO << "Unable to create updateTimes table:" << query.lastError().text();
+        return false;
+    }
+
     return true;
 }
 
@@ -365,6 +465,11 @@ bool GoogleCalendarDatabase::dropTables(QSqlDatabase database) const
 
     if (!query.exec(QStringLiteral("DROP TABLE IF EXISTS events"))) {
         qWarning() << Q_FUNC_INFO << "Unable to delete events table:" << query.lastError().text();
+        return false;
+    }
+
+    if (!query.exec(QStringLiteral("DROP TABLE IF EXISTS updateTimes"))) {
+        qWarning() << Q_FUNC_INFO << "Unable to delete updateTimes table:" << query.lastError().text();
         return false;
     }
 
