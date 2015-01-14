@@ -224,6 +224,52 @@ private slots:
         QCOMPARE(events.count(), 0);
     }
 
+    void lastUpdateTimes()
+    {
+        QString calendarId1 = "localCal1";
+        QString calendarId2 = "localCal2";
+        QString time1 = "testing";
+        QString time2 = "testing2";
+        int account1 = 1;
+        int account2 = 2;
+
+        GoogleCalendarDatabase database;
+
+        QVERIFY(database.lastUpdateTime("", 0) == "");
+        QVERIFY(database.lastUpdateTime(calendarId1, 1) == "");
+        QVERIFY(database.lastUpdateTime(calendarId2, 2) == "");
+
+        database.setLastUpdateTime(calendarId1, account1, time1);
+        database.setLastUpdateTime(calendarId2, account2, time2);
+        database.sync();
+        database.wait();
+
+        QCOMPARE(database.lastUpdateTime(calendarId1, account1), time1);
+        QCOMPARE(database.lastUpdateTime(calendarId2, account2), time2);
+
+        database.removeLastUpdateTimes(account1);
+        database.sync();
+        database.wait();
+
+        QVERIFY(database.lastUpdateTime(calendarId1, account1) == "");
+        QCOMPARE(database.lastUpdateTime(calendarId2, account2), time2);
+
+        database.removeLastUpdateTimes(account2);
+        database.sync();
+        database.wait();
+
+        QVERIFY(database.lastUpdateTime(calendarId1, account1) == "");
+        QVERIFY(database.lastUpdateTime(calendarId2, account2) == "");
+
+        // set twice for same account, last one needs to be valid
+        database.setLastUpdateTime(calendarId1, account1, time1);
+        database.setLastUpdateTime(calendarId1, account1, time2);
+        database.sync();
+        database.wait();
+
+        QCOMPARE(database.lastUpdateTime(calendarId1, account1), time2);
+    }
+
     void cleanupTestCase()
     {
         // Do the same cleanups
