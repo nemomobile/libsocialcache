@@ -1,7 +1,8 @@
 include(../../common.pri)
 
 TEMPLATE = lib
-CONFIG += qt create_prl no_install_prl create_pc
+CONFIG += qt create_prl no_install_prl create_pc link_pkgconfig
+PKGCONFIG += libkcalcoren-qt5
 QT += sql
 VERSION = 0.0.31
 
@@ -28,7 +29,8 @@ HEADERS = \
     facebooknotificationsdatabase.h \
     facebookpostsdatabase.h \
     twitterpostsdatabase.h \
-    caldavcalendardatabase.h
+    caldavcalendardatabase.h \
+    kcalid.h
 
 SOURCES = \
     semaphore_p.cpp \

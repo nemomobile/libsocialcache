@@ -21,6 +21,7 @@
 #define CALDAVCALENDARDATABASE_H
 
 #include "abstractsocialcachedatabase.h"
+#include "kcalid.h"
 
 #include <QtCore/QStringList>
 #include <QtCore/QHash>
@@ -33,13 +34,13 @@ public:
     explicit CalDavCalendarDatabase();
     ~CalDavCalendarDatabase();
 
-    QStringList additions(const QString &notebookUid, bool *ok);
-    QHash<QString, QString> modifications(const QString &notebookUid, bool *ok);
-    QStringList deletions(const QString &notebookUid, bool *ok);
+    QSet<KCalId> additions(const QString &notebookUid, bool *ok);
+    QHash<KCalId, QString> modifications(const QString &notebookUid, bool *ok);
+    QSet<KCalId> deletions(const QString &notebookUid, bool *ok);
 
-    void insertAdditions(const QString &notebookUid, const QStringList &incidenceUids);
-    void insertModifications(const QString &notebookUid, const QHash<QString, QString> &incidenceDetails);
-    void insertDeletions(const QString &notebookUid, const QStringList &incidenceUids);
+    void insertAdditions(const QString &notebookUid, const QSet<KCalId> &incidenceUids);
+    void insertModifications(const QString &notebookUid, const QHash<KCalId, QString> &incidenceDetails);
+    void insertDeletions(const QString &notebookUid, const QSet<KCalId> &incidenceIds);
     void removeIncidenceChangeEntriesOnly(const QString &notebookUid);
 
     QHash<QString, QString> eTags(const QString &notebookUid, bool *ok);

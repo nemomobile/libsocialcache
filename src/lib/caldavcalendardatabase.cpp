@@ -45,21 +45,21 @@ private:
         RemoveIncidenceChangeEntriesOnly
     };
 
-    typedef QHash<QString, QString> IncidenceUpdate;
-    typedef QHash<QString, QString> IncidenceETag;
+    typedef QHash<KCalId, QString> IncidenceUpdate;
+    typedef QHash<QString, QString> IncidenceETag; // etags are per URI
 
-    bool writeAdditions(const QHash<QString, QStringList> &addedIncidences);
+    bool writeAdditions(const QHash<QString, QSet<KCalId> > &addedIncidences);
     bool writeModifications(const QHash<QString, IncidenceUpdate> &modifiedIncidences);
-    bool writeDeletions(const QHash<QString, QStringList> &deletedIncidences);
+    bool writeDeletions(const QHash<QString, QSet<KCalId> > &deletedIncidences);
     bool writeNotebookRemovals(const QString &table, const QStringList &notebookUids);
 
     bool writeETags(const QHash<QString, IncidenceETag> &eTags);
 
     struct {
         QHash<QString, bool> notebookUidsToDelete;
-        QHash<QString, QStringList> addedIncidences;
+        QHash<QString, QSet<KCalId> > addedIncidences;
         QHash<QString, IncidenceUpdate> modifiedIncidences;
-        QHash<QString, QStringList> deletedIncidences;
+        QHash<QString, QSet<KCalId> > deletedIncidences;
         QHash<QString, IncidenceETag> eTags;
     } queue;
 };
@@ -88,66 +88,81 @@ CalDavCalendarDatabase::~CalDavCalendarDatabase()
 {
 }
 
-QStringList CalDavCalendarDatabase::additions(const QString &notebookUid, bool *ok)
+QSet<KCalId> CalDavCalendarDatabase::additions(const QString &notebookUid, bool *ok)
 {
     static const QString queryString = QStringLiteral("SELECT incidenceUid FROM Additions WHERE notebookUid = '%1'");
     QSqlQuery query = prepare(queryString.arg(notebookUid));
     if (!query.exec()) {
         qWarning() << "SQL query failed:" << query.executedQuery() << "Error:" << query.lastError().text();
         *ok = false;
-        return QStringList();
+        return QSet<KCalId>();
     }
-    QStringList ret;
+    QSet<KCalId> ret;
     while (query.next()) {
-        ret << query.value(0).toString();
+        KCalId kcalid = KCalId::fromString(query.value(0).toString());
+        if (!kcalid.uid.isEmpty()) {
+            ret.insert(kcalid);
+        } else {
+            qWarning() << "Could not convert stored value to KCalId:" << query.value(0).toString();
+        }
     }
     *ok = true;
     return ret;
 }
 
-QHash<QString, QString> CalDavCalendarDatabase::modifications(const QString &notebookUid, bool *ok)
+QHash<KCalId, QString> CalDavCalendarDatabase::modifications(const QString &notebookUid, bool *ok)
 {
     static const QString queryString = QStringLiteral("SELECT incidenceUid,iCalData FROM Modifications WHERE notebookUid = '%1'");
     QSqlQuery query = prepare(queryString.arg(notebookUid));
     if (!query.exec()) {
         qWarning() << "SQL query failed:" << query.executedQuery() << "Error:" << query.lastError().text();
-        return QHash<QString, QString>();
+        return QHash<KCalId, QString>();
     }
-    QHash<QString, QString> ret;
+    QHash<KCalId, QString> ret;
     while (query.next()) {
-        ret.insert(query.value(0).toString(), query.value(1).toString());
+        KCalId kcalid = KCalId::fromString(query.value(0).toString());
+        if (!kcalid.uid.isEmpty()) {
+            ret.insert(kcalid, query.value(1).toString());
+        } else {
+            qWarning() << "Could not convert stored value to KCalId:" << query.value(0).toString();
+        }
     }
     *ok = true;
     return ret;
 }
 
-QStringList CalDavCalendarDatabase::deletions(const QString &notebookUid, bool *ok)
+QSet<KCalId> CalDavCalendarDatabase::deletions(const QString &notebookUid, bool *ok)
 {
     static const QString queryString = QStringLiteral("SELECT incidenceUid FROM Deletions WHERE notebookUid = '%1'");
     QSqlQuery query = prepare(queryString.arg(notebookUid));
     if (!query.exec()) {
         qWarning() << "SQL query failed:" << query.executedQuery() << "Error:" << query.lastError().text();
         *ok = false;
-        return QStringList();
+        return QSet<KCalId>();
     }
-    QStringList ret;
+    QSet<KCalId> ret;
     while (query.next()) {
-        ret << query.value(0).toString();
+        KCalId kcalid = KCalId::fromString(query.value(0).toString());
+        if (!kcalid.uid.isEmpty()) {
+            ret.insert(kcalid);
+        } else {
+            qWarning() << "Could not convert stored value to KCalId:" << query.value(0).toString();
+        }
     }
     *ok = true;
     return ret;
 }
 
-void CalDavCalendarDatabase::insertAdditions(const QString &notebookUid, const QStringList &incidenceUids)
+void CalDavCalendarDatabase::insertAdditions(const QString &notebookUid, const QSet<KCalId> &incidenceUids)
 {
     Q_D(CalDavCalendarDatabase);
 
     QMutexLocker locker(&d->mutex);
 
-    d->queue.addedIncidences[notebookUid].append(incidenceUids);
+    d->queue.addedIncidences[notebookUid].unite(incidenceUids);
 }
 
-void CalDavCalendarDatabase::insertModifications(const QString &notebookUid, const QHash<QString, QString> &incidenceDetails)
+void CalDavCalendarDatabase::insertModifications(const QString &notebookUid, const QHash<KCalId, QString> &incidenceDetails)
 {
     Q_D(CalDavCalendarDatabase);
 
@@ -156,13 +171,13 @@ void CalDavCalendarDatabase::insertModifications(const QString &notebookUid, con
     d->queue.modifiedIncidences[notebookUid].unite(incidenceDetails);
 }
 
-void CalDavCalendarDatabase::insertDeletions(const QString &notebookUid, const QStringList &incidenceUids)
+void CalDavCalendarDatabase::insertDeletions(const QString &notebookUid, const QSet<KCalId> &incidenceUids)
 {
     Q_D(CalDavCalendarDatabase);
 
     QMutexLocker locker(&d->mutex);
 
-    d->queue.deletedIncidences[notebookUid].append(incidenceUids);
+    d->queue.deletedIncidences[notebookUid].unite(incidenceUids);
 }
 
 // Removes addition, modification and deletion entries for this notebook
@@ -232,9 +247,9 @@ bool CalDavCalendarDatabase::write()
     QMutexLocker locker(&d->mutex);
 
     QHash<QString, bool> notebookUidsToDelete = d->queue.notebookUidsToDelete;
-    QHash<QString, QStringList> addedIncidences = d->queue.addedIncidences;
+    QHash<QString, QSet<KCalId> > addedIncidences = d->queue.addedIncidences;
     QHash<QString, CalDavCalendarDatabasePrivate::IncidenceUpdate> modifiedIncidences = d->queue.modifiedIncidences;
-    QHash<QString, QStringList> deletedIncidences = d->queue.deletedIncidences;
+    QHash<QString, QSet<KCalId> > deletedIncidences = d->queue.deletedIncidences;
     QHash<QString, CalDavCalendarDatabasePrivate::IncidenceETag> eTags = d->queue.eTags;
 
     d->queue.notebookUidsToDelete.clear();
@@ -303,16 +318,16 @@ bool CalDavCalendarDatabasePrivate::writeNotebookRemovals(const QString &table, 
     return success;
 }
 
-bool CalDavCalendarDatabasePrivate::writeAdditions(const QHash<QString, QStringList> &addedIncidences)
+bool CalDavCalendarDatabasePrivate::writeAdditions(const QHash<QString, QSet<KCalId> > &addedIncidences)
 {
     Q_Q(CalDavCalendarDatabase);
 
     QVariantList incidenceUidsVariants;
     QVariantList notebookUidsVariants;
     Q_FOREACH (const QString &notebookUid, addedIncidences.keys()) {
-        const QStringList &additions = addedIncidences[notebookUid];
-        Q_FOREACH (const QString &uid, additions) {
-            incidenceUidsVariants << uid;
+        const QSet<KCalId> &additions = addedIncidences[notebookUid];
+        Q_FOREACH (const KCalId &kcalid, additions) {
+            incidenceUidsVariants << kcalid.toString();
             notebookUidsVariants << notebookUid;
         }
     }
@@ -340,10 +355,10 @@ bool CalDavCalendarDatabasePrivate::writeModifications(const QHash<QString, Inci
     QVariantList incidenceICalVariants;
     Q_FOREACH (const QString &notebookUid, modifiedIncidences.keys()) {
         const IncidenceUpdate &modifications = modifiedIncidences[notebookUid];
-        Q_FOREACH (const QString &incidenceUid, modifications.uniqueKeys()) {
-            incidenceUidsVariants << incidenceUid;
+        Q_FOREACH (const KCalId &kcalid, modifications.uniqueKeys()) {
+            incidenceUidsVariants << kcalid.toString();
             notebookUidsVariants << notebookUid;
-            incidenceICalVariants << modifications[incidenceUid];
+            incidenceICalVariants << modifications[kcalid];
         }
     }
     if (incidenceUidsVariants.count()) {
@@ -362,16 +377,16 @@ bool CalDavCalendarDatabasePrivate::writeModifications(const QHash<QString, Inci
     }
 }
 
-bool CalDavCalendarDatabasePrivate::writeDeletions(const QHash<QString, QStringList> &deletedIncidences)
+bool CalDavCalendarDatabasePrivate::writeDeletions(const QHash<QString, QSet<KCalId> > &deletedIncidences)
 {
     Q_Q(CalDavCalendarDatabase);
 
     QVariantList incidenceUidsVariants;
     QVariantList notebookUidsVariants;
     Q_FOREACH (const QString &notebookUid, deletedIncidences.keys()) {
-        const QStringList &additions = deletedIncidences[notebookUid];
-        Q_FOREACH (const QString &uid, additions) {
-            incidenceUidsVariants << uid;
+        const QSet<KCalId> &additions = deletedIncidences[notebookUid];
+        Q_FOREACH (const KCalId &kcalid, additions) {
+            incidenceUidsVariants << kcalid.toString();
             notebookUidsVariants << notebookUid;
         }
     }
@@ -399,10 +414,10 @@ bool CalDavCalendarDatabasePrivate::writeETags(const QHash<QString, IncidenceETa
     QVariantList incidenceETagVariants;
     Q_FOREACH (const QString &notebookUid, eTags.uniqueKeys()) {
         const IncidenceETag &incidencesAndETags = eTags[notebookUid];
-        Q_FOREACH (const QString &incidenceUid, incidencesAndETags.uniqueKeys()) {
-            incidenceUidsVariants << incidenceUid;
+        Q_FOREACH (const QString &uri, incidencesAndETags.uniqueKeys()) {
+            incidenceUidsVariants << uri;
             notebookUidsVariants << notebookUid;
-            incidenceETagVariants << incidencesAndETags[incidenceUid];
+            incidenceETagVariants << incidencesAndETags[uri];
         }
     }
     if (incidenceUidsVariants.count()) {
