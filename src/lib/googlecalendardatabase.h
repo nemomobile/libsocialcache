@@ -35,17 +35,19 @@ public:
     static GoogleEvent::Ptr create(int accountId,
                                    const QString &gcalEventId,
                                    const QString &localCalendarId,
-                                   const QString &localEventId);
+                                   const QString &localEventId,
+                                   const QString &localEventRecurrenceId);
     int accountId() const;
     QString gcalEventId() const;
     QString localCalendarId() const;
     QString localEventId() const;
+    QString localEventRecurrenceId() const;
 protected:
     QScopedPointer<GoogleEventPrivate> d_ptr;
 private:
     Q_DECLARE_PRIVATE(GoogleEvent)
     explicit GoogleEvent(int accountId, const QString &gcalEventId,
-                         const QString &localCalendarId, const QString &localEventId);
+                         const QString &localCalendarId, const QString &localEventId, const QString &localEventRecurrenceId);
 };
 
 class GoogleCalendarDatabasePrivate;
@@ -57,11 +59,11 @@ public:
     ~GoogleCalendarDatabase();
 
     QList<GoogleEvent::ConstPtr> events(int accountId, const QString &localCalendarId = QString());
-    QString gcalEventId(int accountId, const QString &localCalendarId, const QString &localEventId);
+    QString gcalEventId(int accountId, const QString &localCalendarId, const QString &localEventId, const QString &localEventRecurrenceId = QString());
 
     // the following three won't be committed to the db until sync()+wait() is called.
-    void insertEvent(int accountId, const QString &gcalEventId, const QString &localCalendarId, const QString &localEventId);
-    void removeEvent(int accountId, const QString &gcalEventId, const QString &localCalendarId = QString(), const QString &localEventId = QString());
+    void insertEvent(int accountId, const QString &gcalEventId, const QString &localCalendarId, const QString &localEventId, const QString &localEventRecurrenceId);
+    void removeEvent(int accountId, const QString &gcalEventId, const QString &localCalendarId = QString(), const QString &localEventId = QString(), const QString &localEventRecurrenceId = QString());
     void removeEvents(int accountId, const QString &localCalendarId = QString());
 
     QString lastUpdateTime(const QString &calendarId, int accountId) const;
