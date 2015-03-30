@@ -76,9 +76,9 @@ private slots:
         GoogleCalendarDatabase database;
 
         // insert 3 events and see that they are correctly inserted
-        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1);
-        database.insertEvent(accountId1, gcalEventId2, localCalendarId2, localEventId2);
-        database.insertEvent(accountId2, gcalEventId3, localCalendarId3, localEventId3);
+        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
+        database.insertEvent(accountId1, gcalEventId2, localCalendarId2, localEventId2, QString());
+        database.insertEvent(accountId2, gcalEventId3, localCalendarId3, localEventId3, QString());
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -137,9 +137,9 @@ private slots:
         QCOMPARE(events.count(), 0);
 
         // re-insert items
-        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1);
-        database.insertEvent(accountId1, gcalEventId2, localCalendarId2, localEventId2);
-        database.insertEvent(accountId2, gcalEventId3, localCalendarId3, localEventId3);
+        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
+        database.insertEvent(accountId1, gcalEventId2, localCalendarId2, localEventId2, QString());
+        database.insertEvent(accountId2, gcalEventId3, localCalendarId3, localEventId3, QString());
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -180,7 +180,7 @@ private slots:
         QCOMPARE(event->localEventId(), localEventId2);
 
         // now supply all the parameters
-        database.removeEvent(accountId1, gcalEventId2, localCalendarId2, localEventId2);
+        database.removeEvent(accountId1, gcalEventId2, localCalendarId2, localEventId2, QString());
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -190,8 +190,8 @@ private slots:
         QCOMPARE(events.count(), 0);
 
         // try to insert same event twice
-        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1);
-        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1);
+        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
+        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -213,8 +213,8 @@ private slots:
         QCOMPARE(events.count(), 0);
 
         // now insert event and remove it without syncing in between, then sync.
-        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1);
-        database.removeEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1);
+        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
+        database.removeEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
@@ -222,6 +222,51 @@ private slots:
         // confirm that database remains empty
         events = database.events(accountId1);
         QCOMPARE(events.count(), 0);
+
+        // insert event and persistent occurrence of that event (simulating RRULE + RECURRENCE-ID)
+        QString gcalEventId1R1(QStringLiteral("%1-R1").arg(gcalEventId1));
+        QString localEventRecurrenceId1(QStringLiteral("recurrence-id-1"));
+        database.insertEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
+        database.insertEvent(accountId1, gcalEventId1R1, localCalendarId1, localEventId1, localEventRecurrenceId1);
+        database.sync();
+        database.wait();
+        events = database.events(accountId1);
+        QCOMPARE(events.count(), 2);
+
+        // ensure that removal of the persistent occurrence doesn't cause removal of the recurring event
+        database.removeEvent(accountId1, gcalEventId1R1, localCalendarId1, localEventId1, localEventRecurrenceId1);
+        database.sync();
+        database.wait();
+        events = database.events(accountId1);
+        QCOMPARE(events.count(), 1);
+        event = events.takeFirst();
+        QCOMPARE(event->accountId(), accountId1);
+        QCOMPARE(event->gcalEventId(), gcalEventId1);
+        QCOMPARE(event->localCalendarId(), localCalendarId1);
+        QCOMPARE(event->localEventId(), localEventId1);
+        QCOMPARE(event->localEventRecurrenceId(), QString());
+
+        // ensure that removal of the recurring series doesn't cause removal of all occurrences
+        database.insertEvent(accountId1, gcalEventId1R1, localCalendarId1, localEventId1, localEventRecurrenceId1);
+        database.sync();
+        database.wait();
+        database.removeEvent(accountId1, gcalEventId1, localCalendarId1, localEventId1, QString());
+        database.sync();
+        database.wait();
+        events = database.events(accountId1);
+        QCOMPARE(events.count(), 1);
+        event = events.takeFirst();
+        QCOMPARE(event->accountId(), accountId1);
+        QCOMPARE(event->gcalEventId(), gcalEventId1R1);
+        QCOMPARE(event->localCalendarId(), localCalendarId1);
+        QCOMPARE(event->localEventId(), localEventId1);
+        QCOMPARE(event->localEventRecurrenceId(), localEventRecurrenceId1);
+
+        // clean up db
+        database.removeEvents(accountId1);
+        database.sync();
+        database.wait();
+        QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
     }
 
     void lastUpdateTimes()

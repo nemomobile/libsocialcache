@@ -28,36 +28,41 @@
 #include <QtDebug>
 
 static const char *DB_NAME = "google.db";
-static const int VERSION = 2;
+static const int VERSION = 3;
 
 struct GoogleEventPrivate
 {
     explicit GoogleEventPrivate(int accountId,
                                 const QString &gcalEventId,
                                 const QString &localCalendarId,
-                                const QString &localEventId);
+                                const QString &localEventId,
+                                const QString &localEventRecurrenceId);
     int accountId;
     QString gcalEventId;
     QString localCalendarId;
     QString localEventId;
+    QString localEventRecurrenceId;
 };
 
 GoogleEventPrivate::GoogleEventPrivate(int accountId,
                                        const QString &gcalEventId,
                                        const QString &localCalendarId,
-                                       const QString &localEventId)
+                                       const QString &localEventId,
+                                       const QString &localEventRecurrenceId)
     : accountId(accountId)
     , gcalEventId(gcalEventId)
     , localCalendarId(localCalendarId)
     , localEventId(localEventId)
+    , localEventRecurrenceId(localEventRecurrenceId)
 {
 }
 
 GoogleEvent::GoogleEvent(int accountId,
                          const QString &gcalEventId,
                          const QString &localCalendarId,
-                         const QString &localEventId)
-    : d_ptr(new GoogleEventPrivate(accountId, gcalEventId, localCalendarId, localEventId))
+                         const QString &localEventId,
+                         const QString &localEventRecurrenceId)
+    : d_ptr(new GoogleEventPrivate(accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId))
 {
 }
 
@@ -68,9 +73,10 @@ GoogleEvent::~GoogleEvent()
 GoogleEvent::Ptr GoogleEvent::create(int accountId,
                                      const QString &gcalEventId,
                                      const QString &localCalendarId,
-                                     const QString &localEventId)
+                                     const QString &localEventId,
+                                     const QString &localEventRecurrenceId)
 {
-    return GoogleEvent::Ptr(new GoogleEvent(accountId, gcalEventId, localCalendarId, localEventId));
+    return GoogleEvent::Ptr(new GoogleEvent(accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId));
 }
 
 QString GoogleEvent::gcalEventId() const
@@ -95,6 +101,12 @@ QString GoogleEvent::localEventId() const
 {
     Q_D(const GoogleEvent);
     return d->localEventId;
+}
+
+QString GoogleEvent::localEventRecurrenceId() const
+{
+    Q_D(const GoogleEvent);
+    return d->localEventRecurrenceId;
 }
 
 class GoogleCalendarDatabasePrivate: public AbstractSocialCacheDatabasePrivate
@@ -144,12 +156,12 @@ QList<GoogleEvent::ConstPtr> GoogleCalendarDatabase::events(int accountId, const
 
     if (localCalendarId.isEmpty()) {
         query = prepare(QStringLiteral(
-                    "SELECT accountId, gcalEventId, localCalendarId, localEventId FROM events "\
+                    "SELECT accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId FROM events "\
                     "WHERE accountId = :accountId"));
         query.bindValue(":accountId", accountId);
     } else {
         query = prepare(QStringLiteral(
-                    "SELECT accountId, gcalEventId, localCalendarId, localEventId FROM events "\
+                    "SELECT accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId FROM events "\
                     "WHERE accountId = :accountId AND localCalendarId = :localCalendarId"));
         query.bindValue(":accountId", accountId);
         query.bindValue(":localCalendarId", localCalendarId);
@@ -164,13 +176,14 @@ QList<GoogleEvent::ConstPtr> GoogleCalendarDatabase::events(int accountId, const
         data.append(GoogleEvent::create(query.value(0).toInt(),
                                         query.value(1).toString(),
                                         query.value(2).toString(),
-                                        query.value(3).toString()));
+                                        query.value(3).toString(),
+                                        query.value(4).toString()));
     }
 
     return data;
 }
 
-QString GoogleCalendarDatabase::gcalEventId(int accountId, const QString &localCalendarId, const QString &localEventId)
+QString GoogleCalendarDatabase::gcalEventId(int accountId, const QString &localCalendarId, const QString &localEventId, const QString &localEventRecurrenceId)
 {
     Q_D(const GoogleCalendarDatabase);
 
@@ -178,7 +191,8 @@ QString GoogleCalendarDatabase::gcalEventId(int accountId, const QString &localC
     Q_FOREACH(const GoogleEvent::ConstPtr &evt, d->insertEvents[accountId]) {
         if (evt->accountId() == accountId
                 && evt->localCalendarId() == localCalendarId
-                && evt->localEventId() == localEventId) {
+                && evt->localEventId() == localEventId
+                && evt->localEventRecurrenceId() == localEventRecurrenceId) {
             return evt->gcalEventId();
         }
     }
@@ -187,7 +201,8 @@ QString GoogleCalendarDatabase::gcalEventId(int accountId, const QString &localC
     Q_FOREACH(const GoogleEvent::ConstPtr &evt, events(accountId, localCalendarId)) {
         if (evt->accountId() == accountId
                 && evt->localCalendarId() == localCalendarId
-                && evt->localEventId() == localEventId) {
+                && evt->localEventId() == localEventId
+                && evt->localEventRecurrenceId() == localEventRecurrenceId) {
             return evt->gcalEventId();
         }
     }
@@ -198,7 +213,8 @@ QString GoogleCalendarDatabase::gcalEventId(int accountId, const QString &localC
 void GoogleCalendarDatabase::insertEvent(int accountId,
                                          const QString &gcalEventId,
                                          const QString &localCalendarId,
-                                         const QString &localEventId)
+                                         const QString &localEventId,
+                                         const QString &localEventRecurrenceId)
 {
     Q_D(GoogleCalendarDatabase);
 
@@ -208,22 +224,24 @@ void GoogleCalendarDatabase::insertEvent(int accountId,
         if (evt->accountId() == accountId
                 && evt->gcalEventId() == gcalEventId
                 && evt->localCalendarId() == localCalendarId
-                && evt->localEventId() == localEventId) {
+                && evt->localEventId() == localEventId
+                && evt->localEventRecurrenceId() == localEventRecurrenceId) {
             return; // already exists in the pre-commit list
         }
     }
 
-    d->insertEvents[accountId].append(GoogleEvent::create(accountId, gcalEventId, localCalendarId, localEventId));
+    d->insertEvents[accountId].append(GoogleEvent::create(accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId));
 }
 
 void GoogleCalendarDatabase::removeEvent(int accountId,
                                          const QString &gcalEventId,
                                          const QString &localCalendarId,
-                                         const QString &localEventId)
+                                         const QString &localEventId,
+                                         const QString &localEventRecurrenceId)
 {
     Q_D(GoogleCalendarDatabase);
 
-    GoogleEvent::ConstPtr doomed = GoogleEvent::create(accountId, gcalEventId, localCalendarId, localEventId);
+    GoogleEvent::ConstPtr doomed = GoogleEvent::create(accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId);
     d->removeEvents[accountId].append(doomed);
 
     // and just in case, check the pre-commit insert list and remove it from there too.
@@ -232,7 +250,8 @@ void GoogleCalendarDatabase::removeEvent(int accountId,
         if (evt->accountId() == accountId
                 && evt->gcalEventId() == gcalEventId
                 && (localCalendarId.isEmpty() || evt->localCalendarId() == localCalendarId)
-                && (localEventId.isEmpty() || evt->localEventId() == localEventId)) {
+                && (localEventId.isEmpty() || evt->localEventId() == localEventId)
+                && ((localEventId.isEmpty() && localEventRecurrenceId.isEmpty()) || evt->localEventRecurrenceId() == localEventRecurrenceId)) {
             d->insertEvents[accountId].removeAt(i);
         }
     }
@@ -365,6 +384,7 @@ bool GoogleCalendarDatabase::write()
         QVariantList gcalEventIds;
         QVariantList localCalendarIds;
         QVariantList localEventIds;
+        QVariantList localEventRecurrenceIds;
 
         Q_FOREACH (const QList<GoogleEvent::ConstPtr> &events, insertEvents) {
             Q_FOREACH (const GoogleEvent::ConstPtr &event, events) {
@@ -372,18 +392,20 @@ bool GoogleCalendarDatabase::write()
                 gcalEventIds.append(event->gcalEventId());
                 localCalendarIds.append(event->localCalendarId());
                 localEventIds.append(event->localEventId());
+                localEventRecurrenceIds.append(event->localEventRecurrenceId());
             }
         }
 
         query = prepare(QStringLiteral(
                     "INSERT OR REPLACE INTO events ("
-                    " accountId, gcalEventId, localCalendarId, localEventId) "
+                    " accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId) "
                     "VALUES("
-                    " :accountId, :gcalEventId, :localCalendarId, :localEventId)"));
+                    " :accountId, :gcalEventId, :localCalendarId, :localEventId, :localEventRecurrenceId)"));
         query.bindValue(QStringLiteral(":accountId"), accountIds);
         query.bindValue(QStringLiteral(":gcalEventId"), gcalEventIds);
         query.bindValue(QStringLiteral(":localCalendarId"), localCalendarIds);
         query.bindValue(QStringLiteral(":localEventId"), localEventIds);
+        query.bindValue(QStringLiteral(":localEventRecurrenceId"), localEventRecurrenceIds);
         executeBatchSocialCacheQuery(query);
     }
 
@@ -430,16 +452,16 @@ bool GoogleCalendarDatabase::write()
 
 bool GoogleCalendarDatabase::createTables(QSqlDatabase database) const
 {
-
     QSqlQuery query(database);
 
     // create the Google event db tables
-    // events = accountId, gcalEventId, localEventId
+    // events = accountId, gcalEventId, localCalendarId, localEventId, localEventRecurrenceId
     query.prepare("CREATE TABLE IF NOT EXISTS events ("
                   "accountId INTEGER,"
                   "gcalEventId TEXT,"
                   "localCalendarId TEXT,"
                   "localEventId TEXT,"
+                  "localEventRecurrenceId TEXT,"
                   "CONSTRAINT id PRIMARY KEY (accountId, gcalEventId))");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create events table:" << query.lastError().text();
