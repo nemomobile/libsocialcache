@@ -34,6 +34,12 @@ public:
     explicit CalDavCalendarDatabase();
     ~CalDavCalendarDatabase();
 
+    QSet<QString> knownNotebookUids(bool *ok) const;
+    QString remoteCalendarPath(const QString &notebookUid, bool *ok) const;
+    void addRemoteCalendar(const QString &notebookUid, const QString &calendarPath);
+    bool needsCleanSync(const QString &notebookUid, bool *ok);
+    void setNeedsCleanSync(const QString &notebookUid, bool needsCleanSync);
+
     QSet<KCalId> additions(const QString &notebookUid, bool *ok);
     QHash<KCalId, QString> modifications(const QString &notebookUid, bool *ok);
     QSet<KCalId> deletions(const QString &notebookUid, bool *ok);
