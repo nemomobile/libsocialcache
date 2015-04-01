@@ -16,6 +16,7 @@ BuildRequires:  qt5-qttools
 BuildRequires:  qt5-qttools-linguist
 BuildRequires:  pkgconfig(buteosyncfw5)
 BuildRequires:  pkgconfig(libsailfishkeyprovider)
+BuildRequires:  pkgconfig(libkcalcoren-qt5)
 
 Requires:  qt5-plugin-sqldriver-sqlite
 
