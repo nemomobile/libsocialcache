@@ -4,7 +4,7 @@ TEMPLATE = lib
 CONFIG += qt create_prl no_install_prl create_pc link_pkgconfig
 PKGCONFIG += libkcalcoren-qt5
 QT += sql
-VERSION = 0.0.33
+VERSION = 0.0.34
 
 isEmpty(PREFIX) {
     PREFIX=/usr
@@ -57,6 +57,7 @@ QMAKE_PKGCONFIG_DESCRIPTION = Social cache development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$headers.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
+QMAKE_PKGCONFIG_REQUIRES = libkcalcoren-qt5
 
 INSTALLS += target headers
 
