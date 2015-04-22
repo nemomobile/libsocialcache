@@ -1,7 +1,7 @@
 Name:       libsocialcache
 Summary:    A library that manages data from social networks
 Version:    0.0.31
-Release:    1
+Release:    2
 Group:      Applications/Multimedia
 License:    LGPLv2.1
 URL:        https://github.com/nemomobile/libsocialcache
@@ -69,8 +69,12 @@ make %{_smp_mflags}
 rm -rf %{buildroot}
 %qmake5_install
 
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+%post
+rm -rf /home/nemo/.local/share/system/privileged/Calendars/caldav-sync.db /home/nemo/.local/share/system/privileged/Calendars/caldav-sync.db-wal /home/nemo/.local/share/system/privileged/Calendars/caldav-sync.db-shm
+/sbin/ldconfig
+
+%postun
+/sbin/ldconfig
 
 %files
 %defattr(-,root,root,-)
