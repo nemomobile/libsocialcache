@@ -16,7 +16,6 @@ BuildRequires:  qt5-qttools
 BuildRequires:  qt5-qttools-linguist
 BuildRequires:  pkgconfig(buteosyncfw5)
 BuildRequires:  pkgconfig(libsailfishkeyprovider)
-BuildRequires:  pkgconfig(libkcalcoren-qt5)
 
 Requires:  qt5-plugin-sqldriver-sqlite
 
@@ -70,8 +69,12 @@ make %{_smp_mflags}
 rm -rf %{buildroot}
 %qmake5_install
 
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+%post
+/sbin/ldconfig
+rm -rf /home/nemo/.local/share/system/privileged/Calendars/
+
+%postun
+/sbin/ldconfig
 
 %files
 %defattr(-,root,root,-)

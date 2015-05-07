@@ -2,7 +2,6 @@ include(../../common.pri)
 
 TEMPLATE = lib
 CONFIG += qt create_prl no_install_prl create_pc link_pkgconfig
-PKGCONFIG += libkcalcoren-qt5
 QT += sql
 VERSION = 0.0.34
 
@@ -22,15 +21,11 @@ HEADERS = \
     abstractsocialcachedatabase_p.h \
     abstractsocialpostcachedatabase.h \
     socialnetworksyncdatabase.h \
-    googlecalendardatabase.h \
     facebookimagesdatabase.h \
-    facebookcalendardatabase.h \
     facebookcontactsdatabase.h \
     facebooknotificationsdatabase.h \
     facebookpostsdatabase.h \
-    twitterpostsdatabase.h \
-    caldavcalendardatabase.h \
-    kcalid.h
+    twitterpostsdatabase.h
 
 SOURCES = \
     semaphore_p.cpp \
@@ -39,14 +34,11 @@ SOURCES = \
     abstractsocialcachedatabase.cpp \
     abstractsocialpostcachedatabase.cpp \
     socialnetworksyncdatabase.cpp \
-    googlecalendardatabase.cpp \
     facebookimagesdatabase.cpp \
-    facebookcalendardatabase.cpp \
     facebookcontactsdatabase.cpp \
     facebooknotificationsdatabase.cpp \
     facebookpostsdatabase.cpp \
-    twitterpostsdatabase.cpp \
-    caldavcalendardatabase.cpp
+    twitterpostsdatabase.cpp
 
 headers.files = $$HEADERS
 headers.path = /usr/include/socialcache
@@ -57,7 +49,6 @@ QMAKE_PKGCONFIG_DESCRIPTION = Social cache development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$headers.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-QMAKE_PKGCONFIG_REQUIRES = libkcalcoren-qt5
 
 INSTALLS += target headers
 
