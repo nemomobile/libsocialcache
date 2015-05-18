@@ -238,6 +238,7 @@ AbstractImageDownloader::~AbstractImageDownloader()
 void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metadata)
 {
     Q_D(AbstractImageDownloader);
+qWarning() << "AbstractImageDownloader::about to queue image:" << url;
     if (!dbInit()) {
         qWarning() << Q_FUNC_INFO << "Cannot perform operation, database is not initialized";
         emit imageDownloaded(url, QString(), metadata); // empty file signifies error.
@@ -276,6 +277,7 @@ QNetworkReply *AbstractImageDownloader::createReply(const QString &url, const QV
     Q_UNUSED(metadata)
     Q_D(AbstractImageDownloader);
     QNetworkRequest request (url);
+qWarning() << "AbstractImageDownloader::about to fetch image:" << url;
     return d->networkAccessManager->get(request);
 }
 
