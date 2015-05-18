@@ -33,6 +33,7 @@
 #include "onedrive/onedriveimagecachemodel.h"
 #include "dropbox/dropboximagecachemodel.h"
 #include "vk/vkpostsmodel.h"
+#include "vk/vkimagecachemodel.h"
 
 #ifndef NO_DEPS
 #include "synchelper.h"
@@ -83,6 +84,15 @@ static QObject *dropboxImageDownloader_provider(QQmlEngine *engine, QJSEngine *s
     return downloader;
 }
 
+static QObject *vkImageDownloader_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
+{
+    Q_UNUSED(engine)
+    Q_UNUSED(scriptEngine)
+
+    VKImageDownloader *downloader = new VKImageDownloader();
+    return downloader;
+}
+
 class JollaSocialPlugin : public QQmlExtensionPlugin
 {
     Q_OBJECT
@@ -124,6 +134,10 @@ public:
         qmlRegisterSingletonType<DropboxImageDownloader>(uri, 1, 0, "DropboxImageDownloader",
                                                           &dropboxImageDownloader_provider);
         qmlRegisterType<VKPostsModel>(uri, 1, 0, "VKPostsModel");
+        qmlRegisterType<VKImageCacheModel>(uri, 1, 0, "VKImageCacheModel");
+
+        qmlRegisterSingletonType<VKImageDownloader>(uri, 1, 0, "VKImageDownloader",
+                                                          &vkImageDownloader_provider);
 
 #ifndef NO_DEPS
         qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",
