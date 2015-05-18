@@ -38,6 +38,9 @@ HEADERS += \
     facebook/facebookpostsmodel.h \
     facebook/facebooknotificationsmodel.h \
     twitter/twitterpostsmodel.h \
+    vk/vkimagecachemodel.h \
+    vk/vkimagedownloader.h \
+    vk/vkimagedownloader_p.h \
     vk/vkpostsmodel.h
 
 SOURCES += plugin.cpp \
@@ -47,6 +50,8 @@ SOURCES += plugin.cpp \
     facebook/facebookpostsmodel.cpp \
     facebook/facebooknotificationsmodel.cpp \
     twitter/twitterpostsmodel.cpp \
+    vk/vkimagecachemodel.cpp \
+    vk/vkimagedownloader.cpp \
     vk/vkpostsmodel.cpp
 
 OTHER_FILES += qmldir
