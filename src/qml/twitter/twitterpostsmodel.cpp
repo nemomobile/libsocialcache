@@ -72,6 +72,14 @@ void TwitterPostsModel::refresh()
     d->database.refresh();
 }
 
+void TwitterPostsModel::clear()
+{
+    Q_D(TwitterPostsModel);
+
+    d->database.removeAllPosts();
+    d->database.commit();
+}
+
 void TwitterPostsModel::postsChanged()
 {
     Q_D(TwitterPostsModel);

@@ -75,6 +75,13 @@ void FacebookPostsModel::refresh()
     d->database.refresh();
 }
 
+void FacebookPostsModel::clear()
+{
+    Q_D(FacebookPostsModel);
+
+    d->database.removeAllPosts();
+}
+
 void FacebookPostsModel::postsChanged()
 {
     Q_D(FacebookPostsModel);

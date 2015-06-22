@@ -46,6 +46,7 @@ public:
     QHash<int, QByteArray> roleNames() const;
 
     void refresh();
+    void clear();
 
 private Q_SLOTS:
     void notificationsChanged();

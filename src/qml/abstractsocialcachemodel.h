@@ -48,6 +48,7 @@ public:
 
 public Q_SLOTS:
     virtual void refresh() = 0;
+    virtual void clear() = 0;
 
 Q_SIGNALS:
     void nodeIdentifierChanged();

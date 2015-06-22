@@ -212,6 +212,10 @@ void FacebookImageCacheModel::refresh()
     }
 }
 
+void FacebookImageCacheModel::clear()
+{
+}
+
 // NOTE: this is now called directly by FacebookImageDownloader
 // rather than connected to the imageDownloaded signal, for
 // performance reasons.

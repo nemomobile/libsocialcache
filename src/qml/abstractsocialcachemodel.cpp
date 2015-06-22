@@ -139,6 +139,11 @@ QVariant AbstractSocialCacheModel::getField(int row, int role) const
     return d->m_data.at(row).value(role);
 }
 
+void AbstractSocialCacheModel::clear()
+{
+
+}
+
 QString AbstractSocialCacheModel::nodeIdentifier() const
 {
     Q_D(const AbstractSocialCacheModel);

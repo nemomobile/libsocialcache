@@ -212,6 +212,7 @@ private:
         QMap<QString, SocialPost::ConstPtr> insertPosts;
         QMultiMap<QString, int> mapPostsToAccounts;
         QList<int> removePostsForAccount;
+        bool removeAllPosts;
     } queue;
 
     QList<SocialPost::ConstPtr> asyncPosts;
@@ -229,6 +230,7 @@ AbstractSocialPostCacheDatabasePrivate::AbstractSocialPostCacheDatabasePrivate(
             databaseFile,
             POST_DB_VERSION)
 {
+    queue.removeAllPosts = false;
 }
 
 AbstractSocialPostCacheDatabase::~AbstractSocialPostCacheDatabase()
@@ -280,6 +282,17 @@ void AbstractSocialPostCacheDatabase::removePosts(int accountId)
     if (!d->queue.removePostsForAccount.contains(accountId)) {
         d->queue.removePostsForAccount.append(accountId);
     }
+}
+
+void AbstractSocialPostCacheDatabase::removeAllPosts()
+{
+    Q_D(AbstractSocialPostCacheDatabase);
+
+    QMutexLocker locker(&d->mutex);
+    d->queue.insertPosts.clear();
+    d->queue.mapPostsToAccounts.clear();
+    d->queue.removePostsForAccount.clear();
+    d->queue.removeAllPosts = true;
 }
 
 void AbstractSocialPostCacheDatabase::commit()
@@ -399,10 +412,12 @@ bool AbstractSocialPostCacheDatabase::write()
     const QMap<QString, SocialPost::ConstPtr> insertPosts = d->queue.insertPosts;
     const QMultiMap<QString, int> mapPostsToAccounts = d->queue.mapPostsToAccounts;
     const QList<int> removePostsForAccount = d->queue.removePostsForAccount;
+    bool removeAllPosts = d->queue.removeAllPosts;
 
     d->queue.insertPosts.clear();
     d->queue.mapPostsToAccounts.clear();
     d->queue.removePostsForAccount.clear();
+    d->queue.removeAllPosts = false;
 
     locker.unlock();
 
@@ -411,7 +426,13 @@ bool AbstractSocialPostCacheDatabase::write()
     QSqlQuery query;
 
     // perform removals first.
-    if (!removePostsForAccount.isEmpty()) {
+
+    if (removeAllPosts) {
+        qDebug("REMOVE ALL POSTS");
+        query = prepare(QStringLiteral(
+                    "DELETE FROM posts"));
+        executeSocialCacheQuery(query);
+    } else if (!removePostsForAccount.isEmpty()) {
         QVariantList accountIds;
 
         Q_FOREACH (int accountId, removePostsForAccount) {

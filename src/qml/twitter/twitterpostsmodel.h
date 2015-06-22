@@ -44,6 +44,7 @@ public:
     QHash<int, QByteArray> roleNames() const;
 
     void refresh();
+    void clear();
 
 private slots:
     void postsChanged();

@@ -75,6 +75,7 @@ public:
 public Q_SLOTS:
     void loadImages();
     void refresh();
+    void clear();
 
 Q_SIGNALS:
     void typeChanged();
