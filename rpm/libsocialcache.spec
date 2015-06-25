@@ -14,6 +14,7 @@ BuildRequires:  pkgconfig(Qt5DBus)
 BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  qt5-qttools
 BuildRequires:  qt5-qttools-linguist
+BuildRequires:  pkgconfig(accounts-qt5)
 BuildRequires:  pkgconfig(buteosyncfw5)
 BuildRequires:  pkgconfig(libsailfishkeyprovider)
 

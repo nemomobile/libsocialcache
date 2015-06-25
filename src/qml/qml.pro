@@ -18,7 +18,7 @@ CONFIG(nodeps):{
 DEFINES += NO_DEPS
 } else {
 CONFIG += link_pkgconfig
-PKGCONFIG += buteosyncfw5 libsailfishkeyprovider
+PKGCONFIG += buteosyncfw5 libsailfishkeyprovider accounts-qt5
 HEADERS += synchelper.h \
     keyproviderhelper.h
 SOURCES += synchelper.cpp \
