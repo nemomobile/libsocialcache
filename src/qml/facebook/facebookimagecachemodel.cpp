@@ -29,6 +29,11 @@
 
 #include <QtDebug>
 
+// libaccounts-qt
+#include <Accounts/Account>
+#include <Accounts/Manager>
+#include <Accounts/Service>
+
 // Note:
 //
 // When querying photos, the nodeIdentifier should be either
@@ -50,6 +55,10 @@ class FacebookImageCacheModelPrivate : public AbstractSocialCacheModelPrivate
 public:
     FacebookImageCacheModelPrivate(FacebookImageCacheModel *q);
 
+    bool anyFacebookAccountsEnabled() const;
+    bool accountIsEnabled(int accountId);
+
+
     void queue(
             int row,
             FacebookImageDownloader::ImageType imageType,
@@ -59,11 +68,44 @@ public:
     FacebookImageDownloader *downloader;
     FacebookImagesDatabase database;
     FacebookImageCacheModel::ModelDataType type;
+
+    Accounts::Manager manager;
+    QHash<int, bool> accountsEnabled;
+    bool anyFbAccountsEnabled;
 };
 
 FacebookImageCacheModelPrivate::FacebookImageCacheModelPrivate(FacebookImageCacheModel *q)
     : AbstractSocialCacheModelPrivate(q), downloader(0), type(FacebookImageCacheModel::Images)
 {
+    // Ugly hack: check on startup whether we have any enabled Facebook accounts.
+    // This is because we don't store accountId in the FacebookUser or FacebookAlbum
+    // data types, which means that we cannot immediately determine whether we have
+    // any visible data or not.
+    // TODO: fix facebookimagesdatabase.h and buteo-sync-plugins-social, and then
+    // remove this code.
+    Accounts::AccountIdList accountIds = manager.accountList();
+    Q_FOREACH (Accounts::AccountId accountId, accountIds) {
+        Accounts::Account *account = manager.account(accountId);
+        if (account->providerName() == QStringLiteral("facebook")) {
+            if (!account->enabled()) {
+                accountsEnabled.insert(accountId, false);
+            } else {
+                Accounts::Service srv(manager.service("facebook-images"));
+                if (!srv.isValid()) {
+                    qWarning() << Q_FUNC_INFO << "no images service defined for Facebook account:" << accountId;
+                    accountsEnabled.insert(accountId, false);
+                } else {
+                    account->selectService(srv);
+                    if (account->enabled()) {
+                        accountsEnabled.insert(accountId, true);
+                        anyFbAccountsEnabled = true;
+                    } else {
+                        accountsEnabled.insert(accountId, false);
+                    }
+                }
+            }
+        }
+    }
 }
 
 void FacebookImageCacheModelPrivate::queue(
@@ -83,6 +125,45 @@ void FacebookImageCacheModelPrivate::queue(
 
         downloader->queue(url, metadata);
     }
+}
+
+bool FacebookImageCacheModelPrivate::accountIsEnabled(int accountId)
+{
+    // If we've already cached the enabled-status of the account, just return it.
+    // Note that we don't react to account-enabled-changed signals currently.
+    if (!accountsEnabled.contains(accountId)) {
+        // otherwise, find the enabled status of the account.
+        if (!accountId) {
+            qWarning() << Q_FUNC_INFO << "invalid account id";
+            return false;
+        }
+
+        Accounts::Account *account = manager.account(accountId);
+        if (!account) {
+            qWarning() << Q_FUNC_INFO << "account is invalid, probably previously deleted - image data is orphaned!";
+            return false;
+        }
+
+        if (!account->enabled()) {
+            accountsEnabled.insert(accountId, false);
+        } else {
+            Accounts::Service srv(manager.service("facebook-images"));
+            if (!srv.isValid()) {
+                qWarning() << Q_FUNC_INFO << "no images service defined for Facebook account:" << accountId;
+                accountsEnabled.insert(accountId, false);
+            } else {
+                account->selectService(srv);
+                accountsEnabled.insert(accountId, account->enabled());
+            }
+        }
+    }
+
+    return accountsEnabled.value(accountId);
+}
+
+bool FacebookImageCacheModelPrivate::anyFacebookAccountsEnabled() const
+{
+    return anyFbAccountsEnabled;
 }
 
 FacebookImageCacheModel::FacebookImageCacheModel(QObject *parent)
@@ -187,6 +268,10 @@ void FacebookImageCacheModel::loadImages()
 void FacebookImageCacheModel::refresh()
 {
     Q_D(FacebookImageCacheModel);
+
+    if (!d->anyFbAccountsEnabled) {
+        return;
+    }
 
     const QString userPrefix = QLatin1String(PHOTO_USER_PREFIX);
     const QString albumPrefix = QLatin1String(PHOTO_ALBUM_PREFIX);

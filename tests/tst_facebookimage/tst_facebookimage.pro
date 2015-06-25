@@ -4,6 +4,9 @@ TEMPLATE = app
 TARGET = tst_facebookimage
 QT += network sql testlib
 
+CONFIG += link_pkgconfig
+PKGCONFIG += accounts-qt5
+
 DEFINES += NO_KEY_PROVIDER
 
 INCLUDEPATH += ../../src/lib/
