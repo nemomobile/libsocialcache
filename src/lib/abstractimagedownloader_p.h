@@ -46,6 +46,7 @@ struct ImageInfo
 
     QString url;
     QFile file;
+    QString redirectUrl;
     QList<QVariantMap> requestsData;
 };
 
