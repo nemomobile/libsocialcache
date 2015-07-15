@@ -61,7 +61,8 @@ SocialImageDownloader::~SocialImageDownloader()
 
 void SocialImageDownloader::imageFile(const QString &imageUrl,
                                       int accountId,
-                                      QObject *caller)
+                                      QObject *caller,
+                                      int expiresInDays)
 {
     Q_D(SocialImageDownloader);
 
@@ -87,6 +88,7 @@ void SocialImageDownloader::imageFile(const QString &imageUrl,
 
     QVariantMap data;
     data.insert(QStringLiteral("accountId"), accountId);
+    data.insert(QStringLiteral("expiresInDays"), expiresInDays);
     queue(imageUrl, data);
     return;
 }
@@ -122,7 +124,10 @@ void SocialImageDownloader::notifyImageCached(const QString &imageUrl,
 
     d->m_recentItems.insert(imageUrl, imageFile);
     int accountId = metadata.value(QStringLiteral("accountId")).toInt();
-    d->m_db.addImage(accountId, imageUrl, imageFile, QDateTime::currentDateTime());
+    int expiresInDays = metadata.value(QStringLiteral("expiresInDays")).toInt();
+    QDateTime currentTime(QDateTime::currentDateTime());
+    d->m_db.addImage(accountId, imageUrl, imageFile, currentTime,
+                     currentTime.addDays(expiresInDays));
     // We assume that there will consecutive addImage calls. Wait suitable
     // time before commiting.
     if (d->m_commitTimer.isActive()) {

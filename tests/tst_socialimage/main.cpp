@@ -76,25 +76,32 @@ private slots:
         QDateTime time1 (QDate(2013, 1, 2), QTime(12, 34, 56));
         QDateTime time2 (QDate(2015, 1, 2), QTime(12, 43, 56));
 
+        // Database stores time_t values so convert to time_t first to get even seconds,
+        // otherwise the tests below will fail to mismatching milliseconds.
+        int exp1 = QDateTime::currentDateTime().addDays(5).toTime_t();
+        int exp2 = QDateTime::currentDateTime().addDays(10).toTime_t();
+        QDateTime expires1 (QDateTime::fromTime_t(exp1));
+        QDateTime expires2 (QDateTime::fromTime_t(exp2));
+
         SocialImagesDatabase database;
 
         // test insert images
         database.addImage(
                     account1,
                     QLatin1String("file:///t1.jpg"), QLatin1String("file:///1.jpg"),
-                    time1);
+                    time1, expires1);
         database.addImage(
                     account1,
                     QLatin1String("file:///t2.jpg"), QLatin1String("file:///2.jpg"),
-                    time2);
+                    time2, expires2);
         database.addImage(
                     account1,
                     QLatin1String("file:///t3.jpg"), QLatin1String("file:///3.jpg"),
-                    time2);
+                    time2, expires2);
         database.addImage(
                     account2,
                     QLatin1String("file:///t4.jpg"), QLatin1String("file:///4.jpg"),
-                    time2);
+                    time2, expires2);
 
         // check that the images are availbale from insert queue
         // already before commit
@@ -105,6 +112,7 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t1.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///1.jpg"));
         QCOMPARE(image->createdTime(), time1);
+        QCOMPARE(image->expires(), expires1);
 
         // then commit and test the rest
         database.commit();
@@ -122,6 +130,7 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t1.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///1.jpg"));
         QCOMPARE(image->createdTime(), time1);
+        QCOMPARE(image->expires(), expires1);
 
         image = imageFromList(images, "file:///t2.jpg");
         QVERIFY(image != 0);
@@ -129,6 +138,7 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t2.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///2.jpg"));
         QCOMPARE(image->createdTime(), time2);
+        QCOMPARE(image->expires(), expires2);
 
         image = imageFromList(images, "file:///t3.jpg");
         QVERIFY(image != 0);
@@ -136,6 +146,7 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t3.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///3.jpg"));
         QCOMPARE(image->createdTime(), time2);
+        QCOMPARE(image->expires(), expires2);
 
         database.queryImages(account2);
         database.wait();
@@ -148,6 +159,7 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t4.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///4.jpg"));
         QCOMPARE(image->createdTime(), time2);
+        QCOMPARE(image->expires(), expires2);
 
         // test olderThan
         database.queryImages(account1, QDateTime(QDate(2014, 1, 2), QTime(12, 43, 56)));
@@ -161,6 +173,7 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t1.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///1.jpg"));
         QCOMPARE(image->createdTime(), time1);
+        QCOMPARE(image->expires(), expires1);
 
         // test remove image
         database.removeImage("file:///t1.jpg");
@@ -212,6 +225,30 @@ private slots:
         QCOMPARE(image->imageUrl(), QString("file:///t4.jpg"));
         QCOMPARE(image->imageFile(), QString("file:///4.jpg"));
         QCOMPARE(image->createdTime(), time2);
+        QCOMPARE(image->expires(), expires2);
+
+        // test expires
+        int currentExp = QDateTime::currentDateTime().addSecs(-1).toTime_t();
+        database.addImage(
+                    account2,
+                    QLatin1String("file:///t5.jpg"), QLatin1String("file:///5.jpg"),
+                    time2, QDateTime::fromTime_t(currentExp));
+        database.commit();
+        database.wait();
+        QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
+
+        database.queryExpired(account2);
+        database.wait();
+        images = database.images();
+        QCOMPARE(images.count(), 1);
+
+        image = imageFromList(images, "file:///t5.jpg");
+        QVERIFY(image != 0);
+        QCOMPARE(image->accountId(), account2);
+        QCOMPARE(image->imageUrl(), QString("file:///t5.jpg"));
+        QCOMPARE(image->imageFile(), QString("file:///5.jpg"));
+        QCOMPARE(image->createdTime(), time2);
+        QCOMPARE(image->expires(), QDateTime::fromTime_t(currentExp));
     }
 
     void cleanupTestCase()

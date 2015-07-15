@@ -34,7 +34,7 @@ public:
     explicit SocialImageDownloader(QObject *parent = 0);
     virtual ~SocialImageDownloader();
 
-    Q_INVOKABLE void imageFile(const QString &imageUrl, int accountId, QObject *caller);
+    Q_INVOKABLE void imageFile(const QString &imageUrl, int accountId, QObject *caller, int expiresInDays = 30);
     Q_INVOKABLE void removeFromRecentlyUsed(const QString &imageUrl);
 
 protected:

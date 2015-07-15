@@ -36,12 +36,14 @@ public:
     static SocialImage::Ptr create(int accountId,
                                    const QString &imageUrl,
                                    const QString &imageFile,
-                                   const QDateTime &createdTime);
+                                   const QDateTime &createdTime,
+                                   const QDateTime &expires);
 
     int accountId() const;
     QString imageUrl() const;
     QString imageFile() const;
     QDateTime createdTime() const;
+    QDateTime expires() const;
 
 protected:
     QScopedPointer<SocialImagePrivate> d_ptr;
@@ -51,7 +53,8 @@ private:
     explicit SocialImage(int accountId,
                          const QString & imageUrl,
                          const QString & imageFile,
-                         const QDateTime &createdTime);
+                         const QDateTime &createdTime,
+                         const QDateTime &expires);
 };
 
 bool operator==(const SocialImage::ConstPtr &image1, const SocialImage::ConstPtr &image2);
@@ -70,10 +73,12 @@ public:
     void addImage(int accountId,
                   const QString & imageUrl,
                   const QString & imageFile,
-                  const QDateTime &createdTime);
+                  const QDateTime &createdTime,
+                  const QDateTime &expires);
     void removeImage(const QString &imageUrl);
     void removeImages(QList<SocialImage::ConstPtr> images);
     void queryImages(int accountId, const QDateTime &olderThan = QDateTime());
+    void queryExpired(int accountId);
     QList<SocialImage::ConstPtr> images() const;
 
     void commit();
