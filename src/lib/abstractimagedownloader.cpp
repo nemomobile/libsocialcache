@@ -63,13 +63,19 @@ void AbstractImageDownloaderPrivate::manageStack()
     while (runningReplies.count() < MAX_SIMULTANEOUS_DOWNLOAD && !stack.isEmpty()) {
         // Create a reply to download the image
         ImageInfo *info = stack.takeLast();
-        info->file.setFileName(q->outputFile(info->url, info->requestsData.first()));
+
+        QString url = info->url;
+        if (!info->redirectUrl.isEmpty()) {
+            url = info->redirectUrl;
+        }
+
+        info->file.setFileName(q->outputFile(url, info->requestsData.first()));
         QDir parentDir = QFileInfo(info->file.fileName()).dir();
         if (!parentDir.exists()) {
             parentDir.mkpath(".");
         }
 
-        if (QNetworkReply *reply = q->createReply(info->url, info->requestsData.first())) {
+        if (QNetworkReply *reply = q->createReply(url, info->requestsData.first())) {
             QTimer *timer = new QTimer(q);
             timer->setInterval(60000);
             timer->setSingleShot(true);
@@ -142,42 +148,50 @@ void AbstractImageDownloader::slotFinished()
         return;
     }
 
-    if (!info->file.open(QIODevice::ReadWrite)) {
-        qWarning() << Q_FUNC_INFO << "Failed to open file for write" << info->file.errorString();
-        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
-            emit imageDownloaded(info->url, QString(), metadata);
-        }
+    QByteArray redirectedUrl = reply->rawHeader("Location");
+    if (redirectedUrl.length() > 0) {
+        // this is URL redirection
+        info->redirectUrl = QString(redirectedUrl);
+        d->stack.append(info);
         d->manageStack();
-        return;
-    }
-
-    const QString fileName = info->file.fileName();
-    readData(info, reply);
-    info->file.close();
-
-    QImageReader reader(fileName);
-    if (reader.canRead()) {
-        dbQueueImage(info->url, info->requestsData.first(), fileName);
-        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
-            emit imageDownloaded(info->url, fileName, metadata);
-        }
     } else {
-        // the file is not in image format.
-        info->file.remove(fileName); // remove artifacts.
-        Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
-            emit imageDownloaded(info->url, QString(), metadata);
+        if (!info->file.open(QIODevice::ReadWrite)) {
+            qWarning() << Q_FUNC_INFO << "Failed to open file for write" << info->file.errorString();
+            Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+                emit imageDownloaded(info->url, QString(), metadata);
+            }
+            d->manageStack();
+            return;
         }
-    }
 
-    delete info;
+        const QString fileName = info->file.fileName();
+        readData(info, reply);
+        info->file.close();
 
-    d->loadedCount ++;
-    d->manageStack();
+        QImageReader reader(fileName);
+        if (reader.canRead()) {
+            dbQueueImage(info->url, info->requestsData.first(), fileName);
+            Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+                emit imageDownloaded(info->url, fileName, metadata);
+            }
+        } else {
+            // the file is not in image format.
+            info->file.remove(fileName); // remove artifacts.
+            Q_FOREACH (const QVariantMap &metadata, info->requestsData) {
+                emit imageDownloaded(info->url, QString(), metadata);
+            }
+        }
 
-    if (d->loadedCount > MAX_BATCH_SAVE
-        || (d->runningReplies.isEmpty() && d->stack.isEmpty())) {
-        dbWrite();
-        d->loadedCount = 0;
+        delete info;
+
+        d->loadedCount ++;
+        d->manageStack();
+
+        if (d->loadedCount > MAX_BATCH_SAVE
+            || (d->runningReplies.isEmpty() && d->stack.isEmpty())) {
+            dbWrite();
+            d->loadedCount = 0;
+        }
     }
 }
 
