@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Jolla Ltd.
+ * Copyright (C) 2014-2015 Jolla Ltd.
  * Contact: Antti Seppälä <antti.seppala@jollamobile.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -179,6 +179,7 @@ public:
         QMap<int, QList<FacebookNotification::ConstPtr> > insertNotifications;
         QList<int> removeNotificationsFromAccounts;
         QStringList removeNotifications;
+        bool removeAll;
     } queue;
 };
 
@@ -191,6 +192,7 @@ FacebookNotificationsDatabasePrivate::FacebookNotificationsDatabasePrivate(Faceb
             VERSION)
     , purgeTimeLimit(0)
 {
+    queue.removeAll = false;
 }
 
 FacebookNotificationsDatabase::FacebookNotificationsDatabase()
@@ -212,6 +214,21 @@ void FacebookNotificationsDatabase::addFacebookNotification(const QString &faceb
     Q_D(FacebookNotificationsDatabase);
     d->insertNotifications[accountId].append(FacebookNotification::create(facebookId, from, to, createdTime, updatedTime, title, link,
                                                                           application, object, unread, accountId, clientId));
+}
+
+void FacebookNotificationsDatabase::removeAllNotifications()
+{
+    Q_D(FacebookNotificationsDatabase);
+
+    {
+        QMutexLocker locker(&d->mutex);
+        d->queue.insertNotifications.clear();
+        d->queue.removeNotificationsFromAccounts.clear();
+        d->queue.removeNotifications.clear();
+        d->queue.removeAll = true;
+    }
+
+    executeWrite();
 }
 
 void FacebookNotificationsDatabase::removeNotifications(int accountId)
@@ -332,15 +349,26 @@ bool FacebookNotificationsDatabase::write()
     const QMap<int, QList<FacebookNotification::ConstPtr> > insertNotifications = d->queue.insertNotifications;
     const QList<int> removeNotificationsFromAccounts = d->queue.removeNotificationsFromAccounts;
     QStringList removeNotifications = d->queue.removeNotifications;
+    bool removeAll = d->queue.removeAll;
 
     d->queue.insertNotifications.clear();
     d->queue.removeNotificationsFromAccounts.clear();
     d->queue.removeNotifications.clear();
+    d->queue.removeAll = false;
 
     locker.unlock();
 
     bool success = true;
     QSqlQuery query;
+
+    if (removeAll) {
+        QVariantList accountIds;
+        accountIds.append(-1);
+
+        query = prepare(QStringLiteral("DELETE FROM notifications WHERE accountId > :accountId"));
+        query.bindValue(QStringLiteral(":accountId"), accountIds);
+        executeBatchSocialCacheQuery(query);
+    }
 
     if (!removeNotificationsFromAccounts.isEmpty()) {
         QVariantList accountIds;

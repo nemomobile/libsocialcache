@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Jolla Ltd.
+ * Copyright (C) 2014-2015 Jolla Ltd.
  * Contact: Antti Seppälä <antti.seppala@jollamobile.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -77,6 +77,7 @@ public:
                                  const QString &title, const QString &link,
                                  const QString &application, const QString &object,
                                  bool unread, int accountId, const QString &clientId);
+    void removeAllNotifications();
     void removeNotifications(int accountId);
     void removeNotification(const QString &notificationId);
     void removeNotifications(QStringList notificationIds);

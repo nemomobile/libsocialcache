@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Jolla Ltd.
+ * Copyright (C) 2014-2015 Jolla Ltd.
  * Contact: Antti Seppälä <antti.seppala@jollamobile.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -46,6 +46,8 @@ public:
     QHash<int, QByteArray> roleNames() const;
 
     void refresh();
+
+    Q_INVOKABLE void clear();
 
 private Q_SLOTS:
     void notificationsChanged();
