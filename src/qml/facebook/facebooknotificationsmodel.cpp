@@ -68,6 +68,12 @@ void FacebookNotificationsModel::refresh()
     notificationsChanged();
 }
 
+void FacebookNotificationsModel::clear()
+{
+    Q_D(FacebookNotificationsModel);
+    d->database.removeAllNotifications();
+}
+
 void FacebookNotificationsModel::notificationsChanged()
 {
     Q_D(FacebookNotificationsModel);

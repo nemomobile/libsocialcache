@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Jolla Ltd. <antti.seppala@jollamobile.com>
+ * Copyright (C) 2014-2015 Jolla Ltd. <antti.seppala@jollamobile.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -206,6 +206,27 @@ private slots:
         database.sync();
         database.wait();
         QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
+
+        notifications = database.notifications();
+        QCOMPARE(notifications.count(), 0);
+
+        database.addFacebookNotification(id1, from1, to1, time1, time1,
+                                         title1, link1, app1, object1, unread1, account1, clientId);
+
+        database.addFacebookNotification(id2, from2, to2, time2, time2,
+                                         title2, link2, app2, object2, unread2, account1, clientId);
+
+        database.addFacebookNotification(id3, from3, to3, time3, time3,
+                                         title3, link3, app3, object3, unread3, account2, clientId);
+        database.sync();
+        database.wait();
+        QCOMPARE(database.writeStatus(), AbstractSocialCacheDatabase::Finished);
+
+        notifications = database.notifications();
+        QCOMPARE(notifications.count(), 3);
+
+        database.removeAllNotifications();
+        database.wait();
 
         notifications = database.notifications();
         QCOMPARE(notifications.count(), 0);
