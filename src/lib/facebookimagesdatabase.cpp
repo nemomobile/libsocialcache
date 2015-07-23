@@ -567,9 +567,9 @@ QList<FacebookUser::ConstPtr> FacebookImagesDatabasePrivate::queryUsers() const
 
     QSqlQuery query = q_func()->prepare(QStringLiteral(
                 "SELECT users.fbUserId, users.updatedTime, users.userName, "
-                "COUNT(fbImageId) as count "
+                "SUM(albums.imageCount) as count "
                 "FROM users "
-                "LEFT JOIN images ON images.fbUserId = users.fbUserId "
+                "LEFT JOIN albums ON albums.fbUserId = users.fbUserId "
                 "GROUP BY users.fbUserId "
                 "ORDER BY users.fbUserId"));
     if (!query.exec()) {
