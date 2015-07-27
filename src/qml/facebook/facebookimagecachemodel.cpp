@@ -250,22 +250,18 @@ void FacebookImageCacheModel::queryFinished()
     switch (d->type) {
     case Users: {
         QList<FacebookUser::ConstPtr> usersData = d->database.users();
-        for (int i = 0; i < usersData.count(); i++) {
-            const FacebookUser::ConstPtr & userData = usersData.at(i);
+        int count = 0;
+        Q_FOREACH (const FacebookUser::ConstPtr &userData, usersData) {
             QMap<int, QVariant> userMap;
             userMap.insert(FacebookImageCacheModel::FacebookId, userData->fbUserId());
             userMap.insert(FacebookImageCacheModel::Title, userData->userName());
             userMap.insert(FacebookImageCacheModel::Count, userData->count());
+            count += userData->count();
             data.append(userMap);
         }
 
         if (data.count() > 1) {
             QMap<int, QVariant> userMap;
-            int count = 0;
-            Q_FOREACH (const FacebookUser::ConstPtr &userData, usersData) {
-                count += userData->count();
-            }
-
             userMap.insert(FacebookImageCacheModel::FacebookId, QString());
             userMap.insert(FacebookImageCacheModel::Thumbnail, QString());
             //: Label for the "show all users from all Facebook accounts" option
@@ -280,23 +276,20 @@ void FacebookImageCacheModel::queryFinished()
         QList<FacebookAlbum::ConstPtr> albumsData = d->database.albums();
 
         QString fbUserId;
-        Q_FOREACH (const FacebookAlbum::ConstPtr & albumData, albumsData) {
+        int count = 0;
+        Q_FOREACH (const FacebookAlbum::ConstPtr &albumData, albumsData) {
             QMap<int, QVariant> albumMap;
             fbUserId = albumData->fbUserId();  // remember user id for 'All' album
             albumMap.insert(FacebookImageCacheModel::FacebookId, albumData->fbAlbumId());
             albumMap.insert(FacebookImageCacheModel::Title, albumData->albumName());
             albumMap.insert(FacebookImageCacheModel::Count, albumData->imageCount());
             albumMap.insert(FacebookImageCacheModel::UserId, albumData->fbUserId());
+            count += albumData->imageCount();
             data.append(albumMap);
         }
 
         if (data.count() > 1) {
             QMap<int, QVariant> albumMap;
-            int count = 0;
-            Q_FOREACH (const FacebookAlbum::ConstPtr &albumData, albumsData) {
-                count += albumData->imageCount();
-            }
-
             albumMap.insert(FacebookImageCacheModel::FacebookId, QString());
             // albumMap.insert(FacebookImageCacheModel::Icon, QString());
             //:  Label for the "show all photos from all albums by this user" option
@@ -344,7 +337,7 @@ void FacebookImageCacheModel::queryFinished()
     updateData(data);
 
     // now download the queued thumbnails.
-    foreach (const QVariantMap &thumbQueueData, thumbQueue) {
+    Q_FOREACH (const QVariantMap &thumbQueueData, thumbQueue) {
         d->queue(thumbQueueData["row"].toInt(),
                  static_cast<FacebookImageDownloader::ImageType>(thumbQueueData["imageType"].toInt()),
                  thumbQueueData["identifier"].toString(),
