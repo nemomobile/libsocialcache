@@ -35,6 +35,10 @@
 // - nothing: query all photos
 // - user-USER_ID: query all photos for the given user
 // - album-ALBUM_ID: query all photos for the given album
+//
+// When querying albums, the nodeIdentifier should be either
+// - nothing: query all albums for all users
+// - USER_ID: query all albums for the given user
 
 static const char *PHOTO_USER_PREFIX = "user-";
 static const char *PHOTO_ALBUM_PREFIX = "album-";
@@ -275,11 +279,9 @@ void FacebookImageCacheModel::queryFinished()
     case Albums: {
         QList<FacebookAlbum::ConstPtr> albumsData = d->database.albums();
 
-        QString fbUserId;
         int count = 0;
         Q_FOREACH (const FacebookAlbum::ConstPtr &albumData, albumsData) {
             QMap<int, QVariant> albumMap;
-            fbUserId = albumData->fbUserId();  // remember user id for 'All' album
             albumMap.insert(FacebookImageCacheModel::FacebookId, albumData->fbAlbumId());
             albumMap.insert(FacebookImageCacheModel::Title, albumData->albumName());
             albumMap.insert(FacebookImageCacheModel::Count, albumData->imageCount());
@@ -296,7 +298,11 @@ void FacebookImageCacheModel::queryFinished()
             //% "All"
             albumMap.insert(FacebookImageCacheModel::Title, qtTrId("nemo_socialcache_facebook_images_model-all-albums"));
             albumMap.insert(FacebookImageCacheModel::Count, count);
-            albumMap.insert(FacebookImageCacheModel::UserId, fbUserId);
+            if (d->nodeIdentifier.isEmpty()) {
+                albumMap.insert(FacebookImageCacheModel::UserId, QString());
+            } else {
+                albumMap.insert(FacebookImageCacheModel::UserId, data.first().value(FacebookImageCacheModel::UserId));
+            }
             data.prepend(albumMap);
         }
         break;
