@@ -47,6 +47,7 @@ public:
 
     void refresh();
 
+    Q_INVOKABLE void remove(const QString &notificationId);
     Q_INVOKABLE void clear();
 
 private Q_SLOTS:
