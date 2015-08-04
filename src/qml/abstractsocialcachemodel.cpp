@@ -60,6 +60,7 @@ void AbstractSocialCacheModelPrivate::clearData()
         q->beginRemoveRows(QModelIndex(), 0, m_data.count() - 1);
         m_data.clear();
         q->endRemoveRows();
+        emit q->countChanged();
     }
 }
 
@@ -80,18 +81,24 @@ void AbstractSocialCacheModelPrivate::insertRange(
 {
     Q_Q(AbstractSocialCacheModel);
 
-    q->beginInsertRows(QModelIndex(), index, index + count - 1);
-    m_data = m_data.mid(0, index) + source.mid(sourceIndex, count) + m_data.mid(index);
-    q->endInsertRows();
+    if (count > 0 && index >= 0) {
+        q->beginInsertRows(QModelIndex(), index, index + count - 1);
+        m_data = m_data.mid(0, index) + source.mid(sourceIndex, count) + m_data.mid(index);
+        q->endInsertRows();
+        emit q->countChanged();
+    }
 }
 
 void AbstractSocialCacheModelPrivate::removeRange(int index, int count)
 {
     Q_Q(AbstractSocialCacheModel);
 
-    q->beginRemoveRows(QModelIndex(), index, index + count - 1);
-    m_data = m_data.mid(0, index) + m_data.mid(index + count);
-    q->endRemoveRows();
+    if (count > 0 && index >= 0) {
+        q->beginRemoveRows(QModelIndex(), index, index + count - 1);
+        m_data = m_data.mid(0, index) + m_data.mid(index + count);
+        q->endRemoveRows();
+        emit q->countChanged();
+    }
 }
 
 void AbstractSocialCacheModelPrivate::updateRange(
