@@ -71,6 +71,7 @@ void FacebookNotificationsModel::refresh()
 void FacebookNotificationsModel::clear()
 {
     Q_D(FacebookNotificationsModel);
+    d->clearData();
     d->database.removeAllNotifications();
 }
 
