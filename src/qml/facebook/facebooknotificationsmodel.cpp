@@ -68,9 +68,23 @@ void FacebookNotificationsModel::refresh()
     notificationsChanged();
 }
 
+void FacebookNotificationsModel::remove(const QString &notificationId)
+{
+    Q_D(FacebookNotificationsModel);
+    for (int i=0; i<count(); i++) {
+        if (getField(i, FacebookNotificationsModel::NotificationId).toString() == notificationId) {
+            d->removeRange(i, 1);
+            d->database.removeNotification(notificationId);
+            d->database.sync();
+            break;
+        }
+    }
+}
+
 void FacebookNotificationsModel::clear()
 {
     Q_D(FacebookNotificationsModel);
+    d->clearData();
     d->database.removeAllNotifications();
 }
 
