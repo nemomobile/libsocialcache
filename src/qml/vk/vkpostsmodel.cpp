@@ -67,6 +67,27 @@ void VKPostsModel::refresh()
     d->database.refresh();
 }
 
+void VKPostsModel::remove(const QString &postId)
+{
+    Q_D(VKPostsModel);
+
+    for (int i=0; i<count(); i++) {
+        if (getField(i, VKPostsModel::VkId).toString() == postId) {
+            d->removeRange(i, 1);
+            d->database.removePost(postId);
+            d->database.commit();
+            break;
+        }
+    }
+}
+
+void VKPostsModel::clear()
+{
+    Q_D(VKPostsModel);
+    d->clearData();
+    d->database.removeAll();
+}
+
 void VKPostsModel::postsChanged()
 {
     Q_D(VKPostsModel);
