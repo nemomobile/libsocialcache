@@ -43,6 +43,9 @@ public:
 
     void refresh();
 
+    Q_INVOKABLE void remove(const QString &postId);
+    Q_INVOKABLE void clear();
+
 private Q_SLOTS:
     void postsChanged();
 

@@ -112,6 +112,8 @@ public:
                  const QVariantMap &extra, int account);
 
     void removePosts(int accountId);
+    void removePost(const QString &identifier);
+    void removeAll();
 
     void commit();
     void refresh();
