@@ -36,7 +36,15 @@ public:
         Icon,
         Images,
         Extra,
-        Accounts
+        Accounts,
+        RepostType,
+        RepostOwnerName,
+        RepostOwnerAvatar,
+        RepostText,
+        RepostPhoto,
+        RepostVideo,
+        RepostLink,
+        RepostTimestamp
     };
     explicit VKPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;

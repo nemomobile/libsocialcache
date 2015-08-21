@@ -23,6 +23,15 @@
 #include <QtCore/QDebug>
 #include "postimagehelper_p.h"
 
+static const char *COPIED_POST_CREATED_TIME_KEY = "copied_post_created_time";
+static const char *COPIED_POST_TYPE_KEY = "copied_post_type";
+static const char *COPIED_POST_OWNER_NAME_KEY = "copied_post_owner_name";
+static const char *COPIED_POST_OWNER_AVATAR_KEY = "copied_post_owner_avatar";
+static const char *COPIED_POST_TEXT_KEY = "copied_post_text";
+static const char *COPIED_POST_PHOTO_KEY = "copied_post_photo";
+static const char *COPIED_POST_VIDEO_KEY = "copied_post_video";
+static const char *COPIED_POST_LINK_KEY = "copied_post_link";
+
 class VKPostsModelPrivate: public AbstractSocialCacheModelPrivate
 {
 public:
@@ -58,6 +67,14 @@ QHash<int, QByteArray> VKPostsModel::roleNames() const
     roleNames.insert(Icon, "icon");
     roleNames.insert(Images, "images");
     roleNames.insert(Accounts, "accounts");
+    roleNames.insert(RepostType, "repostType");
+    roleNames.insert(RepostOwnerName, "repostOwnerName");
+    roleNames.insert(RepostOwnerAvatar, "repostOwnerAvatar");
+    roleNames.insert(RepostText, "repostText");
+    roleNames.insert(RepostPhoto, "repostPhoto");
+    roleNames.insert(RepostVideo, "repostVideo");
+    roleNames.insert(RepostLink, "repostLink");
+    roleNames.insert(RepostTimestamp, "repostTimestamp");
     return roleNames;
 }
 
@@ -102,6 +119,22 @@ void VKPostsModel::postsChanged()
         eventMap.insert(VKPostsModel::Body, post->body());
         eventMap.insert(VKPostsModel::Timestamp, post->timestamp());
         eventMap.insert(VKPostsModel::Icon, post->icon());
+
+        eventMap.insert(VKPostsModel::RepostOwnerName, post->extra().value(COPIED_POST_OWNER_NAME_KEY));
+        eventMap.insert(VKPostsModel::RepostOwnerAvatar, post->extra().value(COPIED_POST_OWNER_AVATAR_KEY));
+        eventMap.insert(VKPostsModel::RepostType, post->extra().value(COPIED_POST_TYPE_KEY));
+        eventMap.insert(VKPostsModel::RepostText, post->extra().value(COPIED_POST_TEXT_KEY));
+        eventMap.insert(VKPostsModel::RepostPhoto, post->extra().value(COPIED_POST_PHOTO_KEY));
+        eventMap.insert(VKPostsModel::RepostVideo, post->extra().value(COPIED_POST_VIDEO_KEY));
+        eventMap.insert(VKPostsModel::RepostLink, post->extra().value(COPIED_POST_LINK_KEY));
+        eventMap.insert(VKPostsModel::RepostTimestamp, post->extra().value(COPIED_POST_CREATED_TIME_KEY));
+
+        //qDebug("LIBCACHE: repostText: %s", qPrintable(post->extra().value(COPIED_POST_TEXT_KEY).toString()));
+        //qDebug("LIBCACHE: repostOwnerName: %s", qPrintable(post->extra().value(COPIED_POST_OWNER_NAME_KEY).toString()));
+        //QString photoTmp = post->extra().value(COPIED_POST_OWNER_AVATAR_KEY).toString();
+        //if (photoTmp != "") {
+        //    qDebug("REPOST OWNER PHOTO: %s", qPrintable(photoTmp));
+        //}
 
         QVariantList images;
         Q_FOREACH (const SocialPostImage::ConstPtr &image, post->images()) {
