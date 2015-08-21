@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 Jolla Ltd.
+ * Copyright (C) 2014-2015 Jolla Ltd.
  * Contact: Antti Seppälä <antti.seppala@jollamobile.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -36,7 +36,15 @@ public:
         Icon,
         Images,
         Extra,
-        Accounts
+        Accounts,
+        RepostType,
+        RepostOwnerName,
+        RepostOwnerAvatar,
+        RepostText,
+        RepostPhoto,
+        RepostVideo,
+        RepostLink,
+        RepostTimestamp
     };
     explicit VKPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;

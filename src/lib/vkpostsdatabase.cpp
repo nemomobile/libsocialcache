@@ -49,8 +49,13 @@ static const char *GEO_SHOWMAP_KEY = "geo_showmap";
 static const char *COPIED_POST_CREATED_TIME_KEY = "copied_post_created_time";
 static const char *COPIED_POST_TYPE_KEY = "copied_post_type";
 static const char *COPIED_POST_OWNER_ID_KEY = "copied_post_owner_id";
+static const char *COPIED_POST_OWNER_NAME_KEY = "copied_post_owner_name";
+static const char *COPIED_POST_OWNER_AVATAR_KEY = "copied_post_owner_avatar";
 static const char *COPIED_POST_POST_ID_KEY = "copied_post_post_id";
 static const char *COPIED_POST_TEXT_KEY = "copied_post_text";
+static const char *COPIED_POST_PHOTO_KEY = "copied_post_photo";
+static const char *COPIED_POST_VIDEO_KEY = "copied_post_video";
+static const char *COPIED_POST_LINK_KEY = "copied_post_link";
 
 static const char *POST_FROM_ID_KEY = "post_from_id";
 static const char *POST_TO_ID_KEY = "post_to_id";
@@ -173,7 +178,13 @@ VKPostsDatabase::CopyPost& VKPostsDatabase::CopyPost::operator=(const VKPostsDat
     createdTime = other.createdTime;
     type = other.type;
     ownerId = other.ownerId;
+    ownerName = other.ownerName;
+    ownerAvatar = other.ownerAvatar;
     postId = other.postId;
+    text = other.text;
+    photo = other.photo;
+    video = other.video;
+    link = other.link;
     return *this;
 }
 
@@ -259,8 +270,13 @@ void VKPostsDatabase::addVKPost(const QString &identifier,
     extra.insert(COPIED_POST_CREATED_TIME_KEY, post.copyPost.createdTime);
     extra.insert(COPIED_POST_TYPE_KEY, post.copyPost.type);
     extra.insert(COPIED_POST_OWNER_ID_KEY, post.copyPost.ownerId);
+    extra.insert(COPIED_POST_OWNER_NAME_KEY, post.copyPost.ownerName);
+    extra.insert(COPIED_POST_OWNER_AVATAR_KEY, post.copyPost.ownerAvatar);
     extra.insert(COPIED_POST_POST_ID_KEY, post.copyPost.postId);
     extra.insert(COPIED_POST_TEXT_KEY, post.copyPost.text);
+    extra.insert(COPIED_POST_PHOTO_KEY, post.copyPost.photo);
+    extra.insert(COPIED_POST_VIDEO_KEY, post.copyPost.video);
+    extra.insert(COPIED_POST_LINK_KEY, post.copyPost.link);
 
     addPost(identifier,
             personName,
@@ -310,7 +326,13 @@ VKPostsDatabase::Post::Ptr VKPostsDatabase::Post::create(const SocialPost::Const
     vkPost->copyPost.createdTime = extra.value(COPIED_POST_CREATED_TIME_KEY).toDateTime();
     vkPost->copyPost.type = extra.value(COPIED_POST_TYPE_KEY).toString();
     vkPost->copyPost.ownerId = extra.value(COPIED_POST_OWNER_ID_KEY).toInt();
+    vkPost->copyPost.ownerName = extra.value(COPIED_POST_OWNER_NAME_KEY).toString();
+    vkPost->copyPost.ownerAvatar = extra.value(COPIED_POST_OWNER_AVATAR_KEY).toString();
     vkPost->copyPost.postId = extra.value(COPIED_POST_POST_ID_KEY).toInt();
+    vkPost->copyPost.text = extra.value(COPIED_POST_TEXT_KEY).toInt();
+    vkPost->copyPost.photo = extra.value(COPIED_POST_PHOTO_KEY).toString();
+    vkPost->copyPost.video = extra.value(COPIED_POST_VIDEO_KEY).toString();
+    vkPost->copyPost.link = extra.value(COPIED_POST_LINK_KEY).toString();
 
     return VKPostsDatabase::Post::Ptr(vkPost);
 }
