@@ -109,8 +109,13 @@ public:
         QDateTime createdTime;
         QString type;
         int ownerId;
+        QString ownerName;
+        QString ownerAvatar;
         int postId;
         QString text;
+        QString photo;
+        QString video;
+        QString link;
     };
 
     class Post
