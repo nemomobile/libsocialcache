@@ -71,10 +71,10 @@ QHash<int, QByteArray> VKPostsModel::roleNames() const
     roleNames.insert(RepostOwnerName, "repostOwnerName");
     roleNames.insert(RepostOwnerAvatar, "repostOwnerAvatar");
     roleNames.insert(RepostText, "repostText");
-    roleNames.insert(RepostPhoto, "repostPhoto");
     roleNames.insert(RepostVideo, "repostVideo");
     roleNames.insert(RepostLink, "repostLink");
     roleNames.insert(RepostTimestamp, "repostTimestamp");
+    roleNames.insert(RepostImages, "repostImages");
     return roleNames;
 }
 
@@ -124,10 +124,20 @@ void VKPostsModel::postsChanged()
         eventMap.insert(VKPostsModel::RepostOwnerAvatar, post->extra().value(COPIED_POST_OWNER_AVATAR_KEY));
         eventMap.insert(VKPostsModel::RepostType, post->extra().value(COPIED_POST_TYPE_KEY));
         eventMap.insert(VKPostsModel::RepostText, post->extra().value(COPIED_POST_TEXT_KEY));
-        eventMap.insert(VKPostsModel::RepostPhoto, post->extra().value(COPIED_POST_PHOTO_KEY));
         eventMap.insert(VKPostsModel::RepostVideo, post->extra().value(COPIED_POST_VIDEO_KEY));
         eventMap.insert(VKPostsModel::RepostLink, post->extra().value(COPIED_POST_LINK_KEY));
         eventMap.insert(VKPostsModel::RepostTimestamp, post->extra().value(COPIED_POST_CREATED_TIME_KEY));
+
+        QVariantList repostImages;
+        QStringList imageUrls = post->extra().value(COPIED_POST_PHOTO_KEY).toString().split(QStringLiteral(","));
+        Q_FOREACH (const QString url, imageUrls) {
+            if (!url.isEmpty()) {
+                SocialPostImage::Ptr repostImage = SocialPostImage::create(url, SocialPostImage::Photo);
+                QVariantMap tmp = createImageData(repostImage);
+                repostImages.append(tmp);
+            }
+        }
+        eventMap.insert(VKPostsModel::RepostImages, repostImages);
 
         QVariantList images;
         Q_FOREACH (const SocialPostImage::ConstPtr &image, post->images()) {
