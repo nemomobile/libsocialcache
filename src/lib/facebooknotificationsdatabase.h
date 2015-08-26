@@ -67,10 +67,14 @@ class FacebookNotificationsDatabasePrivate;
 class FacebookNotificationsDatabase: public AbstractSocialCacheDatabase
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList accountIdFilter READ accountIdFilter WRITE setAccountIdFilter NOTIFY accountIdFilterChanged)
 
 public:
     explicit FacebookNotificationsDatabase();
     ~FacebookNotificationsDatabase();
+
+    QVariantList accountIdFilter() const;
+    void setAccountIdFilter(const QVariantList &accountIds);
 
     void addFacebookNotification(const QString &facebookId, const QString &from, const QString &to,
                                  const QDateTime &createdTime, const QDateTime &updatedTime,
@@ -87,6 +91,7 @@ public:
 
 signals:
     void notificationsChanged();
+    void accountIdFilterChanged();
 
 protected:
     void readFinished();

@@ -98,10 +98,14 @@ class AbstractSocialPostCacheDatabasePrivate;
 class AbstractSocialPostCacheDatabase: public AbstractSocialCacheDatabase
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList accountIdFilter READ accountIdFilter WRITE setAccountIdFilter NOTIFY accountIdFilterChanged)
 public:
     explicit AbstractSocialPostCacheDatabase(
             const QString &serviceName, const QString &databaseFile);
     ~AbstractSocialPostCacheDatabase();
+
+    QVariantList accountIdFilter() const;
+    void setAccountIdFilter(const QVariantList &accountIds);
 
     QList<SocialPost::ConstPtr> posts() const;
 
@@ -118,6 +122,7 @@ public:
 
 Q_SIGNALS:
     void postsChanged();
+    void accountIdFilterChanged();
 
 protected:
     bool read();
