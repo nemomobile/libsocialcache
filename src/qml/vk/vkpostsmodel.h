@@ -41,10 +41,10 @@ public:
         RepostOwnerName,
         RepostOwnerAvatar,
         RepostText,
-        RepostPhoto,
         RepostVideo,
         RepostLink,
-        RepostTimestamp
+        RepostTimestamp,
+        RepostImages
     };
     explicit VKPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
