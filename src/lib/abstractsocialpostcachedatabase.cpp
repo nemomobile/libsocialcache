@@ -376,7 +376,7 @@ bool AbstractSocialPostCacheDatabase::read()
                 "SELECT identifier, name, body, timestamp "
                 "FROM posts");
     if (!d->accountIdFilter.isEmpty()) {
-        postQueryString += " WHERE identifier IN (" + filteredPostIds.join(',') + ')';
+        postQueryString += " WHERE identifier IN (\"" + filteredPostIds.join("\",\"") + "\")";
     }
     postQueryString += " ORDER BY timestamp DESC";
 
