@@ -43,6 +43,7 @@ FacebookNotificationsModel::FacebookNotificationsModel(QObject *parent)
     Q_D(FacebookNotificationsModel);
 
     connect(&d->database, SIGNAL(notificationsChanged()), this, SLOT(notificationsChanged()));
+    connect(&d->database, SIGNAL(accountIdFilterChanged()), this, SIGNAL(accountIdFilterChanged()));
 }
 
 QHash<int, QByteArray> FacebookNotificationsModel::roleNames() const
@@ -61,6 +62,20 @@ QHash<int, QByteArray> FacebookNotificationsModel::roleNames() const
     roleNames.insert(ClientId, "clientId");
 
     return roleNames;
+}
+
+QVariantList FacebookNotificationsModel::accountIdFilter() const
+{
+    Q_D(const FacebookNotificationsModel);
+
+    return d->database.accountIdFilter();
+}
+
+void FacebookNotificationsModel::setAccountIdFilter(const QVariantList &accountIds)
+{
+    Q_D(FacebookNotificationsModel);
+
+    d->database.setAccountIdFilter(accountIds);
 }
 
 void FacebookNotificationsModel::refresh()

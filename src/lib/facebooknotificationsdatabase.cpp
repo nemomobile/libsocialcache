@@ -172,6 +172,7 @@ public:
 
     QMap<int, QList<FacebookNotification::ConstPtr> > insertNotifications;
     QList<int> removeNotificationsFromAccounts;
+    QVariantList accountIdFilter;
     QStringList removeNotifications;
     int purgeTimeLimit;
 
@@ -203,6 +204,23 @@ FacebookNotificationsDatabase::FacebookNotificationsDatabase()
 FacebookNotificationsDatabase::~FacebookNotificationsDatabase()
 {
     wait();
+}
+
+QVariantList FacebookNotificationsDatabase::accountIdFilter() const
+{
+    Q_D(const FacebookNotificationsDatabase);
+
+    return d->accountIdFilter;
+}
+
+void FacebookNotificationsDatabase::setAccountIdFilter(const QVariantList &accountIds)
+{
+    Q_D(FacebookNotificationsDatabase);
+
+    if (d->accountIdFilter != accountIds) {
+        d->accountIdFilter = accountIds;
+        emit accountIdFilterChanged();
+    }
 }
 
 void FacebookNotificationsDatabase::addFacebookNotification(const QString &facebookId, const QString &from, const QString &to,
@@ -305,12 +323,26 @@ void FacebookNotificationsDatabase::sync()
 
 QList<FacebookNotification::ConstPtr> FacebookNotificationsDatabase::notifications()
 {
+    Q_D(FacebookNotificationsDatabase);
+
     QList<FacebookNotification::ConstPtr> data;
 
-    QSqlQuery query;
-    query = prepare(QStringLiteral(
+    QString queryString = QStringLiteral(
                 "SELECT facebookId, accountId, fromStr, toStr, createdTime, updatedTime, title, link, application," \
-                "objectStr, unread, clientId FROM notifications ORDER BY updatedTime DESC"));
+                "objectStr, unread, clientId FROM notifications");
+    if (!d->accountIdFilter.isEmpty()) {
+        QStringList accountIds;
+        for (int i=0; i<d->accountIdFilter.count(); i++) {
+            if (d->accountIdFilter[i].type() == QVariant::Int) {
+                accountIds << d->accountIdFilter[i].toString();
+            }
+        }
+        if (accountIds.count()) {
+            queryString += " WHERE accountId IN (" + accountIds.join(',') + ')';
+        }
+    }
+    queryString += QStringLiteral(" ORDER BY updatedTime DESC");
+    QSqlQuery query = prepare(queryString);
 
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Failed to query events" << query.lastError().text();

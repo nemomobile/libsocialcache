@@ -26,6 +26,7 @@ class FacebookNotificationsModelPrivate;
 class FacebookNotificationsModel : public AbstractSocialCacheModel
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList accountIdFilter READ accountIdFilter WRITE setAccountIdFilter NOTIFY accountIdFilterChanged)
 
     Q_ENUMS(FacebookNotificationsRole)
 public:
@@ -45,10 +46,16 @@ public:
     explicit FacebookNotificationsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
 
+    QVariantList accountIdFilter() const;
+    void setAccountIdFilter(const QVariantList &accountIds);
+
     void refresh();
 
     Q_INVOKABLE void remove(const QString &notificationId);
     Q_INVOKABLE void clear();
+
+signals:
+    void accountIdFilterChanged();
 
 private Q_SLOTS:
     void notificationsChanged();

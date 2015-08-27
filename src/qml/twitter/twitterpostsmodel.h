@@ -26,6 +26,8 @@ class TwitterPostsModelPrivate;
 class TwitterPostsModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList accountIdFilter READ accountIdFilter WRITE setAccountIdFilter NOTIFY accountIdFilterChanged)
+
 public:
     enum TwitterPostsRole {
         TwitterId = 0,
@@ -43,7 +45,13 @@ public:
     explicit TwitterPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
 
+    QVariantList accountIdFilter() const;
+    void setAccountIdFilter(const QVariantList &accountIds);
+
     void refresh();
+
+signals:
+    void accountIdFilterChanged();
 
 private slots:
     void postsChanged();

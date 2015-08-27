@@ -216,6 +216,7 @@ private:
 
     QList<SocialPost::ConstPtr> asyncPosts;
     QList<SocialPost::ConstPtr> posts;
+    QVariantList accountIdFilter;
 
     Q_DECLARE_PUBLIC(AbstractSocialPostCacheDatabase)
 };
@@ -242,6 +243,19 @@ AbstractSocialPostCacheDatabase::AbstractSocialPostCacheDatabase(
     : AbstractSocialCacheDatabase(
             *(new AbstractSocialPostCacheDatabasePrivate(this, serviceName, databaseFile)))
 {
+}
+
+QVariantList AbstractSocialPostCacheDatabase::accountIdFilter() const
+{
+    return d_func()->accountIdFilter;
+}
+
+void AbstractSocialPostCacheDatabase::setAccountIdFilter(const QVariantList &accountIds)
+{
+    if (accountIds != d_func()->accountIdFilter) {
+        d_func()->accountIdFilter = accountIds;
+        emit accountIdFilterChanged();
+    }
 }
 
 QList<SocialPost::ConstPtr> AbstractSocialPostCacheDatabase::posts() const
@@ -297,10 +311,47 @@ bool AbstractSocialPostCacheDatabase::read()
     Q_D(AbstractSocialPostCacheDatabase);
     // This might be slow
 
-    QSqlQuery postQuery = prepare(QLatin1String(
+    QString accountQueryString = QLatin1String(
+                "SELECT account, postId "
+                "FROM link_post_account");
+    if (!d->accountIdFilter.isEmpty()) {
+        QStringList accountIds;
+        for (int i=0; i<d->accountIdFilter.count(); i++) {
+            if (d->accountIdFilter[i].type() == QVariant::Int) {
+                accountIds << d->accountIdFilter[i].toString();
+            }
+        }
+        if (accountIds.count()) {
+            accountQueryString += " WHERE account IN (" + accountIds.join(',') + ')';
+        }
+    }
+
+    QSqlQuery accountQuery = prepare(accountQueryString);
+    if (!accountQuery.exec()) {
+        qWarning() << Q_FUNC_INFO << "Error reading from link_post_account table:" << accountQuery.lastError();
+        return false;
+    }
+
+    QStringList filteredPostIds;
+    QHash<QString,QList<int> > accounts;
+    if (accountQuery.exec()) {
+        while (accountQuery.next()) {
+            int accountId = accountQuery.value(0).toInt();
+            QString postId = accountQuery.value(1).toString();
+            accounts[postId].append(accountId);
+            filteredPostIds.append(postId);
+        }
+    }
+
+    QString postQueryString = QLatin1String(
                 "SELECT identifier, name, body, timestamp "
-                "FROM posts "
-                "ORDER BY timestamp DESC"));
+                "FROM posts");
+    if (!d->accountIdFilter.isEmpty()) {
+        postQueryString += " WHERE identifier IN (" + filteredPostIds.join(',') + ')';
+    }
+    postQueryString += " ORDER BY timestamp DESC";
+
+    QSqlQuery postQuery = prepare(postQueryString);
     QSqlQuery imageQuery = prepare(QLatin1String(
                 "SELECT position, url, type "
                 "FROM images "
@@ -310,10 +361,7 @@ bool AbstractSocialPostCacheDatabase::read()
                 "SELECT key, value "
                 "FROM extra "
                 "WHERE postId = :postId"));
-    QSqlQuery accountQuery = prepare(QLatin1String(
-                "SELECT account "
-                "FROM link_post_account "
-                "WHERE postId = :postId"));
+
 
     if (!postQuery.exec()) {
         qWarning() << Q_FUNC_INFO << "Error reading from posts table:" << postQuery.lastError();
@@ -369,17 +417,7 @@ bool AbstractSocialPostCacheDatabase::read()
         }
 
         post->setExtra(extra);
-
-        accountQuery.bindValue(":postId", identifier);
-
-        QList<int> accounts;
-        if (accountQuery.exec()) {
-            while (accountQuery.next()) {
-                accounts.append(accountQuery.value(0).toInt());
-            }
-        }
-
-        post->setAccounts(accounts);
+        post->setAccounts(accounts[identifier]);
 
         posts.append(post);
     }

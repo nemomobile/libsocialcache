@@ -46,6 +46,8 @@ TwitterPostsModel::TwitterPostsModel(QObject *parent)
 
      connect(&d->database, &AbstractSocialPostCacheDatabase::postsChanged,
              this, &TwitterPostsModel::postsChanged);
+     connect(&d->database, SIGNAL(accountIdFilterChanged()),
+             this, SIGNAL(accountIdFilterChanged()));
 }
 
 QHash<int, QByteArray> TwitterPostsModel::roleNames() const
@@ -63,6 +65,20 @@ QHash<int, QByteArray> TwitterPostsModel::roleNames() const
     roleNames.insert(ConsumerSecret, "consumerSecret");
     roleNames.insert(Accounts, "accounts");
     return roleNames;
+}
+
+QVariantList TwitterPostsModel::accountIdFilter() const
+{
+    Q_D(const TwitterPostsModel);
+
+    return d->database.accountIdFilter();
+}
+
+void TwitterPostsModel::setAccountIdFilter(const QVariantList &accountIds)
+{
+    Q_D(TwitterPostsModel);
+
+    d->database.setAccountIdFilter(accountIds);
 }
 
 void TwitterPostsModel::refresh()
