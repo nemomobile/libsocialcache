@@ -78,6 +78,18 @@ QHash<int, QByteArray> VKPostsModel::roleNames() const
     return roleNames;
 }
 
+QVariantList VKPostsModel::accountIdFilter() const
+{
+    Q_D(const VKPostsModel);
+    return d->database.accountIdFilter();
+}
+
+void VKPostsModel::setAccountIdFilter(const QVariantList &accountIds)
+{
+    Q_D(VKPostsModel);
+    d->database.setAccountIdFilter(accountIds);
+}
+
 void VKPostsModel::refresh()
 {
     Q_D(VKPostsModel);
