@@ -26,6 +26,7 @@ class VKPostsModelPrivate;
 class VKPostsModel: public AbstractSocialCacheModel
 {
     Q_OBJECT
+    Q_PROPERTY(QVariantList accountIdFilter READ accountIdFilter WRITE setAccountIdFilter NOTIFY accountIdFilterChanged)
     Q_ENUMS(VKPostsRole)
 public:
     enum VKPostsRole {
@@ -49,10 +50,16 @@ public:
     explicit VKPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;
 
+    QVariantList accountIdFilter() const;
+    void setAccountIdFilter(const QVariantList &accountIds);
+
     void refresh();
 
     Q_INVOKABLE void remove(const QString &postId);
     Q_INVOKABLE void clear();
+
+signals:
+    void accountIdFilterChanged();
 
 private Q_SLOTS:
     void postsChanged();
