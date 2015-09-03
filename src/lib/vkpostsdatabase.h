@@ -141,6 +141,7 @@ public:
         int replyPostId;
         int signerId;
         bool friendsOnly;
+        QString link;
 
         typedef QSharedPointer<Post> Ptr;
         typedef QSharedPointer<const Post> ConstPtr;
