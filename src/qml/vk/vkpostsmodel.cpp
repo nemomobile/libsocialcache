@@ -23,6 +23,8 @@
 #include <QtCore/QDebug>
 #include "postimagehelper_p.h"
 
+static const char *POST_LINK_KEY = "post_link_key";
+
 static const char *COPIED_POST_CREATED_TIME_KEY = "copied_post_created_time";
 static const char *COPIED_POST_TYPE_KEY = "copied_post_type";
 static const char *COPIED_POST_OWNER_NAME_KEY = "copied_post_owner_name";
@@ -75,6 +77,7 @@ QHash<int, QByteArray> VKPostsModel::roleNames() const
     roleNames.insert(RepostLink, "repostLink");
     roleNames.insert(RepostTimestamp, "repostTimestamp");
     roleNames.insert(RepostImages, "repostImages");
+    roleNames.insert(Link, "link");
     return roleNames;
 }
 
@@ -131,6 +134,7 @@ void VKPostsModel::postsChanged()
         eventMap.insert(VKPostsModel::Body, post->body());
         eventMap.insert(VKPostsModel::Timestamp, post->timestamp());
         eventMap.insert(VKPostsModel::Icon, post->icon());
+        eventMap.insert(VKPostsModel::Link, post->extra().value(POST_LINK_KEY));
 
         eventMap.insert(VKPostsModel::RepostOwnerName, post->extra().value(COPIED_POST_OWNER_NAME_KEY));
         eventMap.insert(VKPostsModel::RepostOwnerAvatar, post->extra().value(COPIED_POST_OWNER_AVATAR_KEY));

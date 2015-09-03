@@ -45,7 +45,8 @@ public:
         RepostVideo,
         RepostLink,
         RepostTimestamp,
-        RepostImages
+        RepostImages,
+        Link
     };
     explicit VKPostsModel(QObject *parent = 0);
     QHash<int, QByteArray> roleNames() const;

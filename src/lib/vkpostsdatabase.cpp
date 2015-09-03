@@ -63,6 +63,7 @@ static const char *POST_REPLY_OWNER_ID_KEY = "post_reply_owner_id";
 static const char *POST_REPLY_POST_ID_KEY = "post_reply_post_id";
 static const char *POST_FRIENDS_ONLY_KEY = "post_friends_only";
 static const char *POST_SIGNER_ID_KEY = "post_signer_id";
+static const char *POST_LINK_KEY = "post_link_key";
 
 VKPostsDatabase::Comments::Comments() : count(0), userCanComment(false) {}
 VKPostsDatabase::Comments::~Comments() {}
@@ -213,6 +214,7 @@ VKPostsDatabase::Post& VKPostsDatabase::Post::operator=(const VKPostsDatabase::P
     replyPostId = other.replyPostId;
     signerId = other.signerId;
     friendsOnly = other.friendsOnly;
+    link = other.link;
     return *this;
 }
 
@@ -244,6 +246,7 @@ void VKPostsDatabase::addVKPost(const QString &identifier,
     extra.insert(POST_REPLY_POST_ID_KEY, post.replyPostId);
     extra.insert(POST_FRIENDS_ONLY_KEY, post.friendsOnly);
     extra.insert(POST_SIGNER_ID_KEY, post.signerId);
+    extra.insert(POST_LINK_KEY, post.link);
 
     extra.insert(COMMENT_COUNT_KEY, post.comments.count);
     extra.insert(COMMENT_ALLOW_KEY, post.comments.userCanComment);
@@ -300,6 +303,7 @@ VKPostsDatabase::Post::Ptr VKPostsDatabase::Post::create(const SocialPost::Const
     vkPost->replyPostId = extra.value(POST_REPLY_POST_ID_KEY).toInt();
     vkPost->friendsOnly = extra.value(POST_FRIENDS_ONLY_KEY).toBool();
     vkPost->signerId = extra.value(POST_SIGNER_ID_KEY).toInt();
+    vkPost->link = extra.value(POST_LINK_KEY).toString();
 
     vkPost->comments.count = extra.value(COMMENT_COUNT_KEY).toInt();
     vkPost->comments.userCanComment = extra.value(COMMENT_ALLOW_KEY).toBool();
