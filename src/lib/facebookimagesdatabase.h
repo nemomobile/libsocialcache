@@ -162,7 +162,8 @@ public:
                   const QString & fbUserId, const QDateTime & createdTime,
                   const QDateTime & updatedTime, const QString & imageName,
                   int width, int height, const QString & thumbnailUrl,
-                  const QString & imageUrl);
+                  const QString & imageUrl,
+                  const QString &thumbnailFile = QString(), const QString &imageFile = QString());
     void updateImageThumbnail(const QString &fbImageId, const QString &thumbnailFile);
     void updateImageFile(const QString &fbImageId, const QString &imageFile);
     void removeImage(const QString &fbImageId);

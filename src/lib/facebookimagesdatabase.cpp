@@ -833,12 +833,14 @@ void FacebookImagesDatabase::addImage(const QString &fbImageId, const QString &f
                                       const QString &fbUserId, const QDateTime &createdTime,
                                       const QDateTime &updatedTime, const QString &imageName,
                                       int width, int height, const QString &thumbnailUrl,
-                                      const QString &imageUrl)
+                                      const QString &imageUrl, const QString &thumbnailFile,
+                                      const QString &imageFile)
 {
     Q_D(FacebookImagesDatabase);
     FacebookImage::Ptr image = FacebookImage::create(fbImageId, fbAlbumId, fbUserId, createdTime,
                                                      updatedTime, imageName, width, height,
-                                                     thumbnailUrl, imageUrl, QString(), QString());
+                                                     thumbnailUrl, imageUrl, thumbnailFile,
+                                                     imageFile);
     QMutexLocker locker(&d->mutex);
 
     d->queue.insertImages.insert(fbImageId, image);
