@@ -107,11 +107,11 @@ void VKImageDownloader::dbQueueImage(const QString &url, const QVariantMap &data
         return;
     }
 
-    VKImage image(photo_id, album_id, owner_id,
-                  QString(), QString(), QString(),
-                  QString(), QString(),
-                  0, 0, 0,
-                  accountId);
+    VKImage::Ptr image = VKImage::create(photo_id, album_id, owner_id,
+                                         QString(), QString(), QString(),
+                                         QString(), QString(),
+                                         0, 0, 0,
+                                         accountId);
     int type = data.value(QLatin1String(TYPE_KEY)).toInt();
     switch (type) {
     case ThumbnailImage:
