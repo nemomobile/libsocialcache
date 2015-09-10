@@ -187,14 +187,14 @@ QVariant VKImageCacheModel::data(const QModelIndex &index, int role) const
         if (d->m_data.at(row).value(role).toString().isEmpty()) {
             // haven't downloaded the image yet.  Download it.
             if (d->database.images().size() > row) {
-                VKImage imageData = d->database.images().at(row);
+                VKImage::ConstPtr imageData = d->database.images().at(row);
                 VKImageCacheModelPrivate *nonconstD = const_cast<VKImageCacheModelPrivate*>(d);
                 nonconstD->queue(row, VKImageDownloader::FullImage,
-                                 imageData.accountId,
-                                 imageData.owner_id,
-                                 imageData.album_id,
-                                 imageData.id,
-                                 imageData.photo_src);
+                                 imageData->accountId(),
+                                 imageData->ownerId(),
+                                 imageData->albumId(),
+                                 imageData->id(),
+                                 imageData->photoSrc());
             }
         }
     }
@@ -274,22 +274,22 @@ void VKImageCacheModel::queryFinished()
     SocialCacheModelData data;
     switch (d->type) {
     case Users: {
-        QList<VKUser> usersData = d->database.users();
+        QList<VKUser::ConstPtr> usersData = d->database.users();
         for (int i = 0; i < usersData.count(); i++) {
-            const VKUser &userData(usersData[i]);
+            const VKUser::ConstPtr &userData(usersData[i]);
             QMap<int, QVariant> userMap;
-            userMap.insert(VKImageCacheModel::UserId, userData.id);
-            userMap.insert(VKImageCacheModel::AccountId, userData.accountId);
-            userMap.insert(VKImageCacheModel::Text, userData.first_name + ' ' + userData.last_name);
-            userMap.insert(VKImageCacheModel::Count, userData.photos_count);
+            userMap.insert(VKImageCacheModel::UserId, userData->id());
+            userMap.insert(VKImageCacheModel::AccountId, userData->accountId());
+            userMap.insert(VKImageCacheModel::Text, userData->firstName() + ' ' + userData->lastName());
+            userMap.insert(VKImageCacheModel::Count, userData->photosCount());
             data.append(userMap);
         }
 
         if (data.count() > 1) {
             QMap<int, QVariant> userMap;
             int count = 0;
-            Q_FOREACH (const VKUser &userData, usersData) {
-                count += userData.photos_count;
+            Q_FOREACH (const VKUser::ConstPtr &userData, usersData) {
+                count += userData->photosCount();
             }
 
             userMap.insert(VKImageCacheModel::UserId, QString());
@@ -303,26 +303,26 @@ void VKImageCacheModel::queryFinished()
         break;
     }
     case Albums: {
-        QList<VKAlbum> albumsData = d->database.albums();
+        QList<VKAlbum::ConstPtr> albumsData = d->database.albums();
         QString vkUserId;
         int accountId = 0;
-        Q_FOREACH (const VKAlbum &albumData, albumsData) {
+        Q_FOREACH (const VKAlbum::ConstPtr &albumData, albumsData) {
             QMap<int, QVariant> albumMap;
-            vkUserId = albumData.owner_id;   // remember user id for 'All' album
-            accountId = albumData.accountId; // and remember accountId also.
-            albumMap.insert(VKImageCacheModel::AlbumId, albumData.id);
-            albumMap.insert(VKImageCacheModel::Text, albumData.title);
-            albumMap.insert(VKImageCacheModel::Count, albumData.size);
-            albumMap.insert(VKImageCacheModel::UserId, albumData.owner_id);
-            albumMap.insert(VKImageCacheModel::AccountId, albumData.accountId);
+            vkUserId = albumData->ownerId();    // remember user id for 'All' album
+            accountId = albumData->accountId(); // and remember accountId also.
+            albumMap.insert(VKImageCacheModel::AlbumId, albumData->id());
+            albumMap.insert(VKImageCacheModel::Text, albumData->title());
+            albumMap.insert(VKImageCacheModel::Count, albumData->size());
+            albumMap.insert(VKImageCacheModel::UserId, albumData->ownerId());
+            albumMap.insert(VKImageCacheModel::AccountId, albumData->accountId());
             data.append(albumMap);
         }
 
         if (data.count() > 1) {
             QMap<int, QVariant> albumMap;
             int count = 0;
-            Q_FOREACH (const VKAlbum &albumData, albumsData) {
-                count += albumData.size;
+            Q_FOREACH (const VKAlbum::ConstPtr &albumData, albumsData) {
+                count += albumData->size();
             }
 
             albumMap.insert(VKImageCacheModel::AlbumId, QString());
@@ -338,33 +338,33 @@ void VKImageCacheModel::queryFinished()
         break;
     }
     case Images: {
-        QList<VKImage> imagesData = d->database.images();
+        QList<VKImage::ConstPtr> imagesData = d->database.images();
 
         for (int i = 0; i < imagesData.count(); i ++) {
-            const VKImage &imageData = imagesData.at(i);
+            const VKImage::ConstPtr &imageData = imagesData.at(i);
             QMap<int, QVariant> imageMap;
-            if (imageData.thumb_file.isEmpty()) {
+            if (imageData->thumbFile().isEmpty()) {
                 QVariantMap thumbQueueData;
                 thumbQueueData.insert(QLatin1String(ROW_KEY), QVariant::fromValue<int>(i));
                 thumbQueueData.insert(QLatin1String(TYPE_KEY), QVariant::fromValue<int>(VKImageDownloader::ThumbnailImage));
-                thumbQueueData.insert(QLatin1String(ACCOUNTID_KEY), imageData.accountId);
-                thumbQueueData.insert(QLatin1String(OWNERID_KEY), imageData.owner_id);
-                thumbQueueData.insert(QLatin1String(ALBUMID_KEY), imageData.album_id);
-                thumbQueueData.insert(QLatin1String(PHOTOID_KEY), imageData.id);
-                thumbQueueData.insert(QLatin1String(URL_KEY), imageData.thumb_src);
+                thumbQueueData.insert(QLatin1String(ACCOUNTID_KEY), imageData->accountId());
+                thumbQueueData.insert(QLatin1String(OWNERID_KEY), imageData->ownerId());
+                thumbQueueData.insert(QLatin1String(ALBUMID_KEY), imageData->albumId());
+                thumbQueueData.insert(QLatin1String(PHOTOID_KEY), imageData->id());
+                thumbQueueData.insert(QLatin1String(URL_KEY), imageData->thumbSrc());
                 thumbQueue.append(thumbQueueData);
             }
             // note: we don't queue the image file until the user explicitly opens that in fullscreen.
-            imageMap.insert(VKImageCacheModel::PhotoId, imageData.id);
-            imageMap.insert(VKImageCacheModel::AlbumId, imageData.album_id);
-            imageMap.insert(VKImageCacheModel::UserId, imageData.owner_id);
-            imageMap.insert(VKImageCacheModel::AccountId, imageData.accountId);
-            imageMap.insert(VKImageCacheModel::Thumbnail, imageData.thumb_file);
-            imageMap.insert(VKImageCacheModel::Image, imageData.photo_file);
-            imageMap.insert(VKImageCacheModel::Text, imageData.text);
-            imageMap.insert(VKImageCacheModel::Date, imageData.date);
-            imageMap.insert(VKImageCacheModel::Width, imageData.width);
-            imageMap.insert(VKImageCacheModel::Height, imageData.height);
+            imageMap.insert(VKImageCacheModel::PhotoId, imageData->id());
+            imageMap.insert(VKImageCacheModel::AlbumId, imageData->albumId());
+            imageMap.insert(VKImageCacheModel::UserId, imageData->ownerId());
+            imageMap.insert(VKImageCacheModel::AccountId, imageData->accountId());
+            imageMap.insert(VKImageCacheModel::Thumbnail, imageData->thumbFile());
+            imageMap.insert(VKImageCacheModel::Image, imageData->photoFile());
+            imageMap.insert(VKImageCacheModel::Text, imageData->text());
+            imageMap.insert(VKImageCacheModel::Date, imageData->date());
+            imageMap.insert(VKImageCacheModel::Width, imageData->width());
+            imageMap.insert(VKImageCacheModel::Height, imageData->height());
             imageMap.insert(VKImageCacheModel::MimeType, QLatin1String("image/jpeg"));
             data.append(imageMap);
         }

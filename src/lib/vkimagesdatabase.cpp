@@ -30,68 +30,370 @@
 static const char *DB_NAME = "vk.db";
 static const int VERSION = 1;
 
+struct VKUserPrivate
+{
+    explicit VKUserPrivate(const QString &id, const QString &first_name, const QString &last_name,
+                           const QString &photo_src, const QString &photo_file, int accountId);
+
+    QString id;         // user id
+    QString first_name;
+    QString last_name;
+    QString photo_src;
+    QString photo_file;
+    int accountId;
+    int photos_count;   // transient, not database-stored value! Not used in comparisons etc.
+};
+
+VKUserPrivate::VKUserPrivate(const QString &id, const QString &first_name, const QString &last_name,
+                             const QString &photo_src, const QString &photo_file, int accountId)
+    : id(id), first_name(first_name), last_name(last_name),
+      photo_src(photo_src), photo_file(photo_file),
+      accountId(accountId), photos_count(0)
+{}
+
 VKUser::VKUser(const QString &id, const QString &first_name, const QString &last_name,
                const QString &photo_src, const QString &photo_file, int accountId)
-    : id(id), first_name(first_name), last_name(last_name), photo_src(photo_src)
-    , photo_file(photo_file), accountId(accountId), photos_count(0)
+    : d_ptr(new VKUserPrivate(id, first_name, last_name,
+                              photo_src, photo_file, accountId))
 {
+}
+
+VKUser::~VKUser()
+{
+}
+
+VKUser::Ptr VKUser::create(const QString &id, const QString &first_name, const QString &last_name,
+                           const QString &photo_src, const QString &photo_file, int accountId)
+{
+    return VKUser::Ptr(new VKUser(id, first_name, last_name, photo_src,
+                                  photo_file, accountId));
+}
+
+QString VKUser::id() const
+{
+    Q_D(const VKUser);
+    return d->id;
+}
+
+QString VKUser::firstName() const
+{
+    Q_D(const VKUser);
+    return d->first_name;
+}
+
+QString VKUser::lastName() const
+{
+    Q_D(const VKUser);
+    return d->last_name;
+}
+
+QString VKUser::photoSrc() const
+{
+    Q_D(const VKUser);
+    return d->photo_src;
+}
+
+QString VKUser::photoFile() const
+{
+    Q_D(const VKUser);
+    return d->photo_file;
+}
+
+int VKUser::accountId() const
+{
+    Q_D(const VKUser);
+    return d->accountId;
+}
+
+int VKUser::photosCount() const
+{
+    Q_D(const VKUser);
+    return d->photos_count;
+}
+
+void VKUser::setPhotosCount(int photosCount)
+{
+    Q_D(VKUser);
+    d->photos_count = photosCount;
 }
 
 bool VKUser::operator==(const VKUser &other) const
 {
-    return id == other.id
-        && first_name == other.first_name
-        && last_name == other.last_name
-        && photo_src == other.photo_src
-        && photo_file == other.photo_file
-        && accountId == other.accountId;
+    Q_D(const VKUser);
+    return d->id == other.d_ptr->id
+        && d->first_name == other.d_ptr->first_name
+        && d->last_name == other.d_ptr->last_name
+        && d->photo_src == other.d_ptr->photo_src
+        && d->photo_file == other.d_ptr->photo_file
+        && d->accountId == other.d_ptr->accountId;
 }
 
-VKAlbum::VKAlbum(const QString &id, const QString &owner_id, const QString &title,
-                 const QString &description, const QString &thumb_src,
-                 const QString &thumb_file, int size, int created, int updated,
-                 int accountId)
-    : id(id), owner_id(owner_id), title(title), description(description)
-    , thumb_src(thumb_src), thumb_file(thumb_file), size(size)
-    , created(created), updated(updated), accountId(accountId)
+struct VKAlbumPrivate
 {
+    explicit VKAlbumPrivate(const QString &id, const QString &owner_id, const QString &title,
+                            const QString &description, const QString &thumb_src,
+                            const QString &thumb_file, int size, int created, int updated,
+                            int accountId);
+
+    QString id;       // album id
+    QString owner_id; // user id
+    QString title;
+    QString description;
+    QString thumb_src;
+    QString thumb_file;
+    int size;
+    int created;
+    int updated;
+    int accountId;
+};
+
+VKAlbumPrivate::VKAlbumPrivate(const QString &id, const QString &owner_id, const QString &title,
+                               const QString &description, const QString &thumb_src,
+                               const QString &thumb_file, int size, int created, int updated,
+                               int accountId)
+    : id(id), owner_id(owner_id), title(title),
+      description(description), thumb_src(thumb_src),
+      thumb_file(thumb_file), size(size), created(created),
+      updated(updated), accountId(accountId)
+{}
+
+VKAlbum::VKAlbum(const QString &id, const QString &owner_id, const QString &title,
+        const QString &description, const QString &thumb_src,
+        const QString &thumb_file, int size, int created, int updated,
+        int accountId)
+    : d_ptr(new VKAlbumPrivate(id, owner_id, title, description,
+                               thumb_src, thumb_file, size, created,
+                               updated, accountId))
+{
+}
+
+VKAlbum::Ptr VKAlbum::create(const QString &id, const QString &owner_id, const QString &title,
+                             const QString &description, const QString &thumb_src,
+                             const QString &thumb_file, int size, int created, int updated,
+                             int accountId)
+{
+    return VKAlbum::Ptr(new VKAlbum(id, owner_id, title, description,
+                                    thumb_src, thumb_file, size, created,
+                                    updated, accountId));
+}
+
+VKAlbum::~VKAlbum()
+{
+}
+
+QString VKAlbum::id() const
+{
+    Q_D(const VKAlbum);
+    return d->id;
+}
+
+QString VKAlbum::ownerId() const
+{
+    Q_D(const VKAlbum);
+    return d->owner_id;
+}
+
+QString VKAlbum::title() const
+{
+    Q_D(const VKAlbum);
+    return d->title;
+}
+
+QString VKAlbum::description() const
+{
+    Q_D(const VKAlbum);
+    return d->description;
+}
+
+QString VKAlbum::thumbSrc() const
+{
+    Q_D(const VKAlbum);
+    return d->thumb_src;
+}
+
+QString VKAlbum::thumbFile() const
+{
+    Q_D(const VKAlbum);
+    return d->thumb_file;
+}
+
+int VKAlbum::size() const
+{
+    Q_D(const VKAlbum);
+    return d->size;
+}
+
+int VKAlbum::created() const
+{
+    Q_D(const VKAlbum);
+    return d->created;
+}
+
+int VKAlbum::updated() const
+{
+    Q_D(const VKAlbum);
+    return d->updated;
+}
+
+int VKAlbum::accountId() const
+{
+    Q_D(const VKAlbum);
+    return d->accountId;
 }
 
 bool VKAlbum::operator==(const VKAlbum &other) const
 {
-    return id == other.id
-        && owner_id == other.owner_id
-        && title == other.title
-        && description == other.description
-        && thumb_src == other.thumb_src
-        && thumb_file == other.thumb_file
-        && size == other.size
-        && created == other.created
-        && updated == other.updated
-        && accountId == other.accountId;
+    Q_D(const VKAlbum);
+    return d->id == other.d_ptr->id
+        && d->owner_id == other.d_ptr->owner_id
+        && d->title == other.d_ptr->title
+        && d->description == other.d_ptr->description
+        && d->thumb_src == other.d_ptr->thumb_src
+        && d->thumb_file == other.d_ptr->thumb_file
+        && d->size == other.d_ptr->size
+        && d->created == other.d_ptr->created
+        && d->updated == other.d_ptr->updated
+        && d->accountId == other.d_ptr->accountId;
 }
 
-VKImage::VKImage(const QString &id, const QString &album_id, const QString &owner_id,
-        const QString &text, const QString &thumb_src, const QString &photo_src,
-        const QString &thumb_file, const QString &photo_file,
-        int width, int height, int date, int accountId)
-    : id(id), album_id(album_id), owner_id(owner_id), text(text)
-    , thumb_src(thumb_src), photo_src(photo_src), thumb_file(thumb_file),
-      photo_file(photo_file), width(width), height(height)
-    , date(date), accountId(accountId)
+struct VKImagePrivate
 {
+    VKImagePrivate(const QString &id, const QString &album_id, const QString &owner_id,
+                   const QString &text, const QString &thumb_src, const QString &photo_src,
+                   const QString &thumb_file, const QString &photo_file,
+                   int width, int height, int date, int accountId);
+
+    QString id;         // photo id
+    QString album_id;   // album id
+    QString owner_id;   // user id
+    QString text;
+    QString thumb_src;  // remote url
+    QString photo_src;  // remote url
+    QString thumb_file; // local file
+    QString photo_file; // local file
+    int width;
+    int height;
+    int date;
+    int accountId;
+};
+
+VKImagePrivate::VKImagePrivate(const QString &id, const QString &album_id, const QString &owner_id,
+                               const QString &text, const QString &thumb_src, const QString &photo_src,
+                               const QString &thumb_file, const QString &photo_file,
+                               int width, int height, int date, int accountId)
+    : id(id), album_id(album_id), owner_id(owner_id),
+      text(text), thumb_src(thumb_src), photo_src(photo_src),
+      thumb_file(thumb_file), photo_file(photo_file),
+      width(width), height(height), date(date), accountId(accountId)
+{}
+
+VKImage::VKImage(const QString &id, const QString &album_id, const QString &owner_id,
+                 const QString &text, const QString &thumb_src, const QString &photo_src,
+                 const QString &thumb_file, const QString &photo_file,
+                 int width, int height, int date, int accountId)
+    : d_ptr(new VKImagePrivate(id, album_id, owner_id, text, thumb_src,
+                               photo_src, thumb_file, photo_file, width,
+                               height, date, accountId))
+{
+}
+
+VKImage::Ptr VKImage::create(const QString &id, const QString &album_id, const QString &owner_id,
+                             const QString &text, const QString &thumb_src, const QString &photo_src,
+                             const QString &thumb_file, const QString &photo_file,
+                             int width, int height, int date, int accountId)
+{
+    return VKImage::Ptr(new VKImage(id, album_id, owner_id, text, thumb_src,
+                                    photo_src, thumb_file, photo_file, width,
+                                    height, date, accountId));
+}
+
+VKImage::~VKImage()
+{
+}
+
+QString VKImage::id() const
+{
+    Q_D(const VKImage);
+    return d->id;
+}
+
+QString VKImage::albumId() const
+{
+    Q_D(const VKImage);
+    return d->album_id;
+}
+
+QString VKImage::ownerId() const
+{
+    Q_D(const VKImage);
+    return d->owner_id;
+}
+
+QString VKImage::text() const
+{
+    Q_D(const VKImage);
+    return d->text;
+}
+
+QString VKImage::thumbSrc() const
+{
+    Q_D(const VKImage);
+    return d->thumb_src;
+}
+
+QString VKImage::photoSrc() const
+{
+    Q_D(const VKImage);
+    return d->photo_src;
+}
+
+QString VKImage::thumbFile() const
+{
+    Q_D(const VKImage);
+    return d->thumb_file;
+}
+
+QString VKImage::photoFile() const
+{
+    Q_D(const VKImage);
+    return d->photo_file;
+}
+
+int VKImage::width() const
+{
+    Q_D(const VKImage);
+    return d->width;
+}
+
+int VKImage::height() const
+{
+    Q_D(const VKImage);
+    return d->height;
+}
+
+int VKImage::date() const
+{
+    Q_D(const VKImage);
+    return d->date;
+}
+
+int VKImage::accountId() const
+{
+    Q_D(const VKImage);
+    return d->accountId;
 }
 
 bool VKImage::operator==(const VKImage &other) const
 {
-    return id == other.id
-        && album_id == other.album_id
-        && owner_id == other.owner_id
-        && text == other.text
-        && thumb_src == other.thumb_src
-        && photo_src == other.photo_src
-        && thumb_file == other.thumb_file
-        && photo_file == other.photo_file;
+    Q_D(const VKImage);
+    return d->id == other.d_ptr->id
+        && d->album_id == other.d_ptr->album_id
+        && d->owner_id == other.d_ptr->owner_id
+        && d->text == other.d_ptr->text
+        && d->thumb_src == other.d_ptr->thumb_src
+        && d->photo_src == other.d_ptr->photo_src
+        && d->thumb_file == other.d_ptr->thumb_file
+        && d->photo_file == other.d_ptr->photo_file;
 }
 
 class VKImagesDatabasePrivate: public AbstractSocialCacheDatabasePrivate
@@ -111,23 +413,23 @@ private:
 
     static void clearCachedImages(QSqlQuery &query);
 
-    QList<VKUser> queryUsers(int accountId) const;
-    QList<VKAlbum> queryAlbums(int accountId, const QString &vkUserId, const QString &vkAlbumId) const;
-    QList<VKImage> queryImages(int accountId, const QString &vkUserId, const QString &vkAlbumId, const QString &vkImageId) const;
+    QList<VKUser::ConstPtr> queryUsers(int accountId) const;
+    QList<VKAlbum::ConstPtr> queryAlbums(int accountId, const QString &vkUserId, const QString &vkAlbumId) const;
+    QList<VKImage::ConstPtr> queryImages(int accountId, const QString &vkUserId, const QString &vkAlbumId, const QString &vkImageId) const;
 
     struct {
         QList<int> purgeAccounts;
 
-        QList<VKUser> removeUsers;
-        QList<VKAlbum> removeAlbums;
-        QList<VKImage> removeImages;
+        QList<VKUser::ConstPtr> removeUsers;
+        QList<VKAlbum::ConstPtr> removeAlbums;
+        QList<VKImage::ConstPtr> removeImages;
 
-        QList<VKUser> insertUsers;
-        QList<VKAlbum> insertAlbums;
-        QList<VKImage> insertImages;
+        QList<VKUser::ConstPtr> insertUsers;
+        QList<VKAlbum::ConstPtr> insertAlbums;
+        QList<VKImage::ConstPtr> insertImages;
 
-        QList<QPair<VKImage, QString> > updateThumbnailFiles;
-        QList<QPair<VKImage, QString> > updateImageFiles;
+        QList<QPair<VKImage::ConstPtr, QString> > updateThumbnailFiles;
+        QList<QPair<VKImage::ConstPtr, QString> > updateImageFiles;
     } queue;
 
     struct {
@@ -135,15 +437,15 @@ private:
         int accountId;
         QString ownerId;
         QString albumId;
-        QList<VKUser> users;
-        QList<VKAlbum> albums;
-        QList<VKImage> images;
+        QList<VKUser::ConstPtr> users;
+        QList<VKAlbum::ConstPtr> albums;
+        QList<VKImage::ConstPtr> images;
     } query;
 
     struct {
-        QList<VKUser> users;
-        QList<VKAlbum> albums;
-        QList<VKImage> images;
+        QList<VKUser::ConstPtr> users;
+        QList<VKAlbum::ConstPtr> albums;
+        QList<VKImage::ConstPtr> images;
     } result;
 };
 
@@ -183,9 +485,9 @@ void VKImagesDatabasePrivate::clearCachedImages(QSqlQuery &query)
     }
 }
 
-QList<VKUser> VKImagesDatabasePrivate::queryUsers(int accountId) const
+QList<VKUser::ConstPtr> VKImagesDatabasePrivate::queryUsers(int accountId) const
 {
-    QList<VKUser> retn;
+    QList<VKUser::ConstPtr> retn;
     QString queryString = QStringLiteral(
                 "SELECT accountId, vkUserId, first_name, last_name, photo_src, photo_file "
                 "FROM users ");
@@ -205,22 +507,22 @@ QList<VKUser> VKImagesDatabasePrivate::queryUsers(int accountId) const
     }
 
     while (query.next()) {
-        VKUser user(query.value(1).toString(), query.value(2).toString(),
-                    query.value(3).toString(), query.value(4).toString(),
-                    query.value(5).toString(), query.value(0).toInt());
+        VKUser::Ptr user = VKUser::create(query.value(1).toString(), query.value(2).toString(),
+                                          query.value(3).toString(), query.value(4).toString(),
+                                          query.value(5).toString(), query.value(0).toInt());
 
         // now determine the (transient) photos count for the user.
         QString countQueryString = QStringLiteral(
                 "SELECT count(*) FROM images WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId;");
         QSqlQuery countQuery = q_func()->prepare(countQueryString);
-        countQuery.bindValue(QStringLiteral(":accountId"), user.accountId);
-        countQuery.bindValue(QStringLiteral(":vkOwnerId"), user.id);
+        countQuery.bindValue(QStringLiteral(":accountId"), user->accountId());
+        countQuery.bindValue(QStringLiteral(":vkOwnerId"), user->id());
         if (!countQuery.exec()) {
             qWarning() << Q_FUNC_INFO << "Failed to query user photos count:" << query.lastError().text();
             return retn;
         }
-        if (query.next()) {
-            user.photos_count = query.value(0).toInt();
+        if (countQuery.next()) {
+            user->setPhotosCount(query.value(0).toInt());
         }
 
         retn.append(user);
@@ -230,9 +532,9 @@ QList<VKUser> VKImagesDatabasePrivate::queryUsers(int accountId) const
     return retn;
 }
 
-QList<VKAlbum> VKImagesDatabasePrivate::queryAlbums(int accountId, const QString &vkOwnerId, const QString &vkAlbumId) const
+QList<VKAlbum::ConstPtr> VKImagesDatabasePrivate::queryAlbums(int accountId, const QString &vkOwnerId, const QString &vkAlbumId) const
 {
-    QList<VKAlbum> retn;
+    QList<VKAlbum::ConstPtr> retn;
     QString queryString = QStringLiteral("SELECT accountId,"
                                                " vkOwnerId,"
                                                " vkAlbumId,"
@@ -271,23 +573,23 @@ QList<VKAlbum> VKImagesDatabasePrivate::queryAlbums(int accountId, const QString
     }
 
     while (query.next()) {
-        retn.append(VKAlbum(query.value(2).toString(), query.value(1).toString(),
-                            query.value(3).toString(), query.value(4).toString(),
-                            query.value(5).toString(), query.value(6).toString(),
-                            query.value(7).toInt(), query.value(8).toInt(),
-                            query.value(9).toInt(), query.value(0).toInt()));
+        retn.append(VKAlbum::create(query.value(2).toString(), query.value(1).toString(),
+                                    query.value(3).toString(), query.value(4).toString(),
+                                    query.value(5).toString(), query.value(6).toString(),
+                                    query.value(7).toInt(), query.value(8).toInt(),
+                                    query.value(9).toInt(), query.value(0).toInt()));
     }
 
     query.finish();
     return retn;
 }
 
-QList<VKImage> VKImagesDatabasePrivate::queryImages(int accountId,
-                                                    const QString &vkOwnerId,
-                                                    const QString &vkAlbumId,
-                                                    const QString &vkImageId) const
+QList<VKImage::ConstPtr> VKImagesDatabasePrivate::queryImages(int accountId,
+                                                              const QString &vkOwnerId,
+                                                              const QString &vkAlbumId,
+                                                              const QString &vkImageId) const
 {
-    QList<VKImage> retn;
+    QList<VKImage::ConstPtr> retn;
     QString queryString = QLatin1String("SELECT vkImageId,"
                                               " vkAlbumId,"
                                               " vkOwnerId,"
@@ -333,12 +635,12 @@ QList<VKImage> VKImagesDatabasePrivate::queryImages(int accountId,
         return retn;
     }
     while (query.next()) {
-        retn.append(VKImage(query.value(0).toString(), query.value(1).toString(),
-                            query.value(2).toString(), query.value(3).toString(),
-                            query.value(4).toString(), query.value(5).toString(),
-                            query.value(6).toString(), query.value(7).toString(),
-                            query.value(8).toInt(), query.value(9).toInt(),
-                            query.value(10).toInt(), query.value(11).toInt()));
+        retn.append(VKImage::create(query.value(0).toString(), query.value(1).toString(),
+                                    query.value(2).toString(), query.value(3).toString(),
+                                    query.value(4).toString(), query.value(5).toString(),
+                                    query.value(6).toString(), query.value(7).toString(),
+                                    query.value(8).toInt(), query.value(9).toInt(),
+                                    query.value(10).toInt(), query.value(11).toInt()));
     }
 
     query.finish();
@@ -357,84 +659,84 @@ VKImagesDatabase::~VKImagesDatabase()
     wait();
 }
 
-void VKImagesDatabase::addUser(const VKUser &vkUser)
+void VKImagesDatabase::addUser(const VKUser::ConstPtr &vkUser)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.insertUsers.append(vkUser);
 }
 
-void VKImagesDatabase::removeUser(const VKUser &vkUser)
+void VKImagesDatabase::removeUser(const VKUser::ConstPtr &vkUser)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.removeUsers.append(vkUser);
 }
 
-void VKImagesDatabase::addAlbum(const VKAlbum &vkAlbum)
+void VKImagesDatabase::addAlbum(const VKAlbum::ConstPtr &vkAlbum)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.insertAlbums.append(vkAlbum);
 }
 
-void VKImagesDatabase::addAlbums(const QList<VKAlbum> &vkAlbums)
+void VKImagesDatabase::addAlbums(const QList<VKAlbum::ConstPtr> &vkAlbums)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.insertAlbums.append(vkAlbums);
 }
 
-void VKImagesDatabase::removeAlbum(const VKAlbum &vkAlbum)
+void VKImagesDatabase::removeAlbum(const VKAlbum::ConstPtr &vkAlbum)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.removeAlbums.append(vkAlbum);
 }
 
-void VKImagesDatabase::removeAlbums(const QList<VKAlbum> &vkAlbums)
+void VKImagesDatabase::removeAlbums(const QList<VKAlbum::ConstPtr> &vkAlbums)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.removeAlbums += vkAlbums;
 }
 
-void VKImagesDatabase::addImage(const VKImage &vkImage)
+void VKImagesDatabase::addImage(const VKImage::ConstPtr &vkImage)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.insertImages.append(vkImage);
 }
 
-void VKImagesDatabase::addImages(const QList<VKImage> &vkImages)
+void VKImagesDatabase::addImages(const QList<VKImage::ConstPtr> &vkImages)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.insertImages.append(vkImages);
 }
 
-void VKImagesDatabase::updateImageThumbnail(const VKImage &vkImage, const QString &thumb_file)
+void VKImagesDatabase::updateImageThumbnail(const VKImage::ConstPtr &vkImage, const QString &thumb_file)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.updateThumbnailFiles.append(qMakePair(vkImage, thumb_file));
 }
 
-void VKImagesDatabase::updateImageFile(const VKImage &vkImage, const QString &photo_file)
+void VKImagesDatabase::updateImageFile(const VKImage::ConstPtr &vkImage, const QString &photo_file)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.updateImageFiles.append(qMakePair(vkImage, photo_file));
 }
 
-void VKImagesDatabase::removeImage(const VKImage &vkImage)
+void VKImagesDatabase::removeImage(const VKImage::ConstPtr &vkImage)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
     d->queue.removeImages.append(vkImage);
 }
 
-void VKImagesDatabase::removeImages(const QList<VKImage> &vkImages)
+void VKImagesDatabase::removeImages(const QList<VKImage::ConstPtr> &vkImages)
 {
     Q_D(VKImagesDatabase);
     QMutexLocker locker(&d->mutex);
@@ -453,13 +755,13 @@ void VKImagesDatabase::commit()
     executeWrite();
 }
 
-VKUser VKImagesDatabase::user(int accountId) const
+VKUser::ConstPtr VKImagesDatabase::user(int accountId) const
 {
     Q_D(const VKImagesDatabase);
-    QList<VKUser> users = d->queryUsers(accountId);
+    QList<VKUser::ConstPtr> users = d->queryUsers(accountId);
     if (users.size() == 0) {
         qWarning() << Q_FUNC_INFO << "No user in database for account:" << accountId;
-        return VKUser();
+        return VKUser::Ptr();
     } else if (users.size() > 1) {
         qWarning() << Q_FUNC_INFO << "Multiple users in database for account:" << accountId;
         // shouldn't happen, but return the first one anyway.
@@ -467,13 +769,13 @@ VKUser VKImagesDatabase::user(int accountId) const
     return users[0];
 }
 
-VKAlbum VKImagesDatabase::album(int accountId, const QString &vkUserId, const QString &vkAlbumId) const
+VKAlbum::ConstPtr VKImagesDatabase::album(int accountId, const QString &vkUserId, const QString &vkAlbumId) const
 {
     Q_D(const VKImagesDatabase);
-    QList<VKAlbum> albums = d->queryAlbums(accountId, vkUserId, vkAlbumId);
+    QList<VKAlbum::ConstPtr> albums = d->queryAlbums(accountId, vkUserId, vkAlbumId);
     if (albums.size() == 0) {
         qWarning() << Q_FUNC_INFO << "No album in database for account:" << accountId << "user:" << vkUserId << "album:" << vkAlbumId;
-        return VKAlbum();
+        return VKAlbum::Ptr();
     } else if (albums.size() > 1) {
         qWarning() << Q_FUNC_INFO << "Multiple albums in database for account:" << accountId << "user:" << vkUserId << "album:" << vkAlbumId;
         // shouldn't happen, but return the first one anyway.
@@ -481,13 +783,13 @@ VKAlbum VKImagesDatabase::album(int accountId, const QString &vkUserId, const QS
     return albums[0];
 }
 
-VKImage VKImagesDatabase::image(int accountId, const QString &vkUserId, const QString &vkAlbumId, const QString &vkImageId) const
+VKImage::ConstPtr VKImagesDatabase::image(int accountId, const QString &vkUserId, const QString &vkAlbumId, const QString &vkImageId) const
 {
     Q_D(const VKImagesDatabase);
-    QList<VKImage> images = d->queryImages(accountId, vkUserId, vkAlbumId, vkImageId);
+    QList<VKImage::ConstPtr> images = d->queryImages(accountId, vkUserId, vkAlbumId, vkImageId);
     if (images.size() == 0) {
         qWarning() << Q_FUNC_INFO << "No image in database for account:" << accountId << "user:" << vkUserId << "album:" << vkAlbumId << "image:" << vkImageId;
-        return VKImage();
+        return VKImage::Ptr();
     } else if (images.size() > 1) {
         qWarning() << Q_FUNC_INFO << "Multiple images in database for account:" << accountId << "user:" << vkUserId << "album:" << vkAlbumId << "image:" << vkImageId;
         // shouldn't happen, but return the first one anyway.
@@ -495,29 +797,29 @@ VKImage VKImagesDatabase::image(int accountId, const QString &vkUserId, const QS
     return images[0];
 }
 
-QList<VKAlbum> VKImagesDatabase::albums(int accountId, const QString &vkUserId) const
+QList<VKAlbum::ConstPtr> VKImagesDatabase::albums(int accountId, const QString &vkUserId) const
 {
     Q_D(const VKImagesDatabase);
     return d->queryAlbums(accountId, vkUserId, QString());
 }
 
-QList<VKImage> VKImagesDatabase::images(int accountId, const QString &vkUserId, const QString &vkAlbumId) const
+QList<VKImage::ConstPtr> VKImagesDatabase::images(int accountId, const QString &vkUserId, const QString &vkAlbumId) const
 {
     Q_D(const VKImagesDatabase);
     return d->queryImages(accountId, vkUserId, vkAlbumId, QString());
 }
 
-QList<VKUser> VKImagesDatabase::users() const
+QList<VKUser::ConstPtr> VKImagesDatabase::users() const
 {
     return d_func()->result.users;
 }
 
-QList<VKImage> VKImagesDatabase::images() const
+QList<VKImage::ConstPtr> VKImagesDatabase::images() const
 {
     return d_func()->result.images;
 }
 
-QList<VKAlbum> VKImagesDatabase::albums() const
+QList<VKAlbum::ConstPtr> VKImagesDatabase::albums() const
 {
     return d_func()->result.albums;
 }
@@ -586,21 +888,21 @@ bool VKImagesDatabase::read()
     switch (d->query.type) {
     case VKImagesDatabasePrivate::Users: {
         locker.unlock();
-        QList<VKUser> users = d->queryUsers(queryAccountId);
+        QList<VKUser::ConstPtr> users = d->queryUsers(queryAccountId);
         locker.relock();
         d->query.users = users;
         return true;
     }
     case VKImagesDatabasePrivate::Albums: {
         locker.unlock();
-        QList<VKAlbum> albums = d->queryAlbums(queryAccountId, queryOwnerId, queryAlbumId);
+        QList<VKAlbum::ConstPtr> albums = d->queryAlbums(queryAccountId, queryOwnerId, queryAlbumId);
         locker.relock();
         d->query.albums = albums;
         return true;
     }
     case VKImagesDatabasePrivate::Images: {
         locker.unlock();
-        QList<VKImage> images = d->queryImages(queryAccountId, queryOwnerId, queryAlbumId, QString());
+        QList<VKImage::ConstPtr> images = d->queryImages(queryAccountId, queryOwnerId, queryAlbumId, QString());
         locker.relock();
         d->query.images = images;
         return true;
@@ -640,16 +942,16 @@ bool VKImagesDatabase::write()
 
     const QList<int> purgeAccounts = d->queue.purgeAccounts;
 
-    const QList<VKUser> removeUsers = d->queue.removeUsers;
-    const QList<VKAlbum> removeAlbums = d->queue.removeAlbums;
-    const QList<VKImage> removeImages = d->queue.removeImages;
+    const QList<VKUser::ConstPtr> removeUsers = d->queue.removeUsers;
+    const QList<VKAlbum::ConstPtr> removeAlbums = d->queue.removeAlbums;
+    const QList<VKImage::ConstPtr> removeImages = d->queue.removeImages;
 
-    const QList<VKUser> insertUsers = d->queue.insertUsers;
-    const QList<VKAlbum> insertAlbums = d->queue.insertAlbums;
-    const QList<VKImage> insertImages = d->queue.insertImages;
+    const QList<VKUser::ConstPtr> insertUsers = d->queue.insertUsers;
+    const QList<VKAlbum::ConstPtr> insertAlbums = d->queue.insertAlbums;
+    const QList<VKImage::ConstPtr> insertImages = d->queue.insertImages;
 
-    const QList<QPair<VKImage, QString> > updateThumbnailFiles = d->queue.updateThumbnailFiles;
-    const QList<QPair<VKImage, QString> > updateImageFiles = d->queue.updateImageFiles;
+    const QList<QPair<VKImage::ConstPtr, QString> > updateThumbnailFiles = d->queue.updateThumbnailFiles;
+    const QList<QPair<VKImage::ConstPtr, QString> > updateImageFiles = d->queue.updateImageFiles;
 
     d->queue.purgeAccounts.clear();
 
@@ -707,14 +1009,14 @@ bool VKImagesDatabase::write()
         executeBatchSocialCacheQuery(query);
     }
 
-    Q_FOREACH (const VKUser &user, removeUsers) {
+    Q_FOREACH (const VKUser::ConstPtr &user, removeUsers) {
         // delete image files
         query = prepare(QStringLiteral(
                     "SELECT DISTINCT thumb_file, photo_file "
                     "FROM images "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId"));
-        query.bindValue(QStringLiteral(":accountId"), user.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), user.id);
+        query.bindValue(QStringLiteral(":accountId"), user->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), user->id());
         if (!query.exec()) {
             qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query while removing albums:"
                        << query.lastError().text();
@@ -726,34 +1028,34 @@ bool VKImagesDatabase::write()
         query = prepare(QStringLiteral(
                     "DELETE FROM users "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId"));
-        query.bindValue(QStringLiteral(":accountId"), user.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), user.id);
+        query.bindValue(QStringLiteral(":accountId"), user->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), user->id());
         executeSocialCacheQuery(query);
 
         query = prepare(QStringLiteral(
                     "DELETE FROM albums "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId"));
-        query.bindValue(QStringLiteral(":accountId"), user.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), user.id);
+        query.bindValue(QStringLiteral(":accountId"), user->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), user->id());
         executeSocialCacheQuery(query);
 
         query = prepare(QStringLiteral(
                     "DELETE FROM images "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId"));
-        query.bindValue(QStringLiteral(":accountId"), user.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), user.id);
+        query.bindValue(QStringLiteral(":accountId"), user->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), user->id());
         executeSocialCacheQuery(query);
     }
 
-    Q_FOREACH (const VKAlbum &album, removeAlbums) {
+    Q_FOREACH (const VKAlbum::ConstPtr &album, removeAlbums) {
         // delete image files
         query = prepare(QStringLiteral(
                     "SELECT DISTINCT thumb_file, photo_file "
                     "FROM images "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId"));
-        query.bindValue(QStringLiteral(":accountId"), album.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), album.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), album.id);
+        query.bindValue(QStringLiteral(":accountId"), album->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), album->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), album->id());
         if (!query.exec()) {
             qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query while removing albums:"
                        << query.lastError().text();
@@ -765,30 +1067,30 @@ bool VKImagesDatabase::write()
         query = prepare(QStringLiteral(
                     "DELETE FROM albums "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId"));
-        query.bindValue(QStringLiteral(":accountId"), album.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), album.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), album.id);
+        query.bindValue(QStringLiteral(":accountId"), album->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), album->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), album->id());
         executeSocialCacheQuery(query);
 
         query = prepare(QStringLiteral(
                     "DELETE FROM images "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId"));
-        query.bindValue(QStringLiteral(":accountId"), album.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), album.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), album.id);
+        query.bindValue(QStringLiteral(":accountId"), album->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), album->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), album->id());
         executeSocialCacheQuery(query);
     }
 
-    Q_FOREACH (const VKImage &image, removeImages) {
+    Q_FOREACH (const VKImage::ConstPtr &image, removeImages) {
         // delete image files
         query = prepare(QStringLiteral(
                     "SELECT DISTINCT thumb_file, photo_file "
                     "FROM images "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId AND vkImageId = :vkImageId"));
-        query.bindValue(QStringLiteral(":accountId"), image.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), image.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), image.album_id);
-        query.bindValue(QStringLiteral(":vkImageId"), image.id);
+        query.bindValue(QStringLiteral(":accountId"), image->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), image->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), image->albumId());
+        query.bindValue(QStringLiteral(":vkImageId"), image->id());
         if (!query.exec()) {
             qWarning() << Q_FUNC_INFO << "Failed to exec cached images selection query while removing images:"
                        << query.lastError().text();
@@ -800,22 +1102,22 @@ bool VKImagesDatabase::write()
         query = prepare(QStringLiteral(
                     "DELETE FROM images "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId AND vkImageId = :vkImageId"));
-        query.bindValue(QStringLiteral(":accountId"), image.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), image.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), image.album_id);
-        query.bindValue(QStringLiteral(":vkImageId"), image.id);
+        query.bindValue(QStringLiteral(":accountId"), image->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), image->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), image->albumId());
+        query.bindValue(QStringLiteral(":vkImageId"), image->id());
         executeSocialCacheQuery(query);
     }
 
     if (!insertUsers.isEmpty()) {
         QVariantList userIds, firstNames, lastNames, photoSrcs, photoFiles, accountIds;
-        Q_FOREACH (const VKUser &user, insertUsers) {
-            userIds.append(user.id);
-            firstNames.append(user.first_name);
-            lastNames.append(user.last_name);
-            photoSrcs.append(user.photo_src);
-            photoFiles.append(user.photo_file);
-            accountIds.append(user.accountId);
+        Q_FOREACH (const VKUser::ConstPtr &user, insertUsers) {
+            userIds.append(user->id());
+            firstNames.append(user->firstName());
+            lastNames.append(user->lastName());
+            photoSrcs.append(user->photoSrc());
+            photoFiles.append(user->photoFile());
+            accountIds.append(user->accountId());
         }
 
         query = prepare(QStringLiteral(
@@ -836,17 +1138,17 @@ bool VKImagesDatabase::write()
         QVariantList accountIds, vkOwnerIds, vkAlbumIds, titles, descriptions,
                      thumbSrcs, sizes, createds, updateds, thumbFiles;
 
-        Q_FOREACH (const VKAlbum &album, insertAlbums) {
-            accountIds.append(album.accountId);
-            vkOwnerIds.append(album.owner_id);
-            vkAlbumIds.append(album.id);
-            titles.append(album.title);
-            descriptions.append(album.description);
-            thumbSrcs.append(album.thumb_src);
-            sizes.append(album.size);
-            createds.append(album.created);
-            updateds.append(album.updated);
-            thumbFiles.append(album.thumb_file);
+        Q_FOREACH (const VKAlbum::ConstPtr &album, insertAlbums) {
+            accountIds.append(album->accountId());
+            vkOwnerIds.append(album->ownerId());
+            vkAlbumIds.append(album->id());
+            titles.append(album->title());
+            descriptions.append(album->description());
+            thumbSrcs.append(album->thumbSrc());
+            sizes.append(album->size());
+            createds.append(album->created());
+            updateds.append(album->updated());
+            thumbFiles.append(album->thumbFile());
         }
 
         query = prepare(QStringLiteral(
@@ -871,19 +1173,19 @@ bool VKImagesDatabase::write()
         QVariantList accountIds, vkOwnerIds, vkAlbumIds, vkImageIds,
                      texts, thumbSrcs, photoSrcs, widths, heights,
                      dates, thumbFiles, photoFiles;
-        Q_FOREACH (const VKImage &image, insertImages) {
-            accountIds.append(image.accountId);
-            vkOwnerIds.append(image.owner_id);
-            vkAlbumIds.append(image.album_id);
-            vkImageIds.append(image.id);
-            texts.append(image.text);
-            thumbSrcs.append(image.thumb_src);
-            photoSrcs.append(image.photo_src);
-            widths.append(image.width);
-            heights.append(image.height);
-            dates.append(image.date);
-            thumbFiles.append(image.thumb_file);
-            photoFiles.append(image.photo_file);
+        Q_FOREACH (const VKImage::ConstPtr &image, insertImages) {
+            accountIds.append(image->accountId());
+            vkOwnerIds.append(image->ownerId());
+            vkAlbumIds.append(image->albumId());
+            vkImageIds.append(image->id());
+            texts.append(image->text());
+            thumbSrcs.append(image->thumbSrc());
+            photoSrcs.append(image->photoSrc());
+            widths.append(image->width());
+            heights.append(image->height());
+            dates.append(image->date());
+            thumbFiles.append(image->thumbFile());
+            photoFiles.append(image->photoFile());
         }
 
         query = prepare(QStringLiteral(
@@ -912,10 +1214,10 @@ bool VKImagesDatabase::write()
                     "SET thumb_file = :thumb_file "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId AND vkImageId = :vkImageId"));
         query.bindValue(QStringLiteral(":thumb_file"), updateThumbnailFiles[i].second);
-        query.bindValue(QStringLiteral(":accountId"), updateThumbnailFiles[i].first.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), updateThumbnailFiles[i].first.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), updateThumbnailFiles[i].first.album_id);
-        query.bindValue(QStringLiteral(":vkImageId"), updateThumbnailFiles[i].first.id);
+        query.bindValue(QStringLiteral(":accountId"), updateThumbnailFiles[i].first->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), updateThumbnailFiles[i].first->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), updateThumbnailFiles[i].first->albumId());
+        query.bindValue(QStringLiteral(":vkImageId"), updateThumbnailFiles[i].first->id());
         executeSocialCacheQuery(query);
     }
 
@@ -925,10 +1227,10 @@ bool VKImagesDatabase::write()
                     "SET photo_file = :photo_file "
                     "WHERE accountId = :accountId AND vkOwnerId = :vkOwnerId AND vkAlbumId = :vkAlbumId AND vkImageId = :vkImageId"));
         query.bindValue(QStringLiteral(":photo_file"), updateImageFiles[i].second);
-        query.bindValue(QStringLiteral(":accountId"), updateImageFiles[i].first.accountId);
-        query.bindValue(QStringLiteral(":vkOwnerId"), updateImageFiles[i].first.owner_id);
-        query.bindValue(QStringLiteral(":vkAlbumId"), updateImageFiles[i].first.album_id);
-        query.bindValue(QStringLiteral(":vkImageId"), updateImageFiles[i].first.id);
+        query.bindValue(QStringLiteral(":accountId"), updateImageFiles[i].first->accountId());
+        query.bindValue(QStringLiteral(":vkOwnerId"), updateImageFiles[i].first->ownerId());
+        query.bindValue(QStringLiteral(":vkAlbumId"), updateImageFiles[i].first->albumId());
+        query.bindValue(QStringLiteral(":vkImageId"), updateImageFiles[i].first->id());
         executeSocialCacheQuery(query);
     }
 

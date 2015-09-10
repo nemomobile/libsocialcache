@@ -299,15 +299,15 @@ void AbstractSocialPostCacheDatabase::removePosts(int accountId)
     }
 }
 
-void AbstractSocialPostCacheDatabase::removePost(const QString &identidier)
+void AbstractSocialPostCacheDatabase::removePost(const QString &identifier)
 {
     Q_D(AbstractSocialPostCacheDatabase);
 
     QMutexLocker locker(&d->mutex);
-    if (!d->queue.removePosts.contains(identidier)) {
-        d->queue.removePosts.append(identidier);
+    if (!d->queue.removePosts.contains(identifier)) {
+        d->queue.removePosts.append(identifier);
     }
-    d->queue.insertPosts.remove(identidier);
+    d->queue.insertPosts.remove(identifier);
 }
 
 void AbstractSocialPostCacheDatabase::removeAll()
