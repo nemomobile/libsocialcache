@@ -17,30 +17,31 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef SOCIALIMAGEDOWNLOADER_P_H
-#define SOCIALIMAGEDOWNLOADER_P_H
+#ifndef ONEDRIVEIMAGEDOWNLOADER_P_H
+#define ONEDRIVEIMAGEDOWNLOADER_P_H
+
+#include <QtCore/QObject>
+#include <QtCore/QThread>
+#include <QtCore/QMutex>
+#include <QtCore/QWaitCondition>
+#include <QtCore/QSet>
 
 #include "abstractimagedownloader_p.h"
-#include "socialimagedownloader.h"
-#include "socialimagesdatabase.h"
+#include "onedriveimagedownloader.h"
+#include "onedriveimagesdatabase.h"
 
-#include <QPointer>
-
-class SocialImageDownloaderPrivate : public AbstractImageDownloaderPrivate
+class OneDriveImageCacheModel;
+class OneDriveImageDownloaderPrivate: public AbstractImageDownloaderPrivate
 {
 public:
-    explicit SocialImageDownloaderPrivate(SocialImageDownloader *q);
-    virtual ~SocialImageDownloaderPrivate();
+    explicit OneDriveImageDownloaderPrivate(OneDriveImageDownloader *q);
+    virtual ~OneDriveImageDownloaderPrivate();
 
-    SocialImagesDatabase m_db;
-    QTimer m_commitTimer;
-    QMap<QString, QString> m_recentItems;
-    QMap<QString, QString> m_recentItemsById;
-    QMultiMap<QString, QPointer<QObject> > m_ongoingCalls;
-    QMutex m_mutex;
+    OneDriveImagesDatabase database;
+    QSet<OneDriveImageCacheModel*> m_connectedModels;
 
 private:
-    Q_DECLARE_PUBLIC(SocialImageDownloader)
+    Q_DECLARE_PUBLIC(OneDriveImageDownloader)
 };
 
-#endif // SOCIALIMAGEDOWNLOADER_P_H
+#endif // ONEDRIVEIMAGEDOWNLOADER_P_H

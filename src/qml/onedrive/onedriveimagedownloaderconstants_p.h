@@ -17,30 +17,10 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef SOCIALIMAGEDOWNLOADER_P_H
-#define SOCIALIMAGEDOWNLOADER_P_H
+#ifndef ONEDRIVEIMAGEDOWNLOADERCONSTANTS_P_H
+#define ONEDRIVEIMAGEDOWNLOADERCONSTANTS_P_H
 
-#include "abstractimagedownloader_p.h"
-#include "socialimagedownloader.h"
-#include "socialimagesdatabase.h"
+static const char *IDENTIFIER_KEY = "identifier";
+static const char *TYPE_KEY = "type";
 
-#include <QPointer>
-
-class SocialImageDownloaderPrivate : public AbstractImageDownloaderPrivate
-{
-public:
-    explicit SocialImageDownloaderPrivate(SocialImageDownloader *q);
-    virtual ~SocialImageDownloaderPrivate();
-
-    SocialImagesDatabase m_db;
-    QTimer m_commitTimer;
-    QMap<QString, QString> m_recentItems;
-    QMap<QString, QString> m_recentItemsById;
-    QMultiMap<QString, QPointer<QObject> > m_ongoingCalls;
-    QMutex m_mutex;
-
-private:
-    Q_DECLARE_PUBLIC(SocialImageDownloader)
-};
-
-#endif // SOCIALIMAGEDOWNLOADER_P_H
+#endif // ONEDRIVEIMAGEDOWNLOADERCONSTANTS_P_H
