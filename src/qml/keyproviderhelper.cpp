@@ -20,8 +20,11 @@
 #include "keyproviderhelper.h"
 #include <sailfishkeyprovider.h>
 
-KeyProviderHelper::KeyProviderHelper(QObject *parent) :
-    QObject(parent), m_triedLoadingFacebook(false)
+KeyProviderHelper::KeyProviderHelper(QObject *parent)
+    : QObject(parent)
+    , m_triedLoadingFacebook(false)
+    , m_triedLoadingTwitter(false)
+    , m_triedLoadingOneDrive(false)
 {
 }
 
@@ -50,6 +53,15 @@ QString KeyProviderHelper::twitterConsumerSecret()
     }
 
     return m_twitterConsumerSecret;
+}
+
+QString KeyProviderHelper::oneDriveClientId()
+{
+    if (!m_triedLoadingOneDrive) {
+        loadOneDrive();
+    }
+
+    return m_oneDriveClientId;
 }
 
 void KeyProviderHelper::loadFacebook()
@@ -82,4 +94,18 @@ void KeyProviderHelper::loadTwitter()
     m_twitterConsumerSecret = QLatin1String(cConsumerSecret);
     free(cConsumerKey);
     free(cConsumerSecret);
+}
+
+void KeyProviderHelper::loadOneDrive()
+{
+    m_triedLoadingOneDrive = true;
+    char *cClientId = NULL;
+    int cSuccess = SailfishKeyProvider_storedKey("onedrive", "onedrive-sync", "client_id",
+                                                 &cClientId);
+    if (cSuccess != 0 || cClientId == NULL) {
+        return;
+    }
+
+    m_oneDriveClientId = QLatin1String(cClientId);
+    free(cClientId);
 }

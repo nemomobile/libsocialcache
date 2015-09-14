@@ -37,13 +37,15 @@ public:
                                    const QString &imageUrl,
                                    const QString &imageFile,
                                    const QDateTime &createdTime,
-                                   const QDateTime &expires);
+                                   const QDateTime &expires,
+                                   const QString &imageId);
 
     int accountId() const;
     QString imageUrl() const;
     QString imageFile() const;
     QDateTime createdTime() const;
     QDateTime expires() const;
+    QString imageId() const;
 
 protected:
     QScopedPointer<SocialImagePrivate> d_ptr;
@@ -54,7 +56,8 @@ private:
                          const QString & imageUrl,
                          const QString & imageFile,
                          const QDateTime &createdTime,
-                         const QDateTime &expires);
+                         const QDateTime &expires,
+                         const QString &imageId);
 };
 
 bool operator==(const SocialImage::ConstPtr &image1, const SocialImage::ConstPtr &image2);
@@ -70,11 +73,13 @@ public:
 
     void purgeAccount(int accountId);
     SocialImage::ConstPtr image(const QString &imageUrl) const;
+    SocialImage::ConstPtr imageById(const QString &imageId) const;
     void addImage(int accountId,
                   const QString & imageUrl,
                   const QString & imageFile,
                   const QDateTime &createdTime,
-                  const QDateTime &expires);
+                  const QDateTime &expires,
+                  const QString & imageId = QString());
     void removeImage(const QString &imageUrl);
     void removeImages(QList<SocialImage::ConstPtr> images);
     void queryImages(int accountId, const QDateTime &olderThan = QDateTime());
