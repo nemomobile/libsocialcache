@@ -30,6 +30,7 @@
 #include "facebook/facebooknotificationsmodel.h"
 #include "twitter/twitterpostsmodel.h"
 #include "generic/socialimagedownloader.h"
+#include "dropbox/dropboximagecachemodel.h"
 
 
 #ifndef NO_DEPS
@@ -63,6 +64,14 @@ static QObject *facebookImageDownloader_provider(QQmlEngine *engine, QJSEngine *
     return downloader;
 }
 
+static QObject *dropboxImageDownloader_provider(QQmlEngine *engine, QJSEngine *scriptEngine)
+{
+    Q_UNUSED(engine)
+    Q_UNUSED(scriptEngine)
+
+    DropboxImageDownloader *downloader = new DropboxImageDownloader();
+    return downloader;
+}
 
 class JollaSocialPlugin : public QQmlExtensionPlugin
 {
@@ -97,6 +106,10 @@ public:
         qmlRegisterType<TwitterPostsModel>(uri, 1, 0, "TwitterPostsModel");
 
         qmlRegisterType<SocialImageDownloader>(uri, 1, 0, "SocialImageCache");
+
+        qmlRegisterType<DropboxImageCacheModel>(uri, 1, 0, "DropboxImageCacheModel");
+        qmlRegisterSingletonType<DropboxImageDownloader>(uri, 1, 0, "DropboxImageDownloader",
+                                                          &dropboxImageDownloader_provider);
 
 #ifndef NO_DEPS
         qmlRegisterUncreatableType<SocialSyncInterface>(uri, 1, 0, "SocialSync",

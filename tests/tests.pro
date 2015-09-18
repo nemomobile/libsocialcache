@@ -7,4 +7,6 @@ SUBDIRS = \
         tst_facebooknotification \
         tst_socialnetworksync \
         tst_twitterpost \
-        tst_socialimage
+        tst_socialimage \
+        tst_dropboximage
+

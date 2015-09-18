@@ -273,9 +273,18 @@ void AbstractImageDownloader::queue(const QString &url, const QVariantMap &metad
 
 QNetworkReply *AbstractImageDownloader::createReply(const QString &url, const QVariantMap &metadata)
 {
-    Q_UNUSED(metadata)
+    //Q_UNUSED(metadata)
     Q_D(AbstractImageDownloader);
     QNetworkRequest request (url);
+
+    for (QVariantMap::const_iterator iter = metadata.begin(); iter != metadata.end(); ++iter) {
+        if (iter.key().startsWith("accessToken")) {
+            request.setRawHeader(QString(QLatin1String("Authorization")).toUtf8(),
+                                 QString(QLatin1String("Bearer ")).toUtf8() + iter.value().toString().toUtf8());
+            break;
+        }
+    }
+
     return d->networkAccessManager->get(request);
 }
 

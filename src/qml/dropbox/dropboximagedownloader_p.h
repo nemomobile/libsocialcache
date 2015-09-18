@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Jolla Ltd.
- * Contact: Antti Seppälä <antti.seppala@jollamobile.com>
+ * Contact: Jonni Rainisto <jonni.rainisto@jollamobile.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -17,30 +17,31 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef SOCIALIMAGEDOWNLOADER_P_H
-#define SOCIALIMAGEDOWNLOADER_P_H
+#ifndef DROPBOXIMAGEDOWNLOADER_P_H
+#define DROPBOXIMAGEDOWNLOADER_P_H
+
+#include <QtCore/QObject>
+#include <QtCore/QThread>
+#include <QtCore/QMutex>
+#include <QtCore/QWaitCondition>
+#include <QtCore/QSet>
 
 #include "abstractimagedownloader_p.h"
-#include "socialimagedownloader.h"
-#include "socialimagesdatabase.h"
+#include "dropboximagedownloader.h"
+#include "dropboximagesdatabase.h"
 
-#include <QPointer>
-
-class SocialImageDownloaderPrivate : public AbstractImageDownloaderPrivate
+class DropboxImageCacheModel;
+class DropboxImageDownloaderPrivate: public AbstractImageDownloaderPrivate
 {
 public:
-    explicit SocialImageDownloaderPrivate(SocialImageDownloader *q);
-    virtual ~SocialImageDownloaderPrivate();
+    explicit DropboxImageDownloaderPrivate(DropboxImageDownloader *q);
+    virtual ~DropboxImageDownloaderPrivate();
 
-    SocialImagesDatabase m_db;
-    QTimer m_commitTimer;
-    QMap<QString, QString> m_recentItems;
-    QMap<QString, QString> m_recentItemsById;
-    QMultiMap<QString, QPointer<QObject> > m_ongoingCalls;
-    QMutex m_mutex;
+    DropboxImagesDatabase database;
+    QSet<DropboxImageCacheModel*> m_connectedModels;
 
 private:
-    Q_DECLARE_PUBLIC(SocialImageDownloader)
+    Q_DECLARE_PUBLIC(DropboxImageDownloader)
 };
 
-#endif // SOCIALIMAGEDOWNLOADER_P_H
+#endif // DROPBOXIMAGEDOWNLOADER_P_H

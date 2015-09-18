@@ -28,19 +28,25 @@ class KeyProviderHelper : public QObject
     Q_PROPERTY(QString facebookClientId READ facebookClientId CONSTANT)
     Q_PROPERTY(QString twitterConsumerKey READ twitterConsumerKey CONSTANT)
     Q_PROPERTY(QString twitterConsumerSecret READ twitterConsumerSecret CONSTANT)
+    Q_PROPERTY(QString dropboxClientId READ dropboxClientId CONSTANT)
+
 public:
     explicit KeyProviderHelper(QObject *parent = 0);
     QString facebookClientId();
     QString twitterConsumerKey();
     QString twitterConsumerSecret();
+    QString dropboxClientId();
 private:
     void loadFacebook();
     void loadTwitter();
+    void loadDropbox();
     bool m_triedLoadingFacebook;
     QString m_facebookClientId;
     bool m_triedLoadingTwitter;
     QString m_twitterConsumerKey;
     QString m_twitterConsumerSecret;
+    bool m_triedLoadingDropbox;
+    QString m_dropboxClientId;
 };
 
 #endif // KEYPROVIDERHELPER_H

@@ -21,8 +21,31 @@
 #include <sailfishkeyprovider.h>
 
 KeyProviderHelper::KeyProviderHelper(QObject *parent) :
-    QObject(parent), m_triedLoadingFacebook(false)
+    QObject(parent), m_triedLoadingFacebook(false), m_triedLoadingTwitter(false), m_triedLoadingDropbox(false)
 {
+}
+
+QString KeyProviderHelper::dropboxClientId()
+{
+    if (!m_triedLoadingDropbox) {
+        loadDropbox();
+    }
+
+    return m_dropboxClientId;
+}
+
+void KeyProviderHelper::loadDropbox()
+{
+    m_triedLoadingDropbox = true;
+    char *cClientId = NULL;
+    int cSuccess = SailfishKeyProvider_storedKey("dropbox", "dropbox-sync", "client_id",
+                                                 &cClientId);
+    if (cSuccess != 0 || cClientId == NULL) {
+        return;
+    }
+
+    m_dropboxClientId = QLatin1String(cClientId);
+    free(cClientId);
 }
 
 QString KeyProviderHelper::facebookClientId()
