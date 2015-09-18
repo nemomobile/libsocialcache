@@ -81,7 +81,8 @@ void SocialImageDownloader::imageFile(const QString &imageUrl,
                                       int accountId,
                                       QObject *caller,
                                       int expiresInDays,
-                                      const QString &imageId)
+                                      const QString &imageId,
+                                      const QString &accessToken )
 {
     Q_D(SocialImageDownloader);
 
@@ -126,6 +127,7 @@ void SocialImageDownloader::imageFile(const QString &imageUrl,
     data.insert(QStringLiteral("accountId"), accountId);
     data.insert(QStringLiteral("expiresInDays"), expiresInDays);
     data.insert(QStringLiteral("imageId"), imageId);
+    if (accessToken.length()) data.insert(QStringLiteral("accessToken"), accessToken);
     queue(imageUrl, data);
     return;
 }

@@ -36,7 +36,8 @@ public:
         VK,
         Diaspora,
         CalDAV,
-        OneDrive
+        OneDrive,
+        Dropbox
     };
 
     enum DataType {

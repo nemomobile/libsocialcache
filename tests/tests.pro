@@ -8,5 +8,6 @@ SUBDIRS = \
         tst_socialnetworksync \
         tst_twitterpost \
         tst_socialimage \
-        tst_onedriveimage
+        tst_onedriveimage \
+        tst_dropboximage
 
