@@ -28,7 +28,8 @@ HEADERS = \
     twitterpostsdatabase.h \
     twitternotificationsdatabase.h \
     socialimagesdatabase.h \
-    onedriveimagesdatabase.h
+    onedriveimagesdatabase.h \
+    dropboximagesdatabase.h
 
 SOURCES = \
     semaphore_p.cpp \
@@ -44,7 +45,8 @@ SOURCES = \
     twitterpostsdatabase.cpp \
     twitternotificationsdatabase.cpp \
     socialimagesdatabase.cpp \
-    onedriveimagesdatabase.cpp
+    onedriveimagesdatabase.cpp \
+    dropboximagesdatabase.cpp
 
 headers.files = $$HEADERS
 headers.path = /usr/include/socialcache

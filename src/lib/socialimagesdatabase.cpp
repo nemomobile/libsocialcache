@@ -220,7 +220,7 @@ QList<SocialImage::ConstPtr> SocialImagesDatabasePrivate::queryImages(int accoun
                                         query.value(1).toString(),                          // imageUrl
                                         query.value(2).toString(),                          // imageFile
                                         QDateTime::fromTime_t(query.value(3).toUInt()),     // createdTime
-                                        QDateTime::fromTime_t(query.value(4).toUInt()),     // epires
+                                        QDateTime::fromTime_t(query.value(4).toUInt()),     // expires
                                         query.value(5).toString()));                        // imageId
     }
 
@@ -553,7 +553,7 @@ bool SocialImagesDatabase::createTables(QSqlDatabase database) const
                   "imageFile TEXT,"
                   "createdTime INTEGER,"
                   "expires INTEGER,"
-                  "imageId STRING);");
+                  "imageId STRING)");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create images table:" << query.lastError().text();
         return false;
