@@ -59,10 +59,29 @@ SocialImageDownloader::~SocialImageDownloader()
 {
 }
 
+QString SocialImageDownloader::cached(const QString &imageId)
+{
+    Q_D(SocialImageDownloader);
+
+    QString recentById = d->m_recentItemsById.value(imageId);
+    if (!recentById.isEmpty()) {
+        return recentById;
+    }
+
+    SocialImage::ConstPtr image = d->m_db.imageById(imageId);
+    if (image != 0) {
+        d->m_recentItemsById.insert(imageId, image->imageFile());
+        return image->imageFile();
+    }
+
+    return QString();
+}
+
 void SocialImageDownloader::imageFile(const QString &imageUrl,
                                       int accountId,
                                       QObject *caller,
-                                      int expiresInDays)
+                                      int expiresInDays,
+                                      const QString &imageId)
 {
     Q_D(SocialImageDownloader);
 
@@ -71,16 +90,33 @@ void SocialImageDownloader::imageFile(const QString &imageUrl,
     }
 
     QMutexLocker locker(&d->m_mutex);
-    QString recent = d->m_recentItems.value(imageUrl);
-    if (!recent.isEmpty()) {
-        QMetaObject::invokeMethod(caller, "imageCached", Q_ARG(QVariant, recent));
-        return;
-    } else {
-        SocialImage::ConstPtr image = d->m_db.image(imageUrl);
-        if (image != 0) {
-            d->m_recentItems.insert(imageUrl, image->imageFile());
-            QMetaObject::invokeMethod(caller, "imageCached", Q_ARG(QVariant, image->imageFile()));
+
+    if (!imageId.isEmpty()) {
+        // check if an image with same id was cached recently
+        QString recentById = d->m_recentItemsById.value(imageId);
+        if (!recentById.isEmpty()) {
+            QMetaObject::invokeMethod(caller, "imageCached", Q_ARG(QVariant, recentById));
             return;
+        }  else {
+            SocialImage::ConstPtr image = d->m_db.imageById(imageId);
+            if (image != 0) {
+                d->m_recentItemsById.insert(imageId, image->imageFile());
+                QMetaObject::invokeMethod(caller, "imageCached", Q_ARG(QVariant, image->imageFile()));
+                return;
+            }
+        }
+    } else {
+        QString recent = d->m_recentItems.value(imageUrl);
+        if (!recent.isEmpty()) {
+            QMetaObject::invokeMethod(caller, "imageCached", Q_ARG(QVariant, recent));
+            return;
+        } else {
+            SocialImage::ConstPtr image = d->m_db.image(imageUrl);
+            if (image != 0) {
+                d->m_recentItems.insert(imageUrl, image->imageFile());
+                QMetaObject::invokeMethod(caller, "imageCached", Q_ARG(QVariant, image->imageFile()));
+                return;
+            }
         }
     }
 
@@ -89,6 +125,7 @@ void SocialImageDownloader::imageFile(const QString &imageUrl,
     QVariantMap data;
     data.insert(QStringLiteral("accountId"), accountId);
     data.insert(QStringLiteral("expiresInDays"), expiresInDays);
+    data.insert(QStringLiteral("imageId"), imageId);
     queue(imageUrl, data);
     return;
 }
@@ -99,6 +136,14 @@ void SocialImageDownloader::removeFromRecentlyUsed(const QString &imageUrl)
 
     QMutexLocker locker(&d->m_mutex);
     d->m_recentItems.remove(imageUrl);
+}
+
+void SocialImageDownloader::removeFromRecentlyUsedById(const QString &imageId)
+{
+    Q_D(SocialImageDownloader);
+
+    QMutexLocker locker(&d->m_mutex);
+    d->m_recentItemsById.remove(imageId);
 }
 
 void SocialImageDownloader::notifyImageCached(const QString &imageUrl,
@@ -125,9 +170,13 @@ void SocialImageDownloader::notifyImageCached(const QString &imageUrl,
     d->m_recentItems.insert(imageUrl, imageFile);
     int accountId = metadata.value(QStringLiteral("accountId")).toInt();
     int expiresInDays = metadata.value(QStringLiteral("expiresInDays")).toInt();
+    QString imageId = metadata.value(QStringLiteral("imageId")).toString();
+    if (!imageId.isEmpty()) {
+        d->m_recentItemsById.insert(imageId, imageFile);
+    }
     QDateTime currentTime(QDateTime::currentDateTime());
     d->m_db.addImage(accountId, imageUrl, imageFile, currentTime,
-                     currentTime.addDays(expiresInDays));
+                     currentTime.addDays(expiresInDays), imageId);
     // We assume that there will consecutive addImage calls. Wait suitable
     // time before commiting.
     if (d->m_commitTimer.isActive()) {

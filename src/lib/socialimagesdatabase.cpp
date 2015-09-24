@@ -28,7 +28,7 @@
 #include <QtDebug>
 
 static const char *DB_NAME = "socialimagecache.db";
-static const int VERSION = 3;
+static const int VERSION = 4;
 
 struct SocialImagePrivate
 {
@@ -36,24 +36,28 @@ struct SocialImagePrivate
                                 const QString &imageUrl,
                                 const QString &imageFile,
                                 const QDateTime &createdTime,
-                                const QDateTime &expires);
+                                const QDateTime &expires,
+                                const QString &imageId);
     int accountId;
     QString imageUrl;
     QString imageFile;
     QDateTime createdTime;
     QDateTime expires;
+    QString imageId;
 };
 
 SocialImagePrivate::SocialImagePrivate(int accountId,
                                        const QString &imageUrl,
                                        const QString &imageFile,
                                        const QDateTime &createdTime,
-                                       const QDateTime &expires)
+                                       const QDateTime &expires,
+                                       const QString &imageId)
     : accountId(accountId)
     , imageUrl(imageUrl)
     , imageFile(imageFile)
     , createdTime(createdTime)
     , expires(expires)
+    , imageId(imageId)
 {
 }
 
@@ -61,10 +65,11 @@ SocialImage::SocialImage(int accountId,
                          const QString &imageUrl,
                          const QString &imageFile,
                          const QDateTime &createdTime,
-                         const QDateTime &expires)
+                         const QDateTime &expires,
+                         const QString &imageId)
     : d_ptr(new SocialImagePrivate(accountId, imageUrl,
                                    imageFile, createdTime,
-                                   expires))
+                                   expires, imageId))
 {
 }
 
@@ -76,11 +81,12 @@ SocialImage::Ptr SocialImage::create(int accountId,
                                      const QString & imageUrl,
                                      const QString & imageFile,
                                      const QDateTime &createdTime,
-                                     const QDateTime &expires)
+                                     const QDateTime &expires,
+                                     const QString &imageId)
 {
     return SocialImage::Ptr(new SocialImage(accountId, imageUrl,
                                             imageFile, createdTime,
-                                            expires));
+                                            expires, imageId));
 }
 
 int SocialImage::accountId() const
@@ -111,6 +117,12 @@ QDateTime SocialImage::expires() const
 {
     Q_D(const SocialImage);
     return d->expires;
+}
+
+QString SocialImage::imageId() const
+{
+    Q_D(const SocialImage);
+    return d->imageId;
 }
 
 class SocialImagesDatabasePrivate: public AbstractSocialCacheDatabasePrivate
@@ -183,7 +195,7 @@ QList<SocialImage::ConstPtr> SocialImagesDatabasePrivate::queryImages(int accoun
     QList<SocialImage::ConstPtr> data;
 
     QString queryString = QLatin1String("SELECT accountId, "
-                                        "imageUrl, imageFile, createdTime, expires "
+                                        "imageUrl, imageFile, createdTime, expires, imageId "
                                         "FROM images "
                                         "WHERE accountId = :accountId");
 
@@ -208,7 +220,8 @@ QList<SocialImage::ConstPtr> SocialImagesDatabasePrivate::queryImages(int accoun
                                         query.value(1).toString(),                          // imageUrl
                                         query.value(2).toString(),                          // imageFile
                                         QDateTime::fromTime_t(query.value(3).toUInt()),     // createdTime
-                                        QDateTime::fromTime_t(query.value(4).toUInt())));   // expires
+                                        QDateTime::fromTime_t(query.value(4).toUInt()),     // epires
+                                        query.value(5).toString()));                        // imageId
     }
 
     return data;
@@ -223,7 +236,7 @@ QList<SocialImage::ConstPtr> SocialImagesDatabasePrivate::queryExpired(int accou
     int currentTime = QDateTime::currentDateTime().toTime_t();
 
     QString queryString = QLatin1String("SELECT accountId, "
-                                        "imageUrl, imageFile, createdTime, expires "
+                                        "imageUrl, imageFile, createdTime, expires, imageId "
                                         "FROM images "
                                         "WHERE accountId = :accountId AND expires < :currentTime");
 
@@ -241,7 +254,8 @@ QList<SocialImage::ConstPtr> SocialImagesDatabasePrivate::queryExpired(int accou
                                         query.value(1).toString(),                          // imageUrl
                                         query.value(2).toString(),                          // imageFile
                                         QDateTime::fromTime_t(query.value(3).toUInt()),     // createdTime
-                                        QDateTime::fromTime_t(query.value(4).toUInt())));   // expires
+                                        QDateTime::fromTime_t(query.value(4).toUInt()),     // expires
+                                        query.value(5).toString()));                        // imageId
     }
 
     return data;
@@ -282,7 +296,7 @@ SocialImage::ConstPtr SocialImagesDatabase::image(const QString &imageUrl) const
 
     QSqlQuery query = prepare(
                 "SELECT accountId, "
-                "imageUrl, imageFile, createdTime, expires "
+                "imageUrl, imageFile, createdTime, expires, imageId "
                 "FROM images WHERE imageUrl = :imageUrl");
     query.bindValue(":imageUrl", imageUrl);
     if (!query.exec()) {
@@ -299,7 +313,43 @@ SocialImage::ConstPtr SocialImagesDatabase::image(const QString &imageUrl) const
                                query.value(1).toString(),                        // imageUrl
                                query.value(2).toString(),                        // imageFile
                                QDateTime::fromTime_t(query.value(3).toUInt()),   // createdTime
-                               QDateTime::fromTime_t(query.value(4).toUInt()));  // expires
+                               QDateTime::fromTime_t(query.value(4).toUInt()),   // expires
+                               query.value(5).toString());                       // imageId
+}
+
+SocialImage::ConstPtr SocialImagesDatabase::imageById(const QString &imageId) const
+{
+    Q_D(const SocialImagesDatabase);
+
+    QMap<QString, SocialImage::ConstPtr>::const_iterator i = d->queue.insertImages.constBegin();
+    while (i != d->queue.insertImages.constEnd()) {
+        if (i.value()->imageId() == imageId) {
+            return i.value();
+        }
+        ++i;
+    }
+
+    QSqlQuery query = prepare(
+                "SELECT accountId, "
+                "imageUrl, imageFile, createdTime, expires, imageId "
+                "FROM images WHERE imageId = :imageId");
+    query.bindValue(":imageId", imageId);
+    if (!query.exec()) {
+        qWarning() << Q_FUNC_INFO << "Error reading from images table:" << query.lastError();
+        return SocialImage::Ptr();
+    }
+
+    // If we have the image, we have a result, otherwise we won't have the image
+    if (!query.next()) {
+        return SocialImage::Ptr();
+    }
+
+    return SocialImage::create(query.value(0).toInt(),                           // accountId
+                               query.value(1).toString(),                        // imageUrl
+                               query.value(2).toString(),                        // imageFile
+                               QDateTime::fromTime_t(query.value(3).toUInt()),   // createdTime
+                               QDateTime::fromTime_t(query.value(4).toUInt()),   // expires
+                               query.value(5).toString());                       // imageId
 }
 
 void SocialImagesDatabase::removeImage(const QString &imageUrl)
@@ -323,14 +373,15 @@ void SocialImagesDatabase::removeImages(QList<SocialImage::ConstPtr> images)
 }
 
 void SocialImagesDatabase::addImage(int accountId,
-                                    const QString & imageUrl,
-                                    const QString & imageFile,
+                                    const QString &imageUrl,
+                                    const QString &imageFile,
                                     const QDateTime &createdTime,
-                                    const QDateTime &expires)
+                                    const QDateTime &expires,
+                                    const QString &imageId)
 {
     Q_D(SocialImagesDatabase);
     SocialImage::Ptr image = SocialImage::create(accountId, imageUrl, imageFile,
-                                                 createdTime, expires);
+                                                 createdTime, expires, imageId);
     QMutexLocker locker(&d->mutex);
 
     d->queue.removeImages.removeAll(imageUrl);
@@ -464,6 +515,7 @@ bool SocialImagesDatabase::write()
         QVariantList accountIds;
         QVariantList imageUrls, imageFiles;
         QVariantList createdTimes, expireTimes;
+        QVariantList imageIds;
 
         Q_FOREACH (const SocialImage::ConstPtr &image, insertImages) {
             accountIds.append(image->accountId());
@@ -471,18 +523,20 @@ bool SocialImagesDatabase::write()
             imageFiles.append(image->imageFile());
             createdTimes.append(image->createdTime().toTime_t());
             expireTimes.append(image->expires().toTime_t());
+            imageIds.append(image->imageId());
         }
 
         query = prepare(QStringLiteral(
                     "INSERT OR REPLACE INTO images ("
-                    " accountId, imageUrl, imageFile, createdTime, expires) "
+                    " accountId, imageUrl, imageFile, createdTime, expires, imageId) "
                     "VALUES ("
-                    " :accountId, :imageUrl, :imageFile, :createdTime, :expires)"));
+                    " :accountId, :imageUrl, :imageFile, :createdTime, :expires, :imageId)"));
         query.bindValue(QStringLiteral(":accountId"), accountIds);
         query.bindValue(QStringLiteral(":imageUrl"), imageUrls);
         query.bindValue(QStringLiteral(":imageFile"), imageFiles);
         query.bindValue(QStringLiteral(":createdTime"), createdTimes);
         query.bindValue(QStringLiteral(":expires"), expireTimes);
+        query.bindValue(QStringLiteral(":imageId"), imageIds);
         executeBatchSocialCacheQuery(query);
     }
 
@@ -498,7 +552,8 @@ bool SocialImagesDatabase::createTables(QSqlDatabase database) const
                   "imageUrl TEXT,"
                   "imageFile TEXT,"
                   "createdTime INTEGER,"
-                  "expires INTEGER)");
+                  "expires INTEGER,"
+                  "imageId STRING);");
     if (!query.exec()) {
         qWarning() << Q_FUNC_INFO << "Unable to create images table:" << query.lastError().text();
         return false;
