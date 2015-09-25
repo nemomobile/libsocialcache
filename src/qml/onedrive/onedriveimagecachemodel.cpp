@@ -52,12 +52,6 @@ class OneDriveImageCacheModelPrivate : public AbstractSocialCacheModelPrivate
 public:
     OneDriveImageCacheModelPrivate(OneDriveImageCacheModel *q);
 
-    void queue(
-            int row,
-            OneDriveImageDownloader::ImageType imageType,
-            const QString &identifier,
-            const QString &url);
-
     OneDriveImageDownloader *downloader;
     OneDriveImagesDatabase database;
     OneDriveImageCacheModel::ModelDataType type;
@@ -66,25 +60,6 @@ public:
 OneDriveImageCacheModelPrivate::OneDriveImageCacheModelPrivate(OneDriveImageCacheModel *q)
     : AbstractSocialCacheModelPrivate(q), downloader(0), type(OneDriveImageCacheModel::Images)
 {
-}
-
-void OneDriveImageCacheModelPrivate::queue(
-        int row,
-        OneDriveImageDownloader::ImageType imageType,
-        const QString &identifier,
-        const QString &url)
-{
-    OneDriveImageCacheModel *modelPtr = qobject_cast<OneDriveImageCacheModel*>(q_ptr);
-    if (downloader) {
-        QVariantMap metadata;
-        metadata.insert(QLatin1String(TYPE_KEY), imageType);
-        metadata.insert(QLatin1String(IDENTIFIER_KEY), identifier);
-        metadata.insert(QLatin1String(URL_KEY), url);
-        metadata.insert(QLatin1String(ROW_KEY), row);
-        metadata.insert(QLatin1String(MODEL_KEY), QVariant::fromValue<void*>((void*)modelPtr));
-
-        downloader->queue(url, metadata);
-    }
 }
 
 OneDriveImageCacheModel::OneDriveImageCacheModel(QObject *parent)
@@ -210,29 +185,36 @@ void OneDriveImageCacheModel::imageDownloaded(
 {
     Q_D(OneDriveImageCacheModel);
 
-    int row = imageData.value(ROW_KEY).toInt();
-    if (row < 0 || row >= d->m_data.count()) {
-        qWarning() << Q_FUNC_INFO
-                   << "Invalid row:" << row
-                   << "max row:" << d->m_data.count();
-        return;
+
+    int row = -1;
+    QString id = imageData.value(IDENTIFIER_KEY).toString();
+
+    for (int i = 0; i < count(); ++i) {
+        QString dbId = data(index(i), OneDriveImageCacheModel::OneDriveId).toString();
+        if (dbId == id) {
+            row = i;
+            break;
+        }
     }
 
-    int type = imageData.value(TYPE_KEY).toInt();
-    switch (type) {
-    case OneDriveImageDownloader::ThumbnailImage:
-        d->m_data[row].insert(OneDriveImageCacheModel::Thumbnail, path);
-        break;
-    }
+    if (row >= 0) {
+        int type = imageData.value(TYPE_KEY).toInt();
+        switch (type) {
+        case OneDriveImageDownloader::ThumbnailImage:
+            d->m_data[row].insert(OneDriveImageCacheModel::Thumbnail, path);
+            break;
+        }
 
-    emit dataChanged(index(row), index(row));
+        emit dataChanged(index(row), index(row));
+    }
 }
 
 void OneDriveImageCacheModel::queryFinished()
 {
     Q_D(OneDriveImageCacheModel);
 
-    QList<QVariantMap> thumbQueue;
+    QList<OneDriveImageDownloader::UncachedImage> missingThumbnails;
+
     SocialCacheModelData data;
     switch (d->type) {
     case Users: {
@@ -294,18 +276,16 @@ void OneDriveImageCacheModel::queryFinished()
     }
     case Images: {
         QList<OneDriveImage::ConstPtr> imagesData = d->database.images();
+        QVariantList modelPtrList;
+        modelPtrList.append(QVariant::fromValue<void*>((void*)this));
 
         for (int i = 0; i < imagesData.count(); i ++) {
             const OneDriveImage::ConstPtr & imageData = imagesData.at(i);
             QMap<int, QVariant> imageMap;
             imageMap.insert(OneDriveImageCacheModel::OneDriveId, imageData->imageId());
             if (imageData->thumbnailFile().isEmpty()) {
-                QVariantMap thumbQueueData;
-                thumbQueueData.insert("row", QVariant::fromValue<int>(i));
-                thumbQueueData.insert("imageType", QVariant::fromValue<int>(OneDriveImageDownloader::ThumbnailImage));
-                thumbQueueData.insert("identifier", imageData->imageId());
-                thumbQueueData.insert("url", imageData->thumbnailUrl());
-                thumbQueue.append(thumbQueueData);
+                missingThumbnails.append(OneDriveImageDownloader::UncachedImage(imageData->imageId(), imageData->albumId(),
+                                                                                imageData->accountId(), modelPtrList));
             }
             imageMap.insert(OneDriveImageCacheModel::Thumbnail, imageData->thumbnailFile());
             imageMap.insert(OneDriveImageCacheModel::Image, imageData->imageUrl());
@@ -327,11 +307,8 @@ void OneDriveImageCacheModel::queryFinished()
 
     updateData(data);
 
-    // now download the queued thumbnails.
-    Q_FOREACH (const QVariantMap &thumbQueueData, thumbQueue) {
-        d->queue(thumbQueueData["row"].toInt(),
-                 static_cast<OneDriveImageDownloader::ImageType>(thumbQueueData["imageType"].toInt()),
-                 thumbQueueData["identifier"].toString(),
-                 thumbQueueData["url"].toString());
+    // notify uncached thumbnails.
+    if (missingThumbnails.count() > 0) {
+        d->downloader->cacheImages(missingThumbnails);
     }
 }
