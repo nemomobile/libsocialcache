@@ -258,7 +258,7 @@ void OneDriveImageDownloader::requestImages(int accountId, const QString &access
 {
     Q_D(OneDriveImageDownloader);
 
-    QString path = nextRound.isEmpty() ? QStringLiteral("%1/files/?filter=photos&limit=100").arg(albumId)
+    QString path = nextRound.isEmpty() ? QStringLiteral("%1/files/?filter=photos&limit=400").arg(albumId)
                                        : nextRound;
 
     QUrl url(QStringLiteral("https://apis.live.net/v5.0/%1&access_token=%2&").arg(path).arg(accessToken));
