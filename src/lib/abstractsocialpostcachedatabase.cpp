@@ -212,6 +212,8 @@ private:
         QMap<QString, SocialPost::ConstPtr> insertPosts;
         QMultiMap<QString, int> mapPostsToAccounts;
         QList<int> removePostsForAccount;
+        QList<QString> removePosts;
+        bool removeAll;
     } queue;
 
     QList<SocialPost::ConstPtr> asyncPosts;
@@ -230,6 +232,7 @@ AbstractSocialPostCacheDatabasePrivate::AbstractSocialPostCacheDatabasePrivate(
             databaseFile,
             POST_DB_VERSION)
 {
+    queue.removeAll = false;
 }
 
 AbstractSocialPostCacheDatabase::~AbstractSocialPostCacheDatabase()
@@ -294,6 +297,32 @@ void AbstractSocialPostCacheDatabase::removePosts(int accountId)
     if (!d->queue.removePostsForAccount.contains(accountId)) {
         d->queue.removePostsForAccount.append(accountId);
     }
+}
+
+void AbstractSocialPostCacheDatabase::removePost(const QString &identifier)
+{
+    Q_D(AbstractSocialPostCacheDatabase);
+
+    QMutexLocker locker(&d->mutex);
+    if (!d->queue.removePosts.contains(identifier)) {
+        d->queue.removePosts.append(identifier);
+    }
+    d->queue.insertPosts.remove(identifier);
+}
+
+void AbstractSocialPostCacheDatabase::removeAll()
+{
+    Q_D(AbstractSocialPostCacheDatabase);
+
+    {
+        QMutexLocker locker(&d->mutex);
+        d->queue.insertPosts.clear();
+        d->queue.mapPostsToAccounts.clear();
+        d->queue.removePostsForAccount.clear();
+        d->queue.removeAll = true;
+    }
+
+    executeWrite();
 }
 
 void AbstractSocialPostCacheDatabase::commit()
@@ -437,10 +466,14 @@ bool AbstractSocialPostCacheDatabase::write()
     const QMap<QString, SocialPost::ConstPtr> insertPosts = d->queue.insertPosts;
     const QMultiMap<QString, int> mapPostsToAccounts = d->queue.mapPostsToAccounts;
     const QList<int> removePostsForAccount = d->queue.removePostsForAccount;
+    const QList<QString> removePosts = d->queue.removePosts;
+    bool removeAll = d->queue.removeAll;
 
     d->queue.insertPosts.clear();
     d->queue.mapPostsToAccounts.clear();
     d->queue.removePostsForAccount.clear();
+    d->queue.removePosts.clear();
+    d->queue.removeAll = false;
 
     locker.unlock();
 
@@ -449,11 +482,41 @@ bool AbstractSocialPostCacheDatabase::write()
     QSqlQuery query;
 
     // perform removals first.
-    if (!removePostsForAccount.isEmpty()) {
+    if (!removePosts.isEmpty()) {
+        QVariantList postIds;
+
+        Q_FOREACH (const QString postId, removePosts) {
+            postIds.append(postId);
+        }
+
+        query = prepare(QStringLiteral(
+                    "DELETE FROM posts "
+                    "WHERE identifier = :postId"));
+        query.bindValue(QStringLiteral(":postId"), postIds);
+        executeBatchSocialCacheQuery(query);
+    }
+
+    if (!removePostsForAccount.isEmpty() || removeAll) {
         QVariantList accountIds;
 
-        Q_FOREACH (int accountId, removePostsForAccount) {
-            accountIds.append(accountId);
+        if (removeAll) {
+            // query all accounts
+            QSqlQuery accountQuery = prepare(QLatin1String(
+                        "SELECT DISTINCT account "
+                        "FROM link_post_account"));
+
+            if (!accountQuery.exec()) {
+                qWarning() << Q_FUNC_INFO << "Error querying account list from posts table:" << accountQuery.lastError();
+                return false;
+            }
+
+            while (accountQuery.next()) {
+                accountIds.append(accountQuery.value(0).toInt());
+            }
+        } else {
+            Q_FOREACH (int accountId, removePostsForAccount) {
+                accountIds.append(accountId);
+            }
         }
 
         query = prepare(QStringLiteral(

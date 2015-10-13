@@ -284,6 +284,7 @@ QNetworkReply *AbstractImageDownloader::createReply(const QString &url, const QV
         }
     }
 
+    qWarning() << "AbstractImageDownloader::about to fetch image:" << url;
     return d->networkAccessManager->get(request);
 }
 
