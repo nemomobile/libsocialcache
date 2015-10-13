@@ -39,7 +39,7 @@ void SyncHelper::classBegin()
 void SyncHelper::componentComplete()
 {
     m_complete = true;
-    checkCurrentRun();
+    refresh();
 }
 
 SocialSyncInterface::SocialNetwork SyncHelper::socialNetwork() const
@@ -52,10 +52,7 @@ void SyncHelper::setSocialNetwork(SocialSyncInterface::SocialNetwork socialNetwo
     if (m_socialNetwork != socialNetwork) {
         m_socialNetwork = socialNetwork;
         emit socialNetworkChanged();
-
-        if (m_complete) {
-            checkCurrentRun();
-        }
+        refresh();
     }
 }
 
@@ -69,11 +66,13 @@ void SyncHelper::setDataType(SocialSyncInterface::DataType dataType)
     if (m_dataType != dataType) {
         m_dataType = dataType;
         emit dataTypeChanged();
-
-        if (m_complete) {
-            checkCurrentRun();
-        }
+        refresh();
     }
+}
+
+QStringList SyncHelper::syncProfiles() const
+{
+    return m_syncProfiles;
 }
 
 bool SyncHelper::loading() const
@@ -100,10 +99,7 @@ void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
     Q_UNUSED(aMessage)
     Q_UNUSED(aStatusDetails)
 
-    // Per-account profile names follow the convention 'socialnetworkName.DataType-<account index>'
-    // Generate a prefix and check if it matches to incoming profile name.
-    QString profileNamePrefix = SocialSyncInterface::profileName(m_socialNetwork, m_dataType) + "-";
-    if (!aProfileId.startsWith(profileNamePrefix)) {
+    if (profileIdMatches(aProfileId)) {
         return;
     }
 
@@ -118,24 +114,56 @@ void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
         setLoading(true);
     }
 }
-
 void SyncHelper::slotProfileChanged(QString aProfileId, int aChangeType, QString aChangedProfile)
 {
     Q_UNUSED(aChangedProfile);
 
     if (aChangeType == Buteo::ProfileManager::PROFILE_REMOVED) {
-        QString profileNamePrefix = SocialSyncInterface::profileName(m_socialNetwork, m_dataType) + "-";
-        if (aProfileId.startsWith(profileNamePrefix)) {
+        if (profileIdMatches(aProfileId)) {
             emit profileDeleted();
         }
     }
 }
 
+void SyncHelper::refresh()
+{
+    refreshSyncProfiles();
+    checkCurrentRun();
+}
+
+void SyncHelper::refreshSyncProfiles()
+{
+    if (!m_complete) {
+        return;
+    }
+    QStringList syncProfiles;
+    Q_FOREACH (const QString &profileId, m_interface->syncProfilesByType("sync")) {
+        if (profileIdMatches(profileId)) {
+            syncProfiles << profileId;
+        }
+    }
+    if (syncProfiles != m_syncProfiles) {
+        m_syncProfiles = syncProfiles;
+        emit syncProfilesChanged();
+    }
+}
+
 void SyncHelper::checkCurrentRun()
 {
+    if (!m_complete) {
+        return;
+    }
     // Get the current running syncs to see if we are running
     QStringList runningSyncs = m_interface->getRunningSyncList();
     foreach (const QString profile, runningSyncs) {
         slotSyncStatus(profile, Sync::SYNC_PROGRESS, "", 0);
     }
+}
+
+bool SyncHelper::profileIdMatches(const QString &profileId) const
+{
+    // Per-account profile names follow the convention 'socialnetworkName.DataType-<account index>'
+    // Generate a prefix and check if it matches to the profile name.
+    QString profileNamePrefix = SocialSyncInterface::profileName(m_socialNetwork, m_dataType) + "-";
+    return profileId.startsWith(profileNamePrefix);
 }
