@@ -31,6 +31,7 @@ class SyncHelper : public QObject, public QQmlParserStatus
                WRITE setSocialNetwork NOTIFY socialNetworkChanged)
     Q_PROPERTY(SocialSyncInterface::DataType dataType READ dataType
                WRITE setDataType NOTIFY dataTypeChanged)
+    Q_PROPERTY(QStringList syncProfiles READ syncProfiles NOTIFY syncProfilesChanged)
     Q_PROPERTY(bool loading READ loading NOTIFY loadingChanged)
 public:
     explicit SyncHelper(QObject *parent = 0);
@@ -40,14 +41,20 @@ public:
 
     SocialSyncInterface::SocialNetwork socialNetwork() const;
     void setSocialNetwork(SocialSyncInterface::SocialNetwork socialNetwork);
+
     SocialSyncInterface::DataType dataType() const;
     void setDataType(SocialSyncInterface::DataType dataType);
+
+    QStringList syncProfiles() const;
+
     bool loading() const;
+
 public Q_SLOTS:
     void sync();
 Q_SIGNALS:
     void socialNetworkChanged();
     void dataTypeChanged();
+    void syncProfilesChanged();
     void loadingChanged();
     void profileDeleted();
 
@@ -57,13 +64,17 @@ private slots:
     void slotProfileChanged(QString aProfileId,int aChangeType, QString aChangedProfile);
 
 private:
+    void refresh();
+    void refreshSyncProfiles();
     void checkCurrentRun();
     void setLoading(bool loading);
+    bool profileIdMatches(const QString &profileId) const;
 
     Buteo::SyncClientInterface *m_interface;
     SocialSyncInterface::SocialNetwork m_socialNetwork;
     SocialSyncInterface::DataType m_dataType;
     QStringList m_activeSyncs;
+    QStringList m_syncProfiles;
     bool m_complete;
     bool m_loading;
 };
