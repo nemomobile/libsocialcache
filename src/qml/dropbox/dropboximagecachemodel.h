@@ -70,6 +70,8 @@ public:
     DropboxImageDownloader *downloader() const;
     void setDownloader(DropboxImageDownloader *downloader);
 
+    Q_INVOKABLE void removeImage(const QString &imageUrl);
+
     // from AbstractListModel
     QVariant data(const QModelIndex &index, int role) const;
 

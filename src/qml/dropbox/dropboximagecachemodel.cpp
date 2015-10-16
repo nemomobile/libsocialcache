@@ -167,6 +167,42 @@ void DropboxImageCacheModel::setDownloader(DropboxImageDownloader *downloader)
     }
 }
 
+void DropboxImageCacheModel::removeImage(const QString &imageUrl)
+{
+    Q_D(DropboxImageCacheModel);
+
+    int row = -1;
+    for (int i = 0; i < count(); ++i) {
+        QString dbId = data(index(i), DropboxImageCacheModel::Image).toString();
+        if (dbId == imageUrl) {
+            row = i;
+            break;
+        }
+    }
+
+    if (row >= 0) {
+        QString imageId = data(index(row), DropboxImageCacheModel::DropboxId).toString();
+
+        beginRemoveRows(QModelIndex(), row, row);
+        d->m_data.removeAt(row);
+        endRemoveRows();
+
+        // Update album image count
+        DropboxImage::ConstPtr image = d->database.image(imageId);
+        if (image) {
+            DropboxAlbum::ConstPtr album = d->database.album(image->albumId());
+            if (album) {
+                d->database.addAlbum(album->albumId(), album->userId(), album->createdTime(),
+                                     album->updatedTime(), album->albumName(), album->imageCount()-1,
+                                     album->hash());
+            }
+        }
+
+        d->database.removeImage(imageId);
+        d->database.commit();
+    }
+}
+
 QVariant DropboxImageCacheModel::data(const QModelIndex &index, int role) const
 {
     Q_D(const DropboxImageCacheModel);

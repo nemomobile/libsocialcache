@@ -73,6 +73,8 @@ public:
     // from AbstractListModel
     QVariant data(const QModelIndex &index, int role) const;
 
+    Q_INVOKABLE void removeImage(const QString &imageId);
+
 public Q_SLOTS:
     void loadImages();
     void refresh();
