@@ -99,7 +99,7 @@ void SyncHelper::slotSyncStatus(const QString &aProfileId, int aStatus,
     Q_UNUSED(aMessage)
     Q_UNUSED(aStatusDetails)
 
-    if (profileIdMatches(aProfileId)) {
+    if (!profileIdMatches(aProfileId)) {
         return;
     }
 
