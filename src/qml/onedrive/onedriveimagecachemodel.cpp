@@ -43,10 +43,6 @@
 static const char *PHOTO_USER_PREFIX = "user-";
 static const char *PHOTO_ALBUM_PREFIX = "album-";
 
-static const char *URL_KEY = "url";
-static const char *ROW_KEY = "row";
-static const char *MODEL_KEY = "model";
-
 class OneDriveImageCacheModelPrivate : public AbstractSocialCacheModelPrivate
 {
 public:
@@ -130,6 +126,39 @@ void OneDriveImageCacheModel::setDownloader(OneDriveImageDownloader *downloader)
         d->downloader = downloader;
         d->downloader->addModelToHash(this);
         emit downloaderChanged();
+    }
+}
+
+void OneDriveImageCacheModel::removeImage(const QString &imageId)
+{
+    Q_D(OneDriveImageCacheModel);
+
+    int row = -1;
+    for (int i = 0; i < count(); ++i) {
+        QString dbId = data(index(i), OneDriveImageCacheModel::OneDriveId).toString();
+        if (dbId == imageId) {
+            row = i;
+            break;
+        }
+    }
+
+    if (row >= 0) {
+        beginRemoveRows(QModelIndex(), row, row);
+        d->m_data.removeAt(row);
+        endRemoveRows();
+
+        // Update album image count
+        OneDriveImage::ConstPtr image = d->database.image(imageId);
+        if (image) {
+            OneDriveAlbum::ConstPtr album = d->database.album(image->albumId());
+            if (album) {
+                d->database.addAlbum(album->albumId(), album->userId(), album->createdTime(),
+                                     album->updatedTime(), album->albumName(), album->imageCount()-1);
+            }
+        }
+
+        d->database.removeImage(imageId);
+        d->database.commit();
     }
 }
 
